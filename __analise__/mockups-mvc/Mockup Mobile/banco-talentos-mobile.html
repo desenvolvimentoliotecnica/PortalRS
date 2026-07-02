@@ -889,7 +889,7 @@
         const empty = $('#emptyState');
 
         container.innerHTML = list.map((c) => `
-          <article class="candidate-card" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
+          <article class="candidate-card" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-route="rh-perfil">
             <div class="candidate-top">
               <div class="avatar-wrap">
                 <img class="candidate-avatar" src="${c.avatar}" alt="${escapeHtml(c.name)}" />
@@ -952,17 +952,8 @@
         $('#candidateList').addEventListener('click', (e) => {
           const card = e.target.closest('.candidate-card');
           if (!card) return;
-          showToast(`Perfil: ${card.dataset.name}`);
         });
 
-        document.querySelectorAll('.nav-item').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            const href = link.getAttribute('href');
-            if (href && href !== '#') return;
-            e.preventDefault();
-            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
-          });
-        });
       }
 
       function bindFilterEvents() {
@@ -980,6 +971,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-banco');
   </script>
 </body>
 </html>

@@ -657,7 +657,7 @@
       }
 
       function bindEvents() {
-        $('#btnProfile').addEventListener('click', () => showToast('Acessar perfil do candidato'));
+        $('#btnProfile').addEventListener('click', () => { window.location.href = 'portal-area-candidato-mobile.html'; });
         $('#privacyLink').addEventListener('click', (e) => {
           e.preventDefault();
           showToast('Abrir Política de Privacidade');
@@ -695,6 +695,7 @@
             return;
           }
           showToast('Candidatura enviada com sucesso!');
+          setTimeout(() => { window.location.href = 'portal-area-candidato-mobile.html'; }, 900);
         });
 
         $('#candidaturaForm').addEventListener('submit', (e) => e.preventDefault());
@@ -706,6 +707,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('pub-candidatura');
   </script>
 </body>
 </html>

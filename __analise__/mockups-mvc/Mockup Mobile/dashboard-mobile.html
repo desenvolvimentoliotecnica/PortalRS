@@ -682,7 +682,7 @@
       <section class="section" aria-labelledby="interviews-title">
         <div class="section-header">
           <h2 class="section-title" id="interviews-title">Entrevistas da semana</h2>
-          <a href="#" class="section-link" data-action="Ver agenda">
+          <a href="#" class="section-link" data-route="rh-agenda" data-action="Ver agenda">
             Ver agenda <i class="fa-solid fa-chevron-right"></i>
           </a>
         </div>
@@ -787,10 +787,10 @@
       ];
 
       const quickActions = [
-        { color: 'teal', icon: 'fa-circle-plus', label: 'Nova vaga' },
-        { color: 'purple', icon: 'fa-users-viewfinder', label: 'Banco de talentos' },
-        { color: 'blue', icon: 'fa-calendar-days', label: 'Entrevistas' },
-        { color: 'orange', icon: 'fa-chart-column', label: 'Relatórios' }
+        { color: 'teal', icon: 'fa-circle-plus', label: 'Nova vaga', route: 'rh-vagas' },
+        { color: 'purple', icon: 'fa-users-viewfinder', label: 'Banco de talentos', route: 'rh-banco' },
+        { color: 'blue', icon: 'fa-calendar-days', label: 'Entrevistas', route: 'rh-agenda' },
+        { color: 'orange', icon: 'fa-chart-column', label: 'Relatórios', route: 'rh-relatorios' }
       ];
 
       const weekdays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
@@ -873,7 +873,7 @@
 
       function renderActions() {
         $('#actionsGrid').innerHTML = quickActions.map((a) => `
-          <button type="button" class="action-btn ${a.color}" data-action="${escapeHtml(a.label)}">
+          <button type="button" class="action-btn ${a.color}" data-action="${escapeHtml(a.label)}" data-route="${a.route}">
             <div class="action-icon"><i class="fa-solid ${a.icon}"></i></div>
             <span class="action-label">${escapeHtml(a.label)}</span>
           </button>
@@ -896,7 +896,7 @@
       function bindEvents() {
         $('#btnNotifications').addEventListener('click', () => showToast('8 notificações não lidas'));
 
-        document.querySelectorAll('.section-link').forEach((link) => {
+        document.querySelectorAll('.section-link:not([data-route])').forEach((link) => {
           link.addEventListener('click', (e) => {
             e.preventDefault();
             showToast(link.dataset.action);
@@ -908,28 +908,13 @@
         });
 
         document.querySelectorAll('.interview-card').forEach((card) => {
-          card.addEventListener('click', () => showToast(`Entrevista: ${card.dataset.interview}`));
+          card.dataset.route = 'rh-agenda';
         });
 
         document.querySelectorAll('.pending-row').forEach((row) => {
           row.addEventListener('click', () => showToast(row.dataset.pending));
         });
 
-        document.querySelectorAll('.action-btn').forEach((btn) => {
-          btn.addEventListener('click', () => showToast(btn.dataset.action));
-        });
-
-        document.querySelectorAll('.nav-item').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            const href = link.getAttribute('href');
-            if (href && href !== '#') return;
-            e.preventDefault();
-            document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
-            link.classList.add('active');
-            const label = link.querySelector('span').textContent;
-            if (label !== 'Início') showToast(`${label} — em desenvolvimento`);
-          });
-        });
       }
 
       renderMetrics();
@@ -941,6 +926,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-dashboard');
   </script>
 </body>
 </html>
