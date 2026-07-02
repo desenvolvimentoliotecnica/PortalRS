@@ -101,6 +101,9 @@ public sealed class AgendaService
                 x.AllDay,
                 x.Status,
                 x.Location,
+                x.MeetingFormat,
+                x.RoomEmail,
+                x.RoomDisplayName,
                 x.Owner,
                 x.Candidate,
                 x.VagaTitle,
@@ -159,6 +162,8 @@ public sealed class AgendaService
         if (string.IsNullOrWhiteSpace(owner))
             owner = TrimOrNull(_currentUser.Email);
 
+        var meeting = NormalizeMeetingFields(request.MeetingFormat, request.RoomEmail, request.RoomDisplayName, request.Location);
+
         var entity = new AgendaEvent
         {
             Id = Guid.NewGuid(),
@@ -168,7 +173,10 @@ public sealed class AgendaService
             EndAtUtc = end,
             AllDay = request.AllDay,
             Status = request.Status.Trim(),
-            Location = TrimOrNull(request.Location),
+            Location = meeting.Location,
+            MeetingFormat = meeting.MeetingFormat,
+            RoomEmail = meeting.RoomEmail,
+            RoomDisplayName = meeting.RoomDisplayName,
             Owner = owner,
             Candidate = TrimOrNull(request.Candidate),
             VagaTitle = TrimOrNull(request.VagaTitle),
@@ -200,7 +208,13 @@ public sealed class AgendaService
         entity.EndAtUtc = NormalizeEnd(entity.StartAtUtc, NormalizeToUtc(request.EndAtUtc));
         entity.AllDay = request.AllDay;
         entity.Status = request.Status.Trim();
-        entity.Location = TrimOrNull(request.Location);
+
+        var meeting = NormalizeMeetingFields(request.MeetingFormat, request.RoomEmail, request.RoomDisplayName, request.Location);
+        entity.Location = meeting.Location;
+        entity.MeetingFormat = meeting.MeetingFormat;
+        entity.RoomEmail = meeting.RoomEmail;
+        entity.RoomDisplayName = meeting.RoomDisplayName;
+
         entity.Owner = TrimOrNull(request.Owner);
         entity.Candidate = TrimOrNull(request.Candidate);
         entity.VagaTitle = TrimOrNull(request.VagaTitle);
@@ -227,6 +241,31 @@ public sealed class AgendaService
         await _db.SaveChangesAsync(ct);
         await _graphSync.TrySyncDeleteAsync(graphEventId, graphUserUpn, ct);
         return true;
+    }
+
+    public async Task<string?> ResolveCalendarOwnerUpnAsync(string? owner, CancellationToken ct)
+    {
+        var ownerTrim = owner?.Trim();
+        if (!string.IsNullOrWhiteSpace(ownerTrim) && ownerTrim.Contains('@', StringComparison.Ordinal))
+            return ownerTrim;
+
+        if (!string.IsNullOrWhiteSpace(ownerTrim))
+        {
+            var email = await _db.Users.AsNoTracking()
+                .Where(u => u.IsActive && u.Email != null && u.Email != "")
+                .Where(u =>
+                    u.FullName == ownerTrim
+                    || u.UserName == ownerTrim
+                    || EF.Functions.ILike(u.FullName, ownerTrim))
+                .Select(u => u.Email)
+                .FirstOrDefaultAsync(ct);
+
+            if (!string.IsNullOrWhiteSpace(email))
+                return email.Trim();
+        }
+
+        var currentEmail = _currentUser.Email?.Trim();
+        return string.IsNullOrWhiteSpace(currentEmail) ? null : currentEmail;
     }
 
     public async Task<PublicInterviewResponse?> GetPublicInterviewAsync(string token, CancellationToken ct)
@@ -295,6 +334,9 @@ public sealed class AgendaService
                 x.AllDay,
                 x.Status,
                 x.Location,
+                x.MeetingFormat,
+                x.RoomEmail,
+                x.RoomDisplayName,
                 x.Owner,
                 x.Candidate,
                 x.VagaTitle,
@@ -352,6 +394,37 @@ public sealed class AgendaService
 
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private sealed record MeetingFields(
+        string MeetingFormat,
+        string? Location,
+        string? RoomEmail,
+        string? RoomDisplayName);
+
+    private static MeetingFields NormalizeMeetingFields(
+        string? meetingFormat,
+        string? roomEmail,
+        string? roomDisplayName,
+        string? _)
+    {
+        var format = AgendaMeetingFormats.Normalize(meetingFormat);
+        var roomEmailTrim = TrimOrNull(roomEmail);
+        var roomDisplayTrim = TrimOrNull(roomDisplayName);
+
+        if (AgendaMeetingFormats.RequiresRoom(format) && string.IsNullOrWhiteSpace(roomEmailTrim))
+            throw new InvalidOperationException("Selecione uma sala de reunião para eventos presenciais ou híbridos.");
+
+        if (format == AgendaMeetingFormats.Online && !string.IsNullOrWhiteSpace(roomEmailTrim))
+            throw new InvalidOperationException("Eventos online não devem ter sala de reunião associada.");
+
+        var location = AgendaMeetingFormats.ResolveLocationDisplay(format, roomDisplayTrim, roomEmailTrim);
+
+        return new MeetingFields(
+            format,
+            location,
+            AgendaMeetingFormats.RequiresRoom(format) ? roomEmailTrim : null,
+            AgendaMeetingFormats.RequiresRoom(format) ? roomDisplayTrim : null);
+    }
 
     private async Task<AgendaEvent?> FindByTokenAsync(string token, bool asTracking, CancellationToken ct)
     {

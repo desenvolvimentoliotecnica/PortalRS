@@ -15,6 +15,15 @@ public sealed class AgendaEvent : ITenantEntity
 
     public string Status { get; set; } = "confirmado";
     public string? Location { get; set; }
+
+    /// <summary>online | presencial | hibrido</summary>
+    public string? MeetingFormat { get; set; }
+
+    /// <summary>E-mail da sala (room mailbox) no Microsoft 365.</summary>
+    public string? RoomEmail { get; set; }
+
+    public string? RoomDisplayName { get; set; }
+
     public string? Owner { get; set; }
     public string? Candidate { get; set; }
     public string? VagaTitle { get; set; }

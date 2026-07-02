@@ -52,6 +52,15 @@ type CandidatoListItem = CandidatoListItemBase & {
 
 type Health = "idle" | "loading";
 
+type MeetingFormat = "online" | "presencial" | "hibrido";
+
+type MeetingRoomOption = {
+  email: string;
+  displayName: string;
+  building?: string | null;
+  capacity?: number | null;
+  isAvailable?: boolean;
+};
 
 type EventForm = {
   id?: string;
@@ -59,6 +68,9 @@ type EventForm = {
   typeCode: string;
   start: string; // yyyy-mm-ddThh:mm
   end: string; // yyyy-mm-ddThh:mm
+  meetingFormat: MeetingFormat;
+  roomEmail: string;
+  roomDisplayName: string;
   location: string;
   status: "confirmado" | "confirmado_candidato" | "reagendamento_sugerido" | "pendente" | "cancelado";
   owner: string;
@@ -212,7 +224,31 @@ function parseApiError(text: string): string {
 }
 
 
-function validateEventForm(form: EventForm): string | null {
+function meetingFormatLabel(format: MeetingFormat | string | null | undefined): string {
+  if (format === "presencial") return "Presencial";
+  if (format === "hibrido") return "Híbrido (Teams + sala)";
+  return "Online (Teams)";
+}
+
+function inferMeetingFormat(ev: {
+  meetingFormat?: string | null;
+  onlineMeetingJoinUrl?: string | null;
+  roomEmail?: string | null;
+  location?: string | null;
+}): MeetingFormat {
+  const stored = String(ev.meetingFormat ?? "").trim().toLowerCase();
+  if (stored === "online" || stored === "presencial" || stored === "hibrido") return stored;
+  if (ev.onlineMeetingJoinUrl && ev.roomEmail) return "hibrido";
+  if (ev.onlineMeetingJoinUrl || /online|teams/i.test(ev.location ?? "")) return "online";
+  if (ev.roomEmail) return "presencial";
+  return "online";
+}
+
+function needsMeetingRoom(format: MeetingFormat): boolean {
+  return format === "presencial" || format === "hibrido";
+}
+
+function validateEventForm(form: EventForm, roomsError: string | null): string | null {
   if (!form.title?.trim()) return "Informe um título para o evento.";
   if (!form.typeCode?.trim()) return "Selecione o tipo do evento.";
   if (!form.start?.trim()) return "Informe a data e hora de início.";
@@ -221,6 +257,12 @@ function validateEventForm(form: EventForm): string | null {
   const end = parseLocalIsoInputValue(form.end);
   if (!start || !end) return "Datas inválidas. Verifique início e fim.";
   if (end.getTime() <= start.getTime()) return "O horário de fim deve ser posterior ao início.";
+
+  if (needsMeetingRoom(form.meetingFormat)) {
+    if (roomsError) return "Salas indisponíveis no momento. Escolha Online ou tente novamente mais tarde.";
+    if (!form.roomEmail?.trim()) return "Selecione uma sala de reunião.";
+  }
+
   return null;
 }
 
@@ -358,6 +400,9 @@ export default function AgendasScreen() {
     typeCode: "entrevista",
     start: toLocalIsoInputValue(new Date()),
     end: toLocalIsoInputValue(new Date(Date.now() + 60 * 60 * 1000)),
+    meetingFormat: "online",
+    roomEmail: "",
+    roomDisplayName: "",
     location: "",
     status: "confirmado",
     owner: "",
@@ -365,6 +410,11 @@ export default function AgendasScreen() {
     vagaId: "",
     notes: "",
   }));
+
+  const [meetingRooms, setMeetingRooms] = useState<MeetingRoomOption[]>([]);
+  const [meetingRoomsLoading, setMeetingRoomsLoading] = useState(false);
+  const [meetingRoomsError, setMeetingRoomsError] = useState<string | null>(null);
+  const [roomAvailabilityLoading, setRoomAvailabilityLoading] = useState(false);
 
 
   useEffect(() => {
@@ -391,6 +441,76 @@ export default function AgendasScreen() {
       alive = false;
     };
   }, []);
+
+
+  useEffect(() => {
+    if (!createOpen) return;
+    let alive = true;
+    setMeetingRoomsLoading(true);
+    setMeetingRoomsError(null);
+    setMeetingRooms([]);
+
+    fetchJson<MeetingRoomOption[]>(`${AGENDA_API_BASE}/meeting-rooms`)
+      .then((data) => {
+        if (!alive) return;
+        setMeetingRooms(Array.isArray(data) ? data : []);
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        setMeetingRooms([]);
+        setMeetingRoomsError(err instanceof Error ? err.message : "Não foi possível carregar salas do Microsoft 365.");
+      })
+      .finally(() => {
+        if (alive) setMeetingRoomsLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [createOpen]);
+
+
+  useEffect(() => {
+    if (!createOpen || !needsMeetingRoom(form.meetingFormat)) return;
+    if (meetingRoomsError || meetingRooms.length === 0) return;
+
+    const start = parseLocalIsoInputValue(form.start);
+    const end = parseLocalIsoInputValue(form.end);
+    if (!start || !end || end.getTime() <= start.getTime()) return;
+
+    const timer = window.setTimeout(() => {
+      setRoomAvailabilityLoading(true);
+      fetchJson<MeetingRoomOption[]>(`${AGENDA_API_BASE}/meeting-rooms/availability`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startAtUtc: form.start,
+          endAtUtc: form.end,
+          owner: form.owner?.trim() || defaultOwner || null,
+        }),
+      })
+        .then((data) => {
+          setMeetingRooms(Array.isArray(data) ? data : []);
+        })
+        .catch((err: unknown) => {
+          setMeetingRooms([]);
+          setMeetingRoomsError(
+            err instanceof Error ? err.message : "Não foi possível consultar disponibilidade das salas.",
+          );
+        })
+        .finally(() => setRoomAvailabilityLoading(false));
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    createOpen,
+    defaultOwner,
+    form.end,
+    form.meetingFormat,
+    form.owner,
+    form.start,
+    meetingRoomsError,
+  ]);
 
 
   async function loadEventsForCurrentRange() {
@@ -568,6 +688,9 @@ export default function AgendasScreen() {
       title: "",
       typeCode: types[0]?.code || "entrevista",
       status: "confirmado",
+      meetingFormat: "online",
+      roomEmail: "",
+      roomDisplayName: "",
       location: "",
       owner: defaultOwner,
       candidateName: "",
@@ -596,6 +719,9 @@ export default function AgendasScreen() {
       typeCode: (ev.typeCode ?? types[0]?.code ?? "entrevista") as string,
       start: toLocalIsoInputValue(s),
       end: toLocalIsoInputValue(e),
+      meetingFormat: inferMeetingFormat(ev),
+      roomEmail: ev.roomEmail ?? "",
+      roomDisplayName: ev.roomDisplayName ?? "",
       location: ev.location ?? "",
       status: ((ev.status ?? "confirmado").toLowerCase() as EventForm["status"]) || "confirmado",
       owner: ev.owner ?? "",
@@ -623,9 +749,15 @@ export default function AgendasScreen() {
 
 
   async function saveForm() {
-    const validationError = validateEventForm(form);
+    const validationError = validateEventForm(form, meetingRoomsError);
     if (validationError) {
       toast.error(validationError);
+      return;
+    }
+
+    const selectedRoom = meetingRooms.find((room) => room.email === form.roomEmail);
+    if (needsMeetingRoom(form.meetingFormat) && selectedRoom?.isAvailable === false) {
+      toast.error("A sala selecionada não está disponível neste horário.");
       return;
     }
 
@@ -635,7 +767,12 @@ export default function AgendasScreen() {
       endAtUtc: form.end,
       allDay: false,
       status: form.status,
-      location: form.location?.trim() || "",
+      meetingFormat: form.meetingFormat,
+      roomEmail: needsMeetingRoom(form.meetingFormat) ? form.roomEmail.trim() : null,
+      roomDisplayName: needsMeetingRoom(form.meetingFormat)
+        ? (form.roomDisplayName.trim() || selectedRoom?.displayName || null)
+        : null,
+      location: null,
       owner: form.owner?.trim() || defaultOwner,
       candidate: form.candidateName?.trim() || "",
       vagaTitle: vagas.find((v) => v.id === form.vagaId)?.titulo ?? "",
@@ -1188,23 +1325,86 @@ export default function AgendasScreen() {
               </section>
 
               <section className="space-y-3 border-t border-border/60 pt-5">
-                <h3 className="text-sm font-semibold text-foreground">Local e status</h3>
+                <h3 className="text-sm font-semibold text-foreground">Modalidade e local</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="min-w-0 sm:col-span-2">
-                    <label className={fieldLabel}>Local</label>
-                    <Input
-                      value={form.location}
-                      onChange={(e) => setForm({ ...form, location: e.target.value })}
-                      placeholder="Ex.: Online, Sala 3 ou endereço"
-                      list="agenda-location-suggestions"
-                    />
-                    <datalist id="agenda-location-suggestions">
-                      <option value="Online" />
-                      <option value="Microsoft Teams" />
-                      <option value="Presencial" />
-                    </datalist>
-                    <p className={fieldHint}>Use &quot;Online&quot; para gerar link do Teams no Outlook.</p>
+                    <label className={fieldLabel}>Formato</label>
+                    <select
+                      className={selectClass}
+                      value={form.meetingFormat}
+                      onChange={(e) => {
+                        const meetingFormat = e.target.value as MeetingFormat;
+                        setForm((current) => ({
+                          ...current,
+                          meetingFormat,
+                          roomEmail: meetingFormat === "online" ? "" : current.roomEmail,
+                          roomDisplayName: meetingFormat === "online" ? "" : current.roomDisplayName,
+                        }));
+                      }}
+                    >
+                      <option value="online">Online (Teams)</option>
+                      <option value="presencial">Presencial (sala)</option>
+                      <option value="hibrido">Híbrido (Teams + sala)</option>
+                    </select>
+                    <p className={fieldHint}>
+                      {form.meetingFormat === "online"
+                        ? "Será gerado link do Teams no Outlook ao salvar."
+                        : form.meetingFormat === "hibrido"
+                          ? "Reserva a sala física e gera link do Teams para participantes remotos."
+                          : "Reserva a sala no calendário corporativo do Outlook."}
+                    </p>
                   </div>
+
+                  {needsMeetingRoom(form.meetingFormat) ? (
+                    <div className="min-w-0 sm:col-span-2">
+                      <label className={fieldLabel}>
+                        Sala <span className="text-destructive">*</span>
+                      </label>
+                      <select
+                        className={selectClass}
+                        value={form.roomEmail}
+                        disabled={
+                          meetingRoomsLoading ||
+                          roomAvailabilityLoading ||
+                          !!meetingRoomsError ||
+                          meetingRooms.length === 0
+                        }
+                        onChange={(e) => {
+                          const room = meetingRooms.find((item) => item.email === e.target.value);
+                          setForm((current) => ({
+                            ...current,
+                            roomEmail: e.target.value,
+                            roomDisplayName: room?.displayName ?? "",
+                          }));
+                        }}
+                      >
+                        <option value="">
+                          {meetingRoomsLoading
+                            ? "Carregando salas…"
+                            : roomAvailabilityLoading
+                              ? "Verificando disponibilidade…"
+                              : "Selecione…"}
+                        </option>
+                        {meetingRooms.map((room) => (
+                          <option key={room.email} value={room.email} disabled={room.isAvailable === false}>
+                            {room.displayName}
+                            {room.capacity ? ` · ${room.capacity} pessoas` : ""}
+                            {room.building ? ` · ${room.building}` : ""}
+                            {room.isAvailable === false ? " · Ocupada" : room.isAvailable ? " · Disponível" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {meetingRoomsError ? (
+                        <p className="mt-1 text-xs text-destructive">{meetingRoomsError}</p>
+                      ) : null}
+                      {!meetingRoomsError && !meetingRoomsLoading && meetingRooms.length === 0 ? (
+                        <p className="mt-1 text-xs text-destructive">
+                          Nenhuma sala encontrada no Microsoft 365. Verifique permissões Place.Read.All.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   <div className="min-w-0">
                     <label className={fieldLabel}>Status</label>
                     <select
@@ -1416,8 +1616,15 @@ export default function AgendasScreen() {
                 <div className="text-muted-foreground mono text-sm">{selectedEvent.vagaCode ?? "—"}</div>
               </div>
               <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                <div className="mini-title mb-1">Modalidade</div>
+                <div className="font-semibold">{meetingFormatLabel(inferMeetingFormat(selectedEvent))}</div>
+              </div>
+              <div className="card-soft p-3" style={{ boxShadow: "none" }}>
                 <div className="mini-title mb-1">Local</div>
                 <div className="font-semibold">{selectedEvent.location ?? "—"}</div>
+                {selectedEvent.roomDisplayName ? (
+                  <div className="text-muted-foreground mt-1 text-xs">Sala: {selectedEvent.roomDisplayName}</div>
+                ) : null}
               </div>
               {selectedEvent.onlineMeetingJoinUrl?.trim() ? (
                 <div className="card-soft border-emerald-200 bg-emerald-50 p-3 md:col-span-2" style={{ boxShadow: "none" }}>

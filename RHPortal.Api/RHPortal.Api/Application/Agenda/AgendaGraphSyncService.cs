@@ -144,18 +144,25 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
         return string.IsNullOrWhiteSpace(currentEmail) ? null : currentEmail;
     }
 
-    private static GraphCalendarEventWriteRequest BuildWriteRequest(AgendaEvent entity, string userUpn) =>
-        new()
+    private static GraphCalendarEventWriteRequest BuildWriteRequest(AgendaEvent entity, string userUpn)
+    {
+        var format = AgendaMeetingFormats.Normalize(entity.MeetingFormat);
+        var requiresRoom = AgendaMeetingFormats.RequiresRoom(format);
+
+        return new GraphCalendarEventWriteRequest
         {
             UserUpn = userUpn,
             Subject = entity.Title,
             StartAtUtc = entity.StartAtUtc,
             EndAtUtc = entity.EndAtUtc,
             AllDay = entity.AllDay,
-            Location = entity.Location,
+            Location = AgendaMeetingFormats.ResolveLocationDisplay(format, entity.RoomDisplayName, entity.RoomEmail),
             Body = BuildGraphBody(entity),
-            IsOnlineMeeting = ShouldCreateOnlineMeeting(entity.Location, entity.Notes),
+            IsOnlineMeeting = AgendaMeetingFormats.RequiresOnlineMeeting(format),
+            RoomEmail = requiresRoom ? entity.RoomEmail : null,
+            RoomDisplayName = requiresRoom ? entity.RoomDisplayName : null,
         };
+    }
 
     private static string BuildGraphBody(AgendaEvent entity)
     {
@@ -187,27 +194,4 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
 
         return string.Join("\n", lines);
     }
-
-    private static bool ShouldCreateOnlineMeeting(string? location, string? notes)
-    {
-        if (ContainsOnlineHint(location))
-            return true;
-
-        if (string.IsNullOrWhiteSpace(notes))
-            return false;
-
-        foreach (var line in notes.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            if (line.StartsWith("Formato:", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("online", StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return ContainsOnlineHint(notes);
-    }
-
-    private static bool ContainsOnlineHint(string? value) =>
-        !string.IsNullOrWhiteSpace(value)
-        && (value.Contains("online", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("teams", StringComparison.OrdinalIgnoreCase));
 }
