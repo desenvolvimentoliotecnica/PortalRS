@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 207
+    "totalTarefas": 212
   },
   "tarefas": [
     {
@@ -5316,6 +5316,110 @@
           "800a0099"
         ],
         "prHml": "Merge PR #102 (DEV->HML), PR #103 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-204",
+      "nome": "[Portal RH] Organizar suite mockups mobile Talent RH",
+      "descricaoAmigavel": "Consolidar 17 protótipos HTML mobile-first (RH interno e portal público) na pasta Mockup Mobile para versionamento e validação visual.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:36",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Mover todos os HTMLs mobile para __analise__/mockups-mvc/Mockup Mobile e promover para HML/PRD.",
+      "entregavel": "Pasta Mockup Mobile com 17 arquivos HTML standalone (dashboard, requisições, candidatos, vagas, portal público etc.).",
+      "observacoes": "Mockups estáticos para validação de UX; sem integração com API.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-205",
+      "nome": "[Portal] Mockup mobile detalhe da vaga (portal público)",
+      "descricaoAmigavel": "Mockup mobile detalhe da vaga (portal público)",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:08",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar portal-detalhe-vaga-mobile.html no padrão visual mobile Liotécnica.",
+      "entregavel": "Arquivo portal-detalhe-vaga-mobile.html em Mockup Mobile.",
+      "observacoes": "Incluído na suite promovida em TASK-2026-204.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-206",
+      "nome": "[Portal] Mockup mobile candidatura (portal público)",
+      "descricaoAmigavel": "Mockup mobile candidatura (portal público)",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:12",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar portal-candidatura-mobile.html no padrão visual mobile Liotécnica.",
+      "entregavel": "Arquivo portal-candidatura-mobile.html em Mockup Mobile.",
+      "observacoes": "Incluído na suite promovida em TASK-2026-204.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-207",
+      "nome": "[Portal] Mockup mobile área do candidato (portal público)",
+      "descricaoAmigavel": "Mockup mobile área do candidato (portal público)",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:18",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar portal-area-candidato-mobile.html no padrão visual mobile Liotécnica.",
+      "entregavel": "Arquivo portal-area-candidato-mobile.html em Mockup Mobile.",
+      "observacoes": "Incluído na suite promovida em TASK-2026-204.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-208",
+      "nome": "[Portal RH] Seleção de sala e modalidade no agendamento",
+      "descricaoAmigavel": "Formato Online, Presencial ou Híbrido no modal de agenda, com listagem de salas M365, consulta de disponibilidade e reserva real no Outlook via Graph.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:15",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Implementar seleção de sala de reunião no modal de agenda com 3 opções: Online (Teams), Presencial (sala com disponibilidade) e Híbrido (Teams + sala). Sem fallback — bloquear campo se Graph não retornar salas.",
+      "entregavel": "Endpoints meeting-rooms e availability; campos MeetingFormat/RoomEmail na API; seletor de formato e sala no frontend; reserva como resource attendee no Outlook.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Requer permissões Graph: Place.Read.All e Calendars.ReadWrite. Infra concederá permissões.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]
