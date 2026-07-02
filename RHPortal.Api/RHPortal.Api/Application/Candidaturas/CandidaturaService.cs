@@ -391,6 +391,9 @@ public sealed class CandidaturaService : ICandidaturaService
             AllDay = false,
             Status = "confirmado",
             Location = local,
+            MeetingFormat = string.Equals(formato, "Online", StringComparison.OrdinalIgnoreCase)
+                ? AgendaMeetingFormats.Online
+                : AgendaMeetingFormats.Presencial,
             Owner = responsavel,
             Candidate = nomeCandidato,
             VagaTitle = details?.VagaTitulo,

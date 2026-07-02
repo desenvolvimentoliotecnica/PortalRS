@@ -2918,6 +2918,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Title).HasMaxLength(240).IsRequired();
             b.Property(x => x.Status).HasMaxLength(40).IsRequired();
             b.Property(x => x.Location).HasMaxLength(160);
+            b.Property(x => x.MeetingFormat).HasMaxLength(20);
+            b.Property(x => x.RoomEmail).HasMaxLength(320);
+            b.Property(x => x.RoomDisplayName).HasMaxLength(160);
             b.Property(x => x.Owner).HasMaxLength(120);
             b.Property(x => x.Candidate).HasMaxLength(160);
             b.Property(x => x.VagaTitle).HasMaxLength(200);

@@ -59,6 +59,25 @@ public sealed class GraphCalendarEventWriteRequest
     public string? Location { get; init; }
     public string? Body { get; init; }
     public bool IsOnlineMeeting { get; init; }
+    public string? RoomEmail { get; init; }
+    public string? RoomDisplayName { get; init; }
+}
+
+public sealed class GraphMeetingRoomDto
+{
+    public string Email { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string? Building { get; set; }
+    public int? Capacity { get; set; }
+}
+
+public sealed class GraphMeetingRoomAvailabilityDto
+{
+    public string Email { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string? Building { get; set; }
+    public int? Capacity { get; set; }
+    public bool IsAvailable { get; set; }
 }
 
 public sealed record GraphCalendarEventCreateResult(
@@ -75,6 +94,12 @@ public interface IMicrosoftGraphCalendarService
     Task<GraphCalendarEventCreateResult?> CreateCalendarEventAsync(GraphCalendarEventWriteRequest request, CancellationToken ct);
     Task UpdateCalendarEventAsync(string userUpn, string graphEventId, GraphCalendarEventWriteRequest request, CancellationToken ct);
     Task DeleteCalendarEventAsync(string userUpn, string graphEventId, CancellationToken ct);
+    Task<IReadOnlyList<GraphMeetingRoomDto>> ListMeetingRoomsAsync(CancellationToken ct);
+    Task<IReadOnlyList<GraphMeetingRoomAvailabilityDto>> GetMeetingRoomAvailabilityAsync(
+        string userUpn,
+        DateTime startUtc,
+        DateTime endUtc,
+        CancellationToken ct);
 }
 
 public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarService
@@ -294,6 +319,214 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         throw new InvalidOperationException($"Microsoft Graph retornou {(int)resp.StatusCode}: {TrimGraphError(body)}");
     }
 
+    public async Task<IReadOnlyList<GraphMeetingRoomDto>> ListMeetingRoomsAsync(CancellationToken ct)
+    {
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: true)
+                          ?? throw new InvalidOperationException(
+                              "Integração com Outlook não está configurada ou habilitada para este tenant.");
+
+        var http = _httpClientFactory.CreateClient("AzureAdGraph");
+        var token = await ObtainTokenAsync(http, credentials.TenantId, credentials.ClientId, credentials.ClientSecret, ct);
+
+        var rooms = new List<GraphMeetingRoomDto>();
+        var url =
+            $"{GraphBaseUrl}/places/microsoft.graph.room?$select=displayName,emailAddress,building,capacity&$top=100";
+
+        while (!string.IsNullOrWhiteSpace(url))
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var resp = await http.SendAsync(req, ct);
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            if (!resp.IsSuccessStatusCode)
+                throw new InvalidOperationException(
+                    $"Não foi possível listar salas no Microsoft Graph ({(int)resp.StatusCode}): {TrimGraphError(body)}");
+
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("value", out var value) && value.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in value.EnumerateArray())
+                {
+                    var room = ParseMeetingRoom(item);
+                    if (!string.IsNullOrWhiteSpace(room.Email))
+                        rooms.Add(room);
+                }
+            }
+
+            url = root.TryGetProperty("@odata.nextLink", out var next) ? next.GetString() : null;
+        }
+
+        if (rooms.Count == 0)
+            throw new InvalidOperationException(
+                "Nenhuma sala de reunião encontrada no Microsoft 365. Verifique room mailboxes e permissão Place.Read.All.");
+
+        return rooms
+            .Where(r => !string.IsNullOrWhiteSpace(r.Email))
+            .OrderBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<GraphMeetingRoomAvailabilityDto>> GetMeetingRoomAvailabilityAsync(
+        string userUpn,
+        DateTime startUtc,
+        DateTime endUtc,
+        CancellationToken ct)
+    {
+        var organizerUpn = userUpn.Trim();
+        if (string.IsNullOrWhiteSpace(organizerUpn))
+            throw new InvalidOperationException("UPN do responsável é obrigatório para consultar disponibilidade de salas.");
+
+        if (endUtc <= startUtc)
+            throw new InvalidOperationException("O horário de fim deve ser posterior ao início.");
+
+        var rooms = await ListMeetingRoomsAsync(ct);
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: true)
+                          ?? throw new InvalidOperationException(
+                              "Integração com Outlook não está configurada ou habilitada para este tenant.");
+
+        var http = _httpClientFactory.CreateClient("AzureAdGraph");
+        var token = await ObtainTokenAsync(http, credentials.TenantId, credentials.ClientId, credentials.ClientSecret, ct);
+        var availabilityByEmail = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var batch in rooms.Select(r => r.Email).Chunk(20))
+        {
+            var batchAvailability = await FetchRoomAvailabilityBatchAsync(
+                http,
+                token,
+                organizerUpn,
+                batch,
+                startUtc,
+                endUtc,
+                ct);
+            foreach (var pair in batchAvailability)
+                availabilityByEmail[pair.Key] = pair.Value;
+        }
+
+        return rooms
+            .Select(room => new GraphMeetingRoomAvailabilityDto
+            {
+                Email = room.Email,
+                DisplayName = room.DisplayName,
+                Building = room.Building,
+                Capacity = room.Capacity,
+                IsAvailable = availabilityByEmail.TryGetValue(room.Email, out var available) && available,
+            })
+            .OrderBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static GraphMeetingRoomDto ParseMeetingRoom(JsonElement item)
+    {
+        var email = item.TryGetProperty("emailAddress", out var emailNode)
+                    && emailNode.TryGetProperty("address", out var addressEl)
+            ? addressEl.GetString() ?? ""
+            : "";
+
+        var displayName = item.TryGetProperty("displayName", out var nameEl)
+            ? nameEl.GetString() ?? email
+            : email;
+
+        string? building = null;
+        if (item.TryGetProperty("building", out var buildingEl))
+            building = buildingEl.GetString();
+
+        int? capacity = null;
+        if (item.TryGetProperty("capacity", out var capacityEl) && capacityEl.TryGetInt32(out var cap))
+            capacity = cap;
+
+        return new GraphMeetingRoomDto
+        {
+            Email = email.Trim(),
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? email.Trim() : displayName.Trim(),
+            Building = string.IsNullOrWhiteSpace(building) ? null : building.Trim(),
+            Capacity = capacity,
+        };
+    }
+
+    private static async Task<IReadOnlyDictionary<string, bool>> FetchRoomAvailabilityBatchAsync(
+        HttpClient http,
+        string token,
+        string organizerUpn,
+        IEnumerable<string> roomEmails,
+        DateTime startUtc,
+        DateTime endUtc,
+        CancellationToken ct)
+    {
+        var schedules = roomEmails
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Select(e => e.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (schedules.Length == 0)
+            return new Dictionary<string, bool>();
+
+        var startLocal = ToBrazilLocal(startUtc);
+        var endLocal = ToBrazilLocal(endUtc);
+        var upn = Uri.EscapeDataString(organizerUpn.Trim());
+        var url = $"{GraphBaseUrl}/users/{upn}/calendar/getSchedule";
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            schedules,
+            startTime = new
+            {
+                dateTime = startLocal.ToString("yyyy-MM-ddTHH:mm:ss"),
+                timeZone = BrazilTimeZoneId,
+            },
+            endTime = new
+            {
+                dateTime = endLocal.ToString("yyyy-MM-ddTHH:mm:ss"),
+                timeZone = BrazilTimeZoneId,
+            },
+            availabilityViewInterval = 15,
+        }, JsonWriteOptions);
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await http.SendAsync(req, ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Não foi possível consultar disponibilidade de salas ({(int)resp.StatusCode}): {TrimGraphError(body)}");
+
+        var result = schedules.ToDictionary(s => s, _ => false, StringComparer.OrdinalIgnoreCase);
+        using var doc = JsonDocument.Parse(body);
+        if (!doc.RootElement.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Array)
+            return result;
+
+        foreach (var item in value.EnumerateArray())
+        {
+            var scheduleId = item.TryGetProperty("scheduleId", out var scheduleEl)
+                ? scheduleEl.GetString() ?? ""
+                : "";
+            if (string.IsNullOrWhiteSpace(scheduleId))
+                continue;
+
+            var availabilityView = item.TryGetProperty("availabilityView", out var viewEl)
+                ? viewEl.GetString()
+                : null;
+
+            result[scheduleId.Trim()] = IsAvailabilityViewFree(availabilityView);
+        }
+
+        return result;
+    }
+
+    private static bool IsAvailabilityViewFree(string? availabilityView)
+    {
+        if (string.IsNullOrWhiteSpace(availabilityView))
+            return false;
+
+        // 0 = livre; demais códigos indicam indisponibilidade parcial ou total.
+        return availabilityView.All(static c => c == '0');
+    }
+
     private static GraphCalendarEventCreateResult ParseCreateResponse(string body)
     {
         using var doc = JsonDocument.Parse(body);
@@ -360,31 +593,58 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         var startLocal = ToBrazilLocal(request.StartAtUtc);
         var endLocal = ToBrazilLocal(request.EndAtUtc);
 
-        object payload = request.AllDay
-            ? new
+        if (request.AllDay)
+        {
+            var allDayPayload = new Dictionary<string, object?>
             {
-                subject = request.Subject,
-                body = new { contentType = "text", content = request.Body ?? string.Empty },
-                start = new { dateTime = startLocal.ToString("yyyy-MM-dd"), timeZone = BrazilTimeZoneId },
-                end = new { dateTime = endLocal.ToString("yyyy-MM-dd"), timeZone = BrazilTimeZoneId },
-                isAllDay = true,
-                location = string.IsNullOrWhiteSpace(request.Location)
-                    ? null
-                    : new { displayName = request.Location },
-            }
-            : new
-            {
-                subject = request.Subject,
-                body = new { contentType = "text", content = request.Body ?? string.Empty },
-                start = new { dateTime = startLocal.ToString("yyyy-MM-ddTHH:mm:ss"), timeZone = BrazilTimeZoneId },
-                end = new { dateTime = endLocal.ToString("yyyy-MM-ddTHH:mm:ss"), timeZone = BrazilTimeZoneId },
-                isAllDay = false,
-                location = string.IsNullOrWhiteSpace(request.Location)
-                    ? null
-                    : new { displayName = request.Location },
-                isOnlineMeeting = request.IsOnlineMeeting,
-                onlineMeetingProvider = request.IsOnlineMeeting ? "teamsForBusiness" : null,
+                ["subject"] = request.Subject,
+                ["body"] = new { contentType = "text", content = request.Body ?? string.Empty },
+                ["start"] = new { dateTime = startLocal.ToString("yyyy-MM-dd"), timeZone = BrazilTimeZoneId },
+                ["end"] = new { dateTime = endLocal.ToString("yyyy-MM-dd"), timeZone = BrazilTimeZoneId },
+                ["isAllDay"] = true,
             };
+
+            if (!string.IsNullOrWhiteSpace(request.Location))
+                allDayPayload["location"] = new { displayName = request.Location };
+
+            return JsonSerializer.Serialize(allDayPayload, JsonWriteOptions);
+        }
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["subject"] = request.Subject,
+            ["body"] = new { contentType = "text", content = request.Body ?? string.Empty },
+            ["start"] = new { dateTime = startLocal.ToString("yyyy-MM-ddTHH:mm:ss"), timeZone = BrazilTimeZoneId },
+            ["end"] = new { dateTime = endLocal.ToString("yyyy-MM-ddTHH:mm:ss"), timeZone = BrazilTimeZoneId },
+            ["isAllDay"] = false,
+        };
+
+        if (!string.IsNullOrWhiteSpace(request.Location))
+            payload["location"] = new { displayName = request.Location };
+
+        if (request.IsOnlineMeeting)
+        {
+            payload["isOnlineMeeting"] = true;
+            payload["onlineMeetingProvider"] = "teamsForBusiness";
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.RoomEmail))
+        {
+            payload["attendees"] = new[]
+            {
+                new
+                {
+                    emailAddress = new
+                    {
+                        address = request.RoomEmail.Trim(),
+                        name = string.IsNullOrWhiteSpace(request.RoomDisplayName)
+                            ? request.RoomEmail.Trim()
+                            : request.RoomDisplayName.Trim(),
+                    },
+                    type = "resource",
+                },
+            };
+        }
 
         return JsonSerializer.Serialize(payload, JsonWriteOptions);
     }
