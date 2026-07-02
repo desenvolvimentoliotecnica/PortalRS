@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-02",
-    "totalTarefas": 192
+    "atualizadoEm": "2026-07-02T13:12:06.424Z",
+    "totalTarefas": 193
   },
   "tarefas": [
     {
@@ -5031,6 +5031,30 @@
         "prHml": null
       },
       "observacoes": "Mockup estático com seleção de cards e navegação entre etapas; link de volta para matching-candidatos-mobile.html."
+    },
+    {
+      "id": "TASK-2026-193",
+      "nome": "[Portal RH] Corrigir build CI após vincular local da vaga",
+      "descricaoAmigavel": "Correção de tipagem TypeScript no pré-preenchimento de vagas a partir de solicitações, para destravar o pipeline de deploy em DEV, HML e PRD.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "10:08",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Corrigir falha de CI/CD nos últimos commits/merges (erro TypeScript em VagasScreen.tsx) e promover DEV→HML→PRD.",
+      "entregavel": "Interface SolicitacaoDetail atualizada com empresaId, empresaNome, unitId e unitName; build do Portal Admin passando no CI.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": "Falha no step Build & push Portal Admin (Web.Next): Property 'empresaId' does not exist on type 'SolicitacaoDetail'."
     }
   ]
 }
