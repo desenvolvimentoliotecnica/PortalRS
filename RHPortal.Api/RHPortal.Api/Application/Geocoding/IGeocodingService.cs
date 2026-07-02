@@ -10,7 +10,8 @@ public sealed record GeocodeResult(decimal Latitude, decimal Longitude, string? 
 /// Serviço de geocodificação — converte endereço (CEP, rua, cidade, UF) em
 /// coordenadas (lat/lng).
 ///
-/// <para>Implementação atual: cadeia Nominatim → Photon → BrasilAPI CEP.</para>
+/// <para>Fluxo: enriquece logradouro/cidade/UF via BrasilAPI CEP (quando houver CEP),
+/// depois tenta Nominatim → Photon → coordenadas do próprio CEP.</para>
 ///
 /// <para>O serviço é <b>best-effort</b>: se a chamada externa falhar (timeout,
 /// rate limit, endereço inválido), retorna <c>null</c> e o consumidor deixa

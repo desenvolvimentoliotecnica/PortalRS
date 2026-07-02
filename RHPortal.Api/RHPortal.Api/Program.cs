@@ -160,10 +160,11 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient("AzureAdGraph");
-// Sessão 31.8 — Geocoding: Nominatim + Photon + BrasilAPI CEP (cadeia, best-effort)
+// Sessão 31.8 — Geocoding: enriquecimento CEP (BrasilAPI) + Nominatim + Photon + coords CEP
 builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.NominatimGeocodingService>();
 builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.PhotonGeocodingService>();
-builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.BrasilApiCepGeocodingService>();
+builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.BrasilApiCepLookupService>();
+builder.Services.AddSingleton<RhPortal.Api.Application.Geocoding.BrasilApiCepGeocodingService>();
 builder.Services.AddSingleton<RhPortal.Api.Application.Geocoding.IGeocodingService, RhPortal.Api.Application.Geocoding.CompositeGeocodingService>();
 builder.Services.AddCors(options =>
 {
