@@ -5653,11 +5653,11 @@
       "descricaoAmigavel": "Restaurar acesso ao portal na porta 3000 após deploy: nginx deixa de cair ao subir e o pipeline passa a validar o health do web-next.",
       "inicio": "2026-07-02",
       "horarioInicio": "20:05",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "20:07",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Depois do deploy, ERR_CONNECTION_REFUSED em 10.0.0.79 (porta 3000) nos 3 ambientes.",
@@ -5665,8 +5665,11 @@
       "ambiente": "DEV",
       "observacoes": "API :5000 OK; apenas container rhportal-*-web-next em Restarting (1) nos logs CI run 28626570270.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "0b88167e"
+        ],
+        "prHml": "Merge PR #141",
+        "prPrd": "Merge PR #142"
       }
     }
   ]
