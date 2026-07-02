@@ -5276,19 +5276,19 @@
     },
     {
       "id": "TASK-2026-202",
-      "nome": "[Portal RH] Diagnóstico geocodificação empresas HMG",
-      "descricaoAmigavel": "Validação no servidor HMG do erro HTTP 422 ao geocodificar endereço de empresa; confirmação de conectividade HTTPS e causa raiz no formato do endereço.",
+      "nome": "[Portal RH] Enriquecimento CEP na geocodificação de empresas",
+      "descricaoAmigavel": "Antes de geocodificar, consultar BrasilAPI pelo CEP para corrigir logradouro abreviado (ex. RM) e aumentar taxa de sucesso no Nominatim.",
       "inicio": "2026-07-02",
       "horarioInicio": "11:20",
       "conclusao": null,
       "horarioConclusao": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
-      "pedidoOriginal": "Validar erro HTTP 422 na geocodificação de empresas em HMG (10.0.0.80) — verificar se o servidor tem saída HTTPS para Nominatim, Photon e BrasilAPI.",
-      "entregavel": "Diagnóstico: rede OK; falha por endereço abreviado (JOAO PAULO I sem Avenida/acentos) e BrasilAPI sem coordenadas; scripts diag-geocoding*.sh no servidor.",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Implementar enriquecimento automático do endereço via CEP na API após diagnóstico HMG: rede OK, falha por logradouro abreviado (JOAO PAULO I vs Avenida João Paulo I).",
+      "entregavel": "BrasilApiCepLookupService + CepAddressEnrichment integrados ao CompositeGeocodingService; mensagem 422 mais clara; testes unitários.",
       "responsavel": "Lucas Muniz Machado",
       "totalHoras": null,
-      "observacoes": "Empresa f4ed24ef-dc43-4ab9-90e0-8eb9bb8f94c3 (Matriz Liotecnica Embu). Nominatim responde lat/lon quando query usa Avenida João Paulo I.",
+      "observacoes": "Diagnóstico HMG: empresa f4ed24ef Matriz Liotecnica Embu. Nominatim OK com Avenida João Paulo I.",
       "referencias": {
         "commits": [],
         "prHml": null
@@ -5300,18 +5300,20 @@
       "descricaoAmigavel": "Reorganização visual do formulário de agendamento para eliminar sobreposição de campos e melhorar legibilidade na tela de agendas.",
       "inicio": "2026-07-02",
       "horarioInicio": "11:26",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "11:34",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Melhorar a UI/UX do modal de criação de Novo evento na view /app/agendas — campos sobrepostos e layout desalinhado.",
       "entregavel": "Modal de agendamento com grid responsivo, campos com largura consistente, seções agrupadas e footer fixo.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": null,
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV->HML->PRD (PR #102, #103).",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "800a0099"
+        ],
+        "prHml": "Merge PR #102 (DEV->HML), PR #103 (HML->PRD)"
       }
     }
   ]
