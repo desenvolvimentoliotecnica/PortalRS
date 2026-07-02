@@ -725,7 +725,7 @@ export default function AgendasScreen() {
     let pending = 0;
     let interviews = 0;
 
-    for (const ev of filtered) {
+    for (const ev of events) {
       if (isCancelledStatus(ev.status)) continue;
       const s = new Date(ev.startAtUtc);
       if (!Number.isNaN(s.getTime()) && isSameDay(s, now)) today++;
@@ -735,7 +735,7 @@ export default function AgendasScreen() {
         interviews++;
     }
 
-    for (const ev of filteredGraphEvents) {
+    for (const ev of graphEvents) {
       if (isCancelledGraphEvent(ev)) continue;
       const s = new Date(ev.start);
       if (!Number.isNaN(s.getTime()) && isSameDay(s, now)) today++;
@@ -743,7 +743,7 @@ export default function AgendasScreen() {
     }
 
     return { today, week, pending, interviews };
-  }, [filtered, filteredGraphEvents]);
+  }, [events, graphEvents]);
 
 
   const sideList = useMemo(() => {
