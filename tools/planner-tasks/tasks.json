@@ -5581,19 +5581,21 @@
       "descricaoAmigavel": "Copiar mockups para public/mockups-mobile no build e nginx dedicado para evitar redirect ao dashboard.",
       "inicio": "2026-07-02",
       "horarioInicio": "17:07",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "17:15",
+      "totalHoras": 1,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Corrigir acesso HMG /app/__analise__/... que redirecionava para /app/dashboard.",
       "entregavel": "copy-mockups-mobile.mjs, Dockerfile, nginx.conf e URL /app/mockups-mobile/.",
       "observacoes": null,
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "546b3d38"
+        ],
+        "prHml": "Merge PR #131 (DEV->HML), PR #132 (HML->PRD)"
       }
     }
   ]
