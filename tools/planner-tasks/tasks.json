@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 203
+    "totalTarefas": 207
   },
   "tarefas": [
     {
@@ -5227,6 +5227,86 @@
       "responsavel": "Lucas Muniz Machado",
       "totalHoras": null,
       "observacoes": "Mockup estático com filtros cíclicos e gráfico donut em SVG; aba Mais ativa.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-200",
+      "nome": "[Portal] Mockup mobile portal público de vagas",
+      "descricaoAmigavel": "Mockup HTML mobile-first do portal público Encontre sua próxima oportunidade para candidatos externos.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "11:10",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Criar HTML mobile-first da tela Encontre sua próxima oportunidade (portal público) seguindo o padrão visual dos mockups, com base no layout em anexo.",
+      "entregavel": "Arquivo portal-oportunidades-mobile.html em mockups-mvc com busca, filtros, listagem de vagas, badges e CTA de cadastro.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Portal público sem bottom nav interna; menu hamburger e botões Entrar/Criar conta.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-201",
+      "nome": "[Portal RH] Ocultar aba Etapas no preenchimento da vaga",
+      "descricaoAmigavel": "Remover a aba Etapas do formulário de edição de vaga, pois o fluxo de seleção já é conduzido pelo Kanban de Candidaturas com etapas padronizadas.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "11:17",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "pedidoOriginal": "Ocultar a aba Etapas no preenchimento dos dados da vaga em /app/vagas/editar e remover o banner Decisão de HC do formulário.",
+      "entregavel": "Formulário de edição de vaga sem aba Etapas e sem banner de Decisão de HC; link do hub redirecionado para o Kanban de Candidaturas.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": null,
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-202",
+      "nome": "[Portal RH] Diagnóstico geocodificação empresas HMG",
+      "descricaoAmigavel": "Validação no servidor HMG do erro HTTP 422 ao geocodificar endereço de empresa; confirmação de conectividade HTTPS e causa raiz no formato do endereço.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "11:20",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "pedidoOriginal": "Validar erro HTTP 422 na geocodificação de empresas em HMG (10.0.0.80) — verificar se o servidor tem saída HTTPS para Nominatim, Photon e BrasilAPI.",
+      "entregavel": "Diagnóstico: rede OK; falha por endereço abreviado (JOAO PAULO I sem Avenida/acentos) e BrasilAPI sem coordenadas; scripts diag-geocoding*.sh no servidor.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Empresa f4ed24ef-dc43-4ab9-90e0-8eb9bb8f94c3 (Matriz Liotecnica Embu). Nominatim responde lat/lon quando query usa Avenida João Paulo I.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-203",
+      "nome": "[Portal RH] Melhorar UI/UX modal Novo evento na agenda",
+      "descricaoAmigavel": "Reorganização visual do formulário de agendamento para eliminar sobreposição de campos e melhorar legibilidade na tela de agendas.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "11:26",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 75,
+      "pedidoOriginal": "Melhorar a UI/UX do modal de criação de Novo evento na view /app/agendas — campos sobrepostos e layout desalinhado.",
+      "entregavel": "Modal de agendamento com grid responsivo, campos com largura consistente, seções agrupadas e footer fixo.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": null,
       "referencias": {
         "commits": [],
         "prHml": null
