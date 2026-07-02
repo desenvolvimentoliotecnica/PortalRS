@@ -444,6 +444,16 @@ export default function AgendasScreen() {
   const [meetingRoomsError, setMeetingRoomsError] = useState<string | null>(null);
   const [roomAvailabilityLoading, setRoomAvailabilityLoading] = useState(false);
 
+  const availableMeetingRooms = useMemo(
+    () => meetingRooms.filter((room) => room.isAvailable === true),
+    [meetingRooms],
+  );
+
+  const meetingRoomsAvailabilityKnown = useMemo(
+    () => meetingRooms.some((room) => room.isAvailable !== undefined),
+    [meetingRooms],
+  );
+
 
   useEffect(() => {
     let alive = true;
@@ -544,6 +554,22 @@ export default function AgendasScreen() {
     form.owner,
     form.start,
     meetingRoomsError,
+  ]);
+
+
+  useEffect(() => {
+    if (!createOpen || !needsMeetingRoom(form.meetingFormat)) return;
+    if (!meetingRoomsAvailabilityKnown || roomAvailabilityLoading) return;
+    if (!form.roomEmail) return;
+    if (availableMeetingRooms.some((room) => room.email === form.roomEmail)) return;
+    setForm((current) => ({ ...current, roomEmail: "", roomDisplayName: "" }));
+  }, [
+    availableMeetingRooms,
+    createOpen,
+    form.meetingFormat,
+    form.roomEmail,
+    meetingRoomsAvailabilityKnown,
+    roomAvailabilityLoading,
   ]);
 
 
@@ -789,9 +815,9 @@ export default function AgendasScreen() {
       return;
     }
 
-    const selectedRoom = meetingRooms.find((room) => room.email === form.roomEmail);
-    if (needsMeetingRoom(form.meetingFormat) && selectedRoom?.isAvailable === false) {
-      toast.error("A sala selecionada não está disponível neste horário.");
+    const selectedRoom = availableMeetingRooms.find((room) => room.email === form.roomEmail);
+    if (needsMeetingRoom(form.meetingFormat) && !selectedRoom) {
+      toast.error("Selecione uma sala disponível para este horário.");
       return;
     }
 
@@ -1401,10 +1427,12 @@ export default function AgendasScreen() {
                           meetingRoomsLoading ||
                           roomAvailabilityLoading ||
                           !!meetingRoomsError ||
-                          meetingRooms.length === 0
+                          (meetingRoomsAvailabilityKnown
+                            ? availableMeetingRooms.length === 0
+                            : meetingRooms.length === 0)
                         }
                         onChange={(e) => {
-                          const room = meetingRooms.find((item) => item.email === e.target.value);
+                          const room = availableMeetingRooms.find((item) => item.email === e.target.value);
                           setForm((current) => ({
                             ...current,
                             roomEmail: e.target.value,
@@ -1419,17 +1447,25 @@ export default function AgendasScreen() {
                               ? "Verificando disponibilidade…"
                               : "Selecione…"}
                         </option>
-                        {meetingRooms.map((room) => (
-                          <option key={room.email} value={room.email} disabled={room.isAvailable === false}>
+                        {availableMeetingRooms.map((room) => (
+                          <option key={room.email} value={room.email}>
                             {room.displayName}
                             {room.capacity ? ` · ${room.capacity} pessoas` : ""}
                             {room.building ? ` · ${room.building}` : ""}
-                            {room.isAvailable === false ? " · Ocupada" : room.isAvailable ? " · Disponível" : ""}
                           </option>
                         ))}
                       </select>
                       {meetingRoomsError ? (
                         <p className="mt-1 text-xs text-destructive">{meetingRoomsError}</p>
+                      ) : null}
+                      {!meetingRoomsError
+                      && !meetingRoomsLoading
+                      && !roomAvailabilityLoading
+                      && meetingRoomsAvailabilityKnown
+                      && availableMeetingRooms.length === 0 ? (
+                        <p className="mt-1 text-xs text-destructive">
+                          Nenhuma sala disponível neste horário. Ajuste início/fim ou escolha Online.
+                        </p>
                       ) : null}
                       {!meetingRoomsError && !meetingRoomsLoading && meetingRooms.length === 0 ? (
                         <p className="mt-1 text-xs text-destructive">

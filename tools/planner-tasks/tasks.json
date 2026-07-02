@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 211
+    "totalTarefas": 212
   },
   "tarefas": [
     {
@@ -5439,6 +5439,26 @@
           "d2e7f67d"
         ],
         "prHml": "Merge PR #113 (DEV->HML), PR #114 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-211",
+      "nome": "[Portal RH] Exibir apenas salas disponíveis no agendamento",
+      "descricaoAmigavel": "Filtrar o seletor de salas para mostrar somente opções livres no horário escolhido, ocultando salas ocupadas.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "14:26",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Não exibir salas ocupadas no dropdown de sala — mostrar só as disponíveis.",
+      "entregavel": "Dropdown de sala filtra isAvailable=true; limpa seleção se sala ficar indisponível; mensagem quando nenhuma sala livre no horário.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": null,
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]
