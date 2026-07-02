@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 184
+    "totalTarefas": 185
   },
   "tarefas": [
     {
@@ -4738,10 +4738,11 @@
       "descricaoAmigavel": "Nova página no menu Configurações para limpar dados de recrutamento e admissão de teste sem apagar configurações nem requisições RM, com prévia, confirmação RESETAR e progresso em tempo real.",
       "inicio": "2026-07-01",
       "horarioInicio": "16:30",
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar view dedicada de reset operacional (Owner, Dev/HML): apagar todos candidatos/talentos, vagas de teste e pré-admissões; preservar configurações e requisições RM; confirmação digitando RESETAR; progresso na tela.",
@@ -4749,10 +4750,12 @@
       "ambiente": "HML",
       "referencias": {
         "commits": [
-          "06f87fa7"
+          "06f87fa7",
+          "adad13f7"
         ],
-        "branch": "DEV",
-        "prHml": null
+        "branch": "origin/HML",
+        "prHml": "Merge PR #82",
+        "prPrd": "Merge PR #83"
       },
       "observacoes": "Restaurado apos revert acidental (240f5630). Correcao allowlist Owner em tenant."
     },
@@ -4834,6 +4837,29 @@
         "prPrd": "Merge PR #79"
       },
       "observacoes": "Mesmo endpoint do dashboard analista; apenas status Aprovada selecionável. Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-185",
+      "nome": "[Portal RH] Corrigir pipeline de recrutamento no dashboard do Analista de RH",
+      "descricaoAmigavel": "A seção Pipeline de Recrutamento passa a contar candidatos aprovados e demais etapas usando a mesma carteira de vagas do Kanban e da lista de candidatos.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "16:54",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 70,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Pipeline de Recrutamento no dashboard do Analista de RH exibe 0 aprovados mesmo existindo candidato aprovado.",
+      "entregavel": "Contagem correta das etapas do funil, incluindo aprovados, alinhada à carteira distribuída ao analista.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Causa: escopo restrito a RecrutadorResponsavelUserId, etapa Proposta omitida e título da API não mapeado no frontend."
     }
   ]
 }
