@@ -148,6 +148,7 @@ jobs:
             docker-compose.hmg.yml \
             __scripts__/deploy/hmg-compose-pull-up.sh \
             __scripts__/deploy/docker-deploy-purge.sh \
+            __scripts__/deploy/verify-web-next-health.sh \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/rhportal-hmg/"
 
       - name: Pull images and recreate stack
@@ -167,4 +168,4 @@ jobs:
           rm -f "$LOCAL_ENV"
           ssh -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "set -a && source ~/rhportal-hmg/.deploy.env && set +a && chmod +x ~/rhportal-hmg/hmg-compose-pull-up.sh ~/rhportal-hmg/docker-deploy-purge.sh && bash ~/rhportal-hmg/hmg-compose-pull-up.sh && rm -f ~/rhportal-hmg/.deploy.env"
+            "set -a && source ~/rhportal-hmg/.deploy.env && set +a && chmod +x ~/rhportal-hmg/hmg-compose-pull-up.sh ~/rhportal-hmg/docker-deploy-purge.sh ~/rhportal-hmg/verify-web-next-health.sh && bash ~/rhportal-hmg/hmg-compose-pull-up.sh && rm -f ~/rhportal-hmg/.deploy.env"

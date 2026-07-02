@@ -37,6 +37,11 @@ RUN rm /etc/nginx/conf.d/default.conf
 
 # Config customizado para SPA (basePath: /app)
 COPY --from=build /app/nginx.conf /etc/nginx/conf.d/default.conf
+RUN nginx -t
+
+# Aguarda DNS do serviço api antes de iniciar nginx (rede Docker)
+COPY LioTecnica.Web.Next/scripts/wait-for-api-dns.sh /docker-entrypoint.d/40-wait-for-api-dns.sh
+RUN chmod +x /docker-entrypoint.d/40-wait-for-api-dns.sh
 
 # Copia os arquivos estáticos gerados pelo Next.js
 COPY --from=build /app/out /usr/share/nginx/html/app

@@ -140,7 +140,8 @@ jobs:
           cp docker-compose.prd.yml ~/rhportal-prd/
           cp __scripts__/deploy/prd-compose-pull-up.sh ~/rhportal-prd/
           cp __scripts__/deploy/docker-deploy-purge.sh ~/rhportal-prd/
-          chmod +x ~/rhportal-prd/prd-compose-pull-up.sh ~/rhportal-prd/docker-deploy-purge.sh
+          cp __scripts__/deploy/verify-web-next-health.sh ~/rhportal-prd/
+          chmod +x ~/rhportal-prd/prd-compose-pull-up.sh ~/rhportal-prd/docker-deploy-purge.sh ~/rhportal-prd/verify-web-next-health.sh
 
       - name: Pull images and recreate stack
         run: |
@@ -159,6 +160,6 @@ jobs:
           set -a
           source ~/rhportal-prd/.deploy.env
           set +a
-          chmod +x ~/rhportal-prd/prd-compose-pull-up.sh ~/rhportal-prd/docker-deploy-purge.sh
+          chmod +x ~/rhportal-prd/prd-compose-pull-up.sh ~/rhportal-prd/docker-deploy-purge.sh ~/rhportal-prd/verify-web-next-health.sh
           bash ~/rhportal-prd/prd-compose-pull-up.sh
           rm -f ~/rhportal-prd/.deploy.env
