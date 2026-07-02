@@ -666,7 +666,7 @@
           <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" fill="#005691"/>
           <path d="M12 10H20V12H17V22H15V12H12V10Z" fill="white"/>
         </svg>
-        <span class="brand-name">Portal LioTalent</span>
+        <span class="brand-name">Talent RH</span>
       </div>
       <div class="header-actions">
         <button class="btn-icon" id="btnNotifications" aria-label="Notificações">
@@ -680,7 +680,7 @@
     <!-- Page header -->
     <div class="page-header">
       <div class="page-header-top">
-        <button class="btn-back" id="btnBack" aria-label="Voltar">
+        <button class="btn-back" id="btnBack" aria-label="Voltar" data-route="rh-dashboard">
           <i class="fa-solid fa-arrow-left"></i>
         </button>
         <div class="page-title-block">
@@ -758,7 +758,7 @@
 
     <!-- Sticky actions -->
     <div class="sticky-actions">
-      <button class="btn btn-primary" id="btnDistribuir">
+      <button class="btn btn-primary" id="btnDistribuir" data-route="rh-vagas" data-route-toast="Requisição distribuída para o analista">
         <i class="fa-solid fa-user-plus"></i>
         Distribuir para analista
       </button>
@@ -890,39 +890,21 @@
         $('#statusTime').textContent = `${h}:${m}`;
       }
 
-      function initNav() {
-        document.querySelectorAll('.nav-item').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
-            link.classList.add('active');
-            const label = link.querySelector('span').textContent;
-            if (label !== 'Requisições') {
-              showToast(`${label} — em desenvolvimento`);
-            }
-          });
-        });
-      }
-
       function initActions() {
-        $('#btnBack').addEventListener('click', () => showToast('Voltando para requisições…'));
         $('#btnNotifications').addEventListener('click', () => showToast('8 notificações não lidas'));
-        $('#btnDistribuir').addEventListener('click', () => showToast('Distribuir para analista'));
-        $('#btnCriarVaga').addEventListener('click', () => showToast('Criar vaga a partir da requisição'));
-        $('#linkAprovacoes').addEventListener('click', (e) => {
-          e.preventDefault();
-          document.getElementById('aprov-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
       }
 
       renderSummary();
       renderApprovals();
       renderHistory();
       updateStatusTime();
-      initNav();
       initActions();
       setInterval(updateStatusTime, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-requisicao');
   </script>
 </body>
 </html>

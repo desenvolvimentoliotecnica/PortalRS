@@ -618,7 +618,7 @@
     </main>
 
     <div class="sticky-actions">
-      <button type="button" class="btn btn-accent" id="btnAgendar">
+      <button type="button" class="btn btn-accent" id="btnAgendar" data-route="rh-agenda">
         <i class="fa-regular fa-calendar"></i>
         Agendar entrevista
       </button>
@@ -629,11 +629,11 @@
     </div>
 
     <nav class="bottom-nav" aria-label="Navegação principal">
-      <a href="dashboard-mobile.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Início</span></a>
-      <a href="detalhe-requisicao-mobile.html" class="nav-item"><i class="fa-solid fa-clipboard-list"></i><span>Requisições</span></a>
-      <a href="#" class="nav-item" data-dev><i class="fa-solid fa-briefcase"></i><span>Vagas</span></a>
-      <a href="banco-talentos-mobile.html" class="nav-item active"><i class="fa-solid fa-user-group"></i><span>Candidatos</span></a>
-      <a href="#" class="nav-item" data-dev><i class="fa-solid fa-ellipsis"></i><span>Mais</span></a>
+      <a href="#" class="nav-item" data-nav="inicio"><i class="fa-solid fa-house"></i><span>Início</span></a>
+      <a href="#" class="nav-item" data-nav="requisicoes"><i class="fa-solid fa-clipboard-list"></i><span>Requisições</span></a>
+      <a href="#" class="nav-item" data-nav="vagas"><i class="fa-solid fa-briefcase"></i><span>Vagas</span></a>
+      <a href="#" class="nav-item active" data-nav="candidatos"><i class="fa-solid fa-user-group"></i><span>Candidatos</span></a>
+      <a href="#" class="nav-item" data-nav="mais"><i class="fa-solid fa-ellipsis"></i><span>Mais</span></a>
     </nav>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -723,14 +723,7 @@
 
       function bindEvents() {
         $('#btnNotifications').addEventListener('click', () => showToast('3 notificações não lidas'));
-        $('#btnAgendar').addEventListener('click', () => showToast('Agendar entrevista com Mariana Costa'));
         $('#btnCurriculo').addEventListener('click', () => showToast('Abrir currículo em PDF'));
-        document.querySelectorAll('[data-dev]').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
-          });
-        });
       }
 
       initMatchRing();
@@ -741,6 +734,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-perfil');
   </script>
 </body>
 </html>

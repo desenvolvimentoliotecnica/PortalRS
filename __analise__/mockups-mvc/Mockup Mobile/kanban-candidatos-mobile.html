@@ -614,11 +614,11 @@
     </div>
 
     <nav class="bottom-nav" aria-label="Navegação principal">
-      <a href="dashboard-mobile.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Início</span></a>
-      <a href="detalhe-requisicao-mobile.html" class="nav-item"><i class="fa-solid fa-clipboard-list"></i><span>Requisições</span></a>
-      <a href="#" class="nav-item" data-dev><i class="fa-solid fa-briefcase"></i><span>Vagas</span></a>
-      <a href="banco-talentos-mobile.html" class="nav-item active"><i class="fa-solid fa-user-group"></i><span>Candidatos</span></a>
-      <a href="#" class="nav-item" data-dev><i class="fa-solid fa-ellipsis"></i><span>Mais</span></a>
+      <a href="#" class="nav-item" data-nav="inicio"><i class="fa-solid fa-house"></i><span>Início</span></a>
+      <a href="#" class="nav-item" data-nav="requisicoes"><i class="fa-solid fa-clipboard-list"></i><span>Requisições</span></a>
+      <a href="#" class="nav-item" data-nav="vagas"><i class="fa-solid fa-briefcase"></i><span>Vagas</span></a>
+      <a href="#" class="nav-item active" data-nav="candidatos"><i class="fa-solid fa-user-group"></i><span>Candidatos</span></a>
+      <a href="#" class="nav-item" data-nav="mais"><i class="fa-solid fa-ellipsis"></i><span>Mais</span></a>
     </nav>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -793,16 +793,9 @@
             showToast('Selecione um candidato para ver o perfil');
             return;
           }
-          const name = document.querySelector(`[data-id="${selectedCardId}"]`)?.dataset.name;
-          showToast(`Abrir perfil: ${name}`);
+          window.location.href = 'perfil-candidato-mobile.html';
         });
 
-        document.querySelectorAll('[data-dev]').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
-          });
-        });
       }
 
       renderTabs();
@@ -812,6 +805,10 @@
       setInterval(updateClock, 60000);
       requestAnimationFrame(() => scrollToColumn('triagem'));
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-kanban');
   </script>
 </body>
 </html>

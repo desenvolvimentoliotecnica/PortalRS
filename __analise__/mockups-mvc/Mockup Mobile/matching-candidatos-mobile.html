@@ -934,6 +934,7 @@
           link.addEventListener('click', (e) => {
             const href = link.getAttribute('href');
             if (href && href !== '#') return;
+            if (link.dataset.route) return;
             e.preventDefault();
             showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
           });
@@ -947,6 +948,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-matching');
   </script>
 </body>
 </html>

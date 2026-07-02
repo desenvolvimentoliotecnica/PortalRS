@@ -673,7 +673,7 @@
       }
 
       function bindEvents() {
-        $('#btnProfile').addEventListener('click', () => showToast('Acessar perfil do candidato'));
+        $('#btnProfile').addEventListener('click', () => { window.location.href = 'portal-area-candidato-mobile.html'; });
         $('#btnCandidatar').addEventListener('click', () => {
           window.location.href = 'portal-candidatura-mobile.html';
         });
@@ -690,6 +690,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('pub-vaga');
   </script>
 </body>
 </html>

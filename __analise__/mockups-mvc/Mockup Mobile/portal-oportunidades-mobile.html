@@ -682,8 +682,8 @@
       function bindEvents() {
         $('#btnMenu').addEventListener('click', () => showToast('Menu do portal'));
         $('#btnFilters').addEventListener('click', () => showToast('Filtros avançados'));
-        $('#btnEntrar').addEventListener('click', () => showToast('Entrar no portal de candidatos'));
-        $('#btnCriar').addEventListener('click', () => showToast('Criar conta de candidato'));
+        $('#btnEntrar').addEventListener('click', () => { window.location.href = 'portal-area-candidato-mobile.html'; });
+        $('#btnCriar').addEventListener('click', () => { window.location.href = 'portal-area-candidato-mobile.html'; });
 
         $('#searchInput').addEventListener('input', (e) => {
           searchQuery = e.target.value;
@@ -720,6 +720,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('pub-oportunidades');
   </script>
 </body>
 </html>
