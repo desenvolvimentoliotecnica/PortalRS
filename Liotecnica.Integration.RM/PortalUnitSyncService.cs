@@ -87,6 +87,7 @@ public sealed class PortalUnitSyncService
         _logWriter.WriteLine($"Sync Unidades: enviando {items.Count} itens ({ (isGfilial ? "GFILIAL" : "LUNIDADE") } -> api/units)");
 
         var codeToId = await LoadExistingUnitsAsync(ct);
+        var empresaLookup = BuildEmpresaLookup(await LoadExistingEmpresasAsync(ct));
 
         var created = 0;
         var updated = 0;
@@ -96,8 +97,8 @@ public sealed class PortalUnitSyncService
             try
             {
                 UnitCreateRequest? body = row.TryGetProperty("CODFILIAL", out _)
-                    ? MapGfilialToUnit(row)
-                    : MapLunidadeToUnit(row);
+                    ? MapGfilialToUnit(row, empresaLookup)
+                    : MapLunidadeToUnit(row, empresaLookup);
 
                 if (body == null)
                     continue;
@@ -181,6 +182,84 @@ public sealed class PortalUnitSyncService
 
     private static string? NormalizeCode(string? code) => string.IsNullOrWhiteSpace(code) ? null : code.Trim();
 
+    private async Task<Dictionary<string, Guid>> LoadExistingEmpresasAsync(CancellationToken ct)
+    {
+        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var list = await _portalClient.Http.GetFromJsonAsync<List<EmpresaItem>>("api/empresas?take=5000", JsonOptions, ct);
+            if (list is not null)
+            {
+                foreach (var e in list)
+                {
+                    var key = NormalizeCode(e.Code);
+                    if (!string.IsNullOrEmpty(key))
+                        map[key] = e.Id;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao carregar empresas existentes do portal; unidades podem ficar sem EmpresaId.");
+            _logWriter.WriteLine($"Sync Unidades: falha ao carregar empresas - {ex.Message}");
+        }
+
+        return map;
+    }
+
+    private static Dictionary<string, Guid> BuildEmpresaLookup(Dictionary<string, Guid> empresasByCode)
+    {
+        var lookup = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (code, id) in empresasByCode)
+        {
+            foreach (var variant in BuildCodeCandidates(code))
+            {
+                if (!lookup.ContainsKey(variant))
+                    lookup[variant] = id;
+            }
+        }
+
+        return lookup;
+    }
+
+    private static Guid? ResolveEmpresaId(Dictionary<string, Guid> lookup, string? codFilial, int? codColigada)
+    {
+        foreach (var code in BuildEmpresaCodeCandidates(codFilial, codColigada))
+        {
+            if (lookup.TryGetValue(code, out var id))
+                return id;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> BuildEmpresaCodeCandidates(string? codFilial, int? codColigada)
+    {
+        foreach (var code in BuildCodeCandidates(codFilial))
+            yield return code;
+
+        if (codColigada.HasValue)
+        {
+            foreach (var code in BuildCodeCandidates(codColigada.Value.ToString()))
+                yield return code;
+        }
+    }
+
+    private static IEnumerable<string> BuildCodeCandidates(string? rawCode)
+    {
+        var value = rawCode?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            yield break;
+
+        yield return value;
+
+        if (int.TryParse(value, out var numeric))
+        {
+            yield return numeric.ToString();
+            yield return numeric.ToString().PadLeft(2, '0');
+        }
+    }
+
     private string GetSchemaTablesPath()
     {
         var path = _outputOptions.SchemaTablesPath?.Trim();
@@ -191,10 +270,13 @@ public sealed class PortalUnitSyncService
     }
 
     /// <summary>Mapeia linha GFILIAL (estabelecimentos) para Unit do Portal.</summary>
-    private static UnitCreateRequest? MapGfilialToUnit(JsonElement row)
+    private static UnitCreateRequest? MapGfilialToUnit(JsonElement row, Dictionary<string, Guid> empresaLookup)
     {
         var codeRaw = row.TryGetProperty("CODFILIAL", out var c) ? c : default;
         var code = (codeRaw.ValueKind == JsonValueKind.Number ? codeRaw.ToString() : codeRaw.GetString())?.Trim();
+        int? codColigada = null;
+        if (row.TryGetProperty("CODCOLIGADA", out var col) && col.ValueKind == JsonValueKind.Number)
+            codColigada = col.GetInt32();
         var name = (row.TryGetProperty("NOME", out var n) ? n.GetString() : null)
             ?? (row.TryGetProperty("NOMEFANTASIA", out var nf) ? nf.GetString() : null)
             ?? code;
@@ -221,15 +303,19 @@ public sealed class PortalUnitSyncService
             ResponsibleName: row.TryGetProperty("CONTATO", out var cont) ? cont.GetString()?.Trim() : null,
             Type: null,
             Headcount: 0,
-            Notes: null
+            Notes: null,
+            EmpresaId: ResolveEmpresaId(empresaLookup, code, codColigada)
         );
     }
 
     /// <summary>Mapeia linha LUNIDADE para Unit do Portal.</summary>
-    private static UnitCreateRequest? MapLunidadeToUnit(JsonElement row)
+    private static UnitCreateRequest? MapLunidadeToUnit(JsonElement row, Dictionary<string, Guid> empresaLookup)
     {
         var codeRaw = row.TryGetProperty("CODIGO", out var c) ? c : default;
         var code = (codeRaw.ValueKind == JsonValueKind.Number ? codeRaw.ToString() : codeRaw.GetString())?.Trim();
+        int? codColigada = null;
+        if (row.TryGetProperty("CODCOLIGADA", out var col) && col.ValueKind == JsonValueKind.Number)
+            codColigada = col.GetInt32();
         var name = row.TryGetProperty("UNIDADE", out var u) ? u.GetString()?.Trim() : null ?? code;
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
             return null;
@@ -250,7 +336,8 @@ public sealed class PortalUnitSyncService
             ResponsibleName: null,
             Type: null,
             Headcount: 0,
-            Notes: null
+            Notes: null,
+            EmpresaId: ResolveEmpresaId(empresaLookup, code, codColigada)
         );
     }
 
@@ -268,8 +355,11 @@ public sealed class PortalUnitSyncService
         string? ResponsibleName,
         string? Type,
         int Headcount,
-        string? Notes
+        string? Notes,
+        Guid? EmpresaId
     );
+
+    private sealed record EmpresaItem(Guid Id, string Code, string Description, bool IsActive);
 
     private sealed record UnitResponse(Guid Id, string Code, string Name, int Status, string? City, string? Uf,
         string? AddressLine, string? Neighborhood, string? ZipCode, string? Email, string? Phone,
