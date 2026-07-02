@@ -24,6 +24,7 @@ RUN --mount=type=cache,id=rhportal-web-pnpm,target=/root/.local/share/pnpm/store
 
 # Copia source e faz o build estático
 COPY LioTecnica.Web.Next/ ./
+COPY __analise__/mockups-mvc/Mockup Mobile ./public/mockups-mobile
 RUN --mount=type=cache,id=rhportal-web-next,target=/app/.next/cache \
     npm run build
 

@@ -20,6 +20,7 @@ tests/uat-automatizados/*
 # next.js
 /.next/
 /out/
+/public/mockups-mobile
 
 # production
 /build

@@ -25,6 +25,8 @@ knowledge-base
 test-evidence
 Vagas validacao
 __analise__
+!__analise__/mockups-mvc/
+!__analise__/mockups-mvc/**
 __scripts__/deploy/out
 __scripts__/deploy/gui/build
 __scripts__/deploy/gui/dist
