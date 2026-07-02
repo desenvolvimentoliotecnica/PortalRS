@@ -9,8 +9,11 @@ WEB_NEXT_WAIT_ATTEMPTS="${WEB_NEXT_WAIT_ATTEMPTS:-45}"
 attempt=0
 while (( attempt < WEB_NEXT_WAIT_ATTEMPTS )); do
   if curl -fsS "$WEB_NEXT_HEALTH_URL" >/dev/null 2>&1; then
-    echo "OK: Portal Admin responde em $WEB_NEXT_HEALTH_URL"
-    exit 0
+    if curl -fsS "http://127.0.0.1:3000/api/health" 2>/dev/null | grep -qi healthy; then
+      echo "OK: Portal Admin responde em $WEB_NEXT_HEALTH_URL e proxy /api/health OK"
+      exit 0
+    fi
+    echo "WARN: $WEB_NEXT_HEALTH_URL OK mas /api/health ainda falha (tentativa $((attempt + 1))/$WEB_NEXT_WAIT_ATTEMPTS)"
   fi
   attempt=$((attempt + 1))
   sleep 2
