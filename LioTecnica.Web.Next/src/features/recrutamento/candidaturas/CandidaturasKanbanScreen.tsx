@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -121,8 +121,29 @@ function shouldScheduleInterview(etapa: EtapaMacroCandidatura) {
   return etapa === "Entrevista" || etapa === "EntrevistaTecnica";
 }
 
+type EntrevistaCriadaDialogState = {
+  candidatoNome: string;
+  etapaLabel: string;
+  onlineMeetingJoinUrl: string;
+};
+
 function optionLabel(option: ResponsavelEntrevistaOption) {
   return option.email ? `${option.nome} <${option.email}>` : option.nome;
+}
+
+async function fetchParticipantesAgenda(q: string): Promise<ResponsavelEntrevistaOption[]> {
+  const params = new URLSearchParams({ pageSize: "30" });
+  if (q.trim()) params.set("q", q.trim());
+  const res = await apiFetch(`/api/lookup/participantes-agenda?${params.toString()}`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { items?: Array<{ id?: string; nome?: string; email?: string | null }> };
+  return (data.items ?? [])
+    .map((item) => ({
+      id: String(item.id ?? ""),
+      nome: String(item.nome ?? ""),
+      email: item.email ?? null,
+    }))
+    .filter((item) => item.id && item.nome);
 }
 
 export default function CandidaturasKanbanScreen() {
@@ -136,9 +157,12 @@ export default function CandidaturasKanbanScreen() {
   const [hoverEtapa, setHoverEtapa] = useState<EtapaMacroCandidatura | null>(null);
   const [detailItem, setDetailItem] = useState<KanbanCandidaturaItem | null>(null);
   const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
-  const [responsaveis, setResponsaveis] = useState<ResponsavelEntrevistaOption[]>([]);
+  const [lookupOptions, setLookupOptions] = useState<ResponsavelEntrevistaOption[]>([]);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [responsavelOpen, setResponsavelOpen] = useState(false);
   const [participanteOpen, setParticipanteOpen] = useState(false);
+  const [entrevistaCriadaDialog, setEntrevistaCriadaDialog] = useState<EntrevistaCriadaDialogState | null>(null);
+  const lookupSearchGen = useRef(0);
   const [proposalRedirect, setProposalRedirect] = useState<KanbanCandidaturaItem | null>(null);
   // Sessão 31.8 — explicabilidade do matching
   const matchDialog = useMatchingBreakdownDialog();
@@ -207,21 +231,53 @@ export default function CandidaturasKanbanScreen() {
   }, []);
 
   useEffect(() => {
-    let alive = true;
-    void apiFetch("/api/lookup/funcionarios?pageSize=200&onlyActive=true")
-      .then((res) => res.ok ? res.json() : { items: [] })
-      .then((data: { items?: Array<{ id?: string; nome?: string; email?: string | null }> }) => {
-        if (!alive) return;
-        const items = (data.items ?? [])
-          .map((f) => ({ id: String(f.id ?? ""), nome: String(f.nome ?? ""), email: f.email ?? null }))
-          .filter((f) => f.id && f.nome);
-        setResponsaveis(items);
-      })
-      .catch(() => {
-        if (alive) setResponsaveis([]);
-      });
-    return () => { alive = false; };
-  }, []);
+    if (!moveDialog || (!responsavelOpen && !participanteOpen)) return;
+
+    const q = responsavelOpen
+      ? moveDialog.entrevista.responsavelBusca.trim()
+      : moveDialog.entrevista.participanteBusca.trim();
+
+    if (q.length > 0 && q.length < 2) {
+      setLookupOptions([]);
+      setLookupLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const gen = ++lookupSearchGen.current;
+      setLookupLoading(true);
+      void fetchParticipantesAgenda(q)
+        .then((items) => {
+          if (gen !== lookupSearchGen.current) return;
+          setLookupOptions(items);
+        })
+        .catch(() => {
+          if (gen !== lookupSearchGen.current) return;
+          setLookupOptions([]);
+        })
+        .finally(() => {
+          if (gen !== lookupSearchGen.current) return;
+          setLookupLoading(false);
+        });
+    }, q ? 250 : 0);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    moveDialog,
+    moveDialog?.entrevista.participanteBusca,
+    moveDialog?.entrevista.responsavelBusca,
+    participanteOpen,
+    responsavelOpen,
+  ]);
+
+  const filteredResponsaveis = useMemo(() => lookupOptions.slice(0, 30), [lookupOptions]);
+
+  const filteredParticipantes = useMemo(() => {
+    const selected = new Set(moveDialog?.entrevista.participantesOpcionais.map((p) => p.toLowerCase()) ?? []);
+    return lookupOptions
+      .filter((r) => !selected.has(optionLabel(r).toLowerCase()))
+      .slice(0, 30);
+  }, [lookupOptions, moveDialog?.entrevista.participantesOpcionais]);
 
   const columns = useMemo(() => {
     const map = new Map<EtapaMacroCandidatura, KanbanCandidaturaItem[]>();
@@ -243,28 +299,6 @@ export default function CandidaturasKanbanScreen() {
     for (const [k, v] of columns) t[k] = v.length;
     return t;
   }, [columns]);
-
-  const filteredResponsaveis = useMemo(() => {
-    const q = moveDialog?.entrevista.responsavelBusca.trim().toLowerCase() ?? "";
-    return responsaveis
-      .filter((r) => {
-        if (!q) return true;
-        return r.nome.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q);
-      })
-      .slice(0, 12);
-  }, [moveDialog?.entrevista.responsavelBusca, responsaveis]);
-
-  const filteredParticipantes = useMemo(() => {
-    const q = moveDialog?.entrevista.participanteBusca.trim().toLowerCase() ?? "";
-    const selected = new Set(moveDialog?.entrevista.participantesOpcionais.map((p) => p.toLowerCase()) ?? []);
-    return responsaveis
-      .filter((r) => !selected.has(optionLabel(r).toLowerCase()))
-      .filter((r) => {
-        if (!q) return true;
-        return r.nome.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q);
-      })
-      .slice(0, 12);
-  }, [moveDialog?.entrevista.participanteBusca, moveDialog?.entrevista.participantesOpcionais, responsaveis]);
 
   const onDropTo = (etapa: EtapaMacroCandidatura) => {
     setHoverEtapa(null);
@@ -316,10 +350,18 @@ export default function CandidaturasKanbanScreen() {
 
     setMoveDialog((prev) => prev ? { ...prev, saving: true } : prev);
     try {
-      await avancarEtapa(item.id, destino, observacao.trim() || null, entrevistaPayload);
+      const result = await avancarEtapa(item.id, destino, observacao.trim() || null, entrevistaPayload);
       toast.success(shouldScheduleInterview(destino) ? `Movido para ${ETAPA_LABELS[destino]} e compromisso criado na agenda.` : `Movido para ${ETAPA_LABELS[destino]}.`);
       setMoveDialog(null);
       await load();
+      const joinUrl = result.entrevista?.onlineMeetingJoinUrl?.trim();
+      if (joinUrl && shouldScheduleInterview(destino)) {
+        setEntrevistaCriadaDialog({
+          candidatoNome: item.candidatoNome,
+          etapaLabel: ETAPA_LABELS[destino],
+          onlineMeetingJoinUrl: joinUrl,
+        });
+      }
       if (destino === "Proposta") {
         setProposalRedirect(item);
       }
@@ -655,7 +697,9 @@ export default function CandidaturasKanbanScreen() {
                       />
                       {responsavelOpen && !moveDialog.saving && (
                         <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-violet-200 bg-white py-1 text-sm shadow-lg">
-                          {filteredResponsaveis.length === 0 ? (
+                          {lookupLoading ? (
+                            <div className="px-3 py-2 text-xs text-neutral-500">Buscando…</div>
+                          ) : filteredResponsaveis.length === 0 ? (
                             <div className="px-3 py-2 text-xs text-neutral-500">Nenhum usuário encontrado.</div>
                           ) : (
                             filteredResponsaveis.map((r) => {
@@ -729,7 +773,9 @@ export default function CandidaturasKanbanScreen() {
                       </div>
                       {participanteOpen && !moveDialog.saving && (
                         <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-violet-200 bg-white py-1 text-sm shadow-lg">
-                          {filteredParticipantes.length === 0 ? (
+                          {lookupLoading ? (
+                            <div className="px-3 py-2 text-xs text-neutral-500">Buscando…</div>
+                          ) : filteredParticipantes.length === 0 ? (
                             <div className="px-3 py-2 text-xs text-neutral-500">Nenhum usuário encontrado.</div>
                           ) : (
                             filteredParticipantes.map((r) => {
@@ -893,6 +939,62 @@ export default function CandidaturasKanbanScreen() {
             >
               Criar proposta
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!entrevistaCriadaDialog}
+        onOpenChange={(open) => {
+          if (!open) setEntrevistaCriadaDialog(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Entrevista agendada</DialogTitle>
+            <DialogDescription>
+              Compromisso criado na agenda{entrevistaCriadaDialog ? ` — ${entrevistaCriadaDialog.etapaLabel}` : ""}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {entrevistaCriadaDialog && (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-950">
+                <div className="font-medium">{entrevistaCriadaDialog.candidatoNome}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">Link de ingresso Teams</div>
+                <a
+                  href={entrevistaCriadaDialog.onlineMeetingJoinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 block break-all text-sm text-violet-700 underline"
+                >
+                  {entrevistaCriadaDialog.onlineMeetingJoinUrl}
+                </a>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!entrevistaCriadaDialog) return;
+                void navigator.clipboard.writeText(entrevistaCriadaDialog.onlineMeetingJoinUrl)
+                  .then(() => toast.success("Link copiado."))
+                  .catch(() => toast.error("Não foi possível copiar o link."));
+              }}
+            >
+              Copiar link
+            </Button>
+            {entrevistaCriadaDialog ? (
+              <Button asChild>
+                <a href={entrevistaCriadaDialog.onlineMeetingJoinUrl} target="_blank" rel="noopener noreferrer">
+                  Entrar na reunião
+                </a>
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

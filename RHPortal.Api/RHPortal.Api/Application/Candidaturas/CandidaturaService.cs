@@ -14,8 +14,8 @@ public interface ICandidaturaService
 {
     Task<Candidatura> GetOrCreateAsync(Guid candidatoId, Guid vagaId, string? fonte, string? obs, CancellationToken ct);
     Task<IReadOnlyList<CandidaturaResponse>> ListarDoCandidatoAsync(Guid candidatoId, CancellationToken ct);
-    Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct);
-    Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct);
+    Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct);
+    Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct);
     Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct);
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
     Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct);
@@ -217,10 +217,10 @@ public sealed class CandidaturaService : ICandidaturaService
         )).ToList();
     }
 
-    public Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct)
+    public Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct)
         => AvancarEtapaAsync(candidaturaId, novaEtapa, observacao, null, ct);
 
-    public async Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct)
+    public async Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct)
     {
         var cand = await _db.Candidaturas.FirstOrDefaultAsync(x => x.Id == candidaturaId, ct);
         if (cand is null) return null;
@@ -229,7 +229,11 @@ public sealed class CandidaturaService : ICandidaturaService
             or CandidaturaStatus.Desistiu or CandidaturaStatus.Arquivada)
             throw new InvalidOperationException("Candidatura encerrada — não é possível mudar etapa.");
 
-        if (cand.EtapaMacro == novaEtapa) return await BuildSingle(cand.Id, ct);
+        if (cand.EtapaMacro == novaEtapa)
+        {
+            var same = await BuildSingle(cand.Id, ct);
+            return same is null ? null : new AvancarEtapaResponse(same, null);
+        }
 
         var etapaAnterior = cand.EtapaMacro;
         var now = DateTimeOffset.UtcNow;
@@ -267,8 +271,21 @@ public sealed class CandidaturaService : ICandidaturaService
 
         await _db.SaveChangesAsync(ct);
 
+        EntrevistaAgendadaResponse? entrevistaAgendada = null;
         if (agendaEntrevista is not null)
+        {
             await _agendaGraphSync.TrySyncCreateAsync(agendaEntrevista.Id, ct);
+            var synced = await _db.AgendaEvents.AsNoTracking()
+                .Where(e => e.Id == agendaEntrevista.Id)
+                .Select(e => new { e.Id, e.OnlineMeetingJoinUrl })
+                .FirstOrDefaultAsync(ct);
+            if (synced is not null)
+            {
+                entrevistaAgendada = new EntrevistaAgendadaResponse(
+                    synced.Id,
+                    synced.OnlineMeetingJoinUrl);
+            }
+        }
 
         // Mantém o cache Candidato.VagaId alinhado com a candidatura ativa mais recente:
         //  - se esta candidatura acabou de ser encerrada, Candidato aponta pra próxima ativa (ou preserva cache).
@@ -284,7 +301,8 @@ public sealed class CandidaturaService : ICandidaturaService
             _logger.LogWarning(ex, "Falha best-effort ao notificar mudança de etapa da candidatura {CandidaturaId} ({EtapaAnterior}→{EtapaNova})", cand.Id, etapaAnterior, novaEtapa);
         }
 
-        return await BuildSingle(cand.Id, ct);
+        var candidatura = await BuildSingle(cand.Id, ct);
+        return candidatura is null ? null : new AvancarEtapaResponse(candidatura, entrevistaAgendada);
     }
 
     private async Task<AgendaEvent> CriarEventoEntrevistaAsync(Candidatura cand, EtapaMacroCandidatura etapa, AgendarEntrevistaCandidaturaRequest request, CancellationToken ct)

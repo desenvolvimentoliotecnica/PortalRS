@@ -254,7 +254,7 @@ public sealed class CandidaturaServiceTests
         var r = await svc.AvancarEtapaAsync(c.Id, EtapaMacroCandidatura.EmTriagem, "passou pela IA", default);
 
         Assert.NotNull(r);
-        Assert.Equal(EtapaMacroCandidatura.EmTriagem, r!.EtapaMacro);
+        Assert.Equal(EtapaMacroCandidatura.EmTriagem, r!.Candidatura.EtapaMacro);
 
         var hist = db.CandidaturaEtapaHistoricos.OrderBy(h => h.EmUtc).ToList();
         Assert.Equal(2, hist.Count);
@@ -287,7 +287,7 @@ public sealed class CandidaturaServiceTests
 
         var r = await svc.AvancarEtapaAsync(c.Id, EtapaMacroCandidatura.Contratado, null, default);
 
-        Assert.Equal(CandidaturaStatus.Contratado, r!.Status);
+        Assert.Equal(CandidaturaStatus.Contratado, r!.Candidatura.Status);
     }
 
     [Fact]

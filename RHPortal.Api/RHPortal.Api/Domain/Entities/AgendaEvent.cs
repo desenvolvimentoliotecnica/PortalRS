@@ -38,6 +38,9 @@ public sealed class AgendaEvent : ITenantEntity
     /// <summary>UPN do calendário onde o evento foi criado no Graph.</summary>
     public string? GraphCalendarUserUpn { get; set; }
 
+    /// <summary>Link de ingresso Teams quando o evento é reunião online sincronizada com Outlook.</summary>
+    public string? OnlineMeetingJoinUrl { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }
