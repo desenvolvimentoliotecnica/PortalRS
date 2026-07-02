@@ -217,10 +217,38 @@ function parseApiError(text: string): string {
     const detail = typeof json.detail === "string" ? json.detail : "";
     const title = typeof json.title === "string" ? json.title : "";
     const message = typeof json.message === "string" ? json.message : "";
-    return detail || message || title || text;
+    return toUserFriendlyApiError(detail || message || title || text);
   } catch {
-    return text;
+    return toUserFriendlyApiError(text);
   }
+}
+
+function toUserFriendlyApiError(raw: string): string {
+  const text = raw.trim();
+  if (!text) return "Não foi possível concluir a operação. Tente novamente.";
+
+  const technicalPatterns: Array<{ pattern: RegExp; message: string }> = [
+    {
+      pattern: /element of type 'Object'.*type 'String'/i,
+      message: "Não foi possível carregar as salas do Microsoft 365. Verifique a integração Outlook com o suporte de TI.",
+    },
+    {
+      pattern: /element of type 'String'.*type 'Object'/i,
+      message: "Não foi possível carregar as salas do Microsoft 365. Verifique a integração Outlook com o suporte de TI.",
+    },
+    { pattern: /^HTTP_\d+$/i, message: "Serviço temporariamente indisponível. Tente novamente em instantes." },
+    { pattern: /Microsoft Graph retornou/i, message: "Integração com Outlook indisponível no momento. Tente novamente ou escolha Online." },
+    { pattern: /Place\.Read\.All/i, message: "Permissão de salas não configurada no Microsoft 365. Solicite Place.Read.All ao suporte de TI." },
+  ];
+
+  for (const { pattern, message } of technicalPatterns) {
+    if (pattern.test(text)) return message;
+  }
+
+  if (/^(System\.|Microsoft\.|JsonException|InvalidOperationException|NullReferenceException)/i.test(text))
+    return "Ocorreu um erro inesperado. Tente novamente ou contate o suporte.";
+
+  return text;
 }
 
 
@@ -458,7 +486,11 @@ export default function AgendasScreen() {
       .catch((err: unknown) => {
         if (!alive) return;
         setMeetingRooms([]);
-        setMeetingRoomsError(err instanceof Error ? err.message : "Não foi possível carregar salas do Microsoft 365.");
+        setMeetingRoomsError(
+          err instanceof Error
+            ? toUserFriendlyApiError(err.message)
+            : "Não foi possível carregar salas do Microsoft 365.",
+        );
       })
       .finally(() => {
         if (alive) setMeetingRoomsLoading(false);
@@ -495,7 +527,9 @@ export default function AgendasScreen() {
         .catch((err: unknown) => {
           setMeetingRooms([]);
           setMeetingRoomsError(
-            err instanceof Error ? err.message : "Não foi possível consultar disponibilidade das salas.",
+            err instanceof Error
+              ? toUserFriendlyApiError(err.message)
+              : "Não foi possível consultar disponibilidade das salas.",
           );
         })
         .finally(() => setRoomAvailabilityLoading(false));
