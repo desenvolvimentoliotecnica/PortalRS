@@ -5384,7 +5384,7 @@
       "conclusao": null,
       "horarioConclusao": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "percentualConcluido": 95,
       "pedidoOriginal": "Implementar seleção de sala de reunião no modal de agenda com 3 opções: Online (Teams), Presencial (sala com disponibilidade) e Híbrido (Teams + sala). Sem fallback — bloquear campo se Graph não retornar salas.",
       "entregavel": "Endpoints meeting-rooms e availability; campos MeetingFormat/RoomEmail na API; seletor de formato e sala no frontend; reserva como resource attendee no Outlook.",
       "responsavel": "Lucas Muniz Machado",

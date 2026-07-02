@@ -20,6 +20,9 @@ public sealed record ScheduleEventResponse(
     bool AllDay,
     string Status,
     string? Location,
+    string? MeetingFormat,
+    string? RoomEmail,
+    string? RoomDisplayName,
     string? Owner,
     string? Candidate,
     string? VagaTitle,
@@ -56,6 +59,9 @@ public sealed record ScheduleEventCreateRequest(
     bool AllDay,
     [Required, MaxLength(40)] string Status,
     [MaxLength(160)] string? Location,
+    [Required, MaxLength(20)] string MeetingFormat,
+    [MaxLength(320)] string? RoomEmail,
+    [MaxLength(160)] string? RoomDisplayName,
     [MaxLength(120)] string? Owner,
     [MaxLength(160)] string? Candidate,
     [MaxLength(200)] string? VagaTitle,
@@ -71,6 +77,9 @@ public sealed record ScheduleEventUpdateRequest(
     bool AllDay,
     [Required, MaxLength(40)] string Status,
     [MaxLength(160)] string? Location,
+    [Required, MaxLength(20)] string MeetingFormat,
+    [MaxLength(320)] string? RoomEmail,
+    [MaxLength(160)] string? RoomDisplayName,
     [MaxLength(120)] string? Owner,
     [MaxLength(160)] string? Candidate,
     [MaxLength(200)] string? VagaTitle,
@@ -101,4 +110,10 @@ public sealed record SuggestInterviewTimeRequest(
     [Required] DateTime SuggestedStartAtUtc,
     [Required] DateTime SuggestedEndAtUtc,
     [MaxLength(1000)] string? Message
+);
+
+public sealed record MeetingRoomAvailabilityRequest(
+    [Required] DateTime StartAtUtc,
+    [Required] DateTime EndAtUtc,
+    [MaxLength(256)] string? Owner
 );

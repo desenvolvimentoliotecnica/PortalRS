@@ -5,6 +5,7 @@ using RhPortal.Api.Application.MicrosoftGraph;
 using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -71,6 +72,80 @@ public sealed class AgendaController : ControllerBase
     {
         var items = await graphService.ListEventsAsync(start, end, ct);
         return Ok(items);
+    }
+
+    /// <summary>
+    /// Lista salas de reunião cadastradas no Microsoft 365 (room mailboxes).
+    /// </summary>
+    [RequirePermission("agenda.view")]
+    [HttpGet("meeting-rooms")]
+    [ProducesResponseType(typeof(IReadOnlyList<GraphMeetingRoomDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<IReadOnlyList<GraphMeetingRoomDto>>> ListMeetingRooms(
+        [FromServices] IMicrosoftGraphCalendarService graphService,
+        CancellationToken ct)
+    {
+        try
+        {
+            var rooms = await graphService.ListMeetingRoomsAsync(ct);
+            return Ok(rooms);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Salas indisponíveis",
+                Detail = ex.Message,
+                Status = StatusCodes.Status503ServiceUnavailable,
+            });
+        }
+    }
+
+    /// <summary>
+    /// Consulta disponibilidade das salas no horário informado.
+    /// </summary>
+    [RequirePermission("agenda.view")]
+    [HttpPost("meeting-rooms/availability")]
+    [ProducesResponseType(typeof(IReadOnlyList<GraphMeetingRoomAvailabilityDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<IReadOnlyList<GraphMeetingRoomAvailabilityDto>>> GetMeetingRoomAvailability(
+        [FromBody] MeetingRoomAvailabilityRequest request,
+        [FromServices] IMicrosoftGraphCalendarService graphService,
+        [FromServices] ICurrentUserContext currentUser,
+        [FromServices] AgendaService agendaService,
+        CancellationToken ct)
+    {
+        try
+        {
+            var ownerUpn = await agendaService.ResolveCalendarOwnerUpnAsync(request.Owner, ct)
+                           ?? currentUser.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(ownerUpn))
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Responsável obrigatório",
+                    Detail = "Informe o responsável ou autentique-se com um usuário corporativo.",
+                    Status = StatusCodes.Status400BadRequest,
+                });
+            }
+
+            var rooms = await graphService.GetMeetingRoomAvailabilityAsync(
+                ownerUpn,
+                request.StartAtUtc,
+                request.EndAtUtc,
+                ct);
+            return Ok(rooms);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Disponibilidade indisponível",
+                Detail = ex.Message,
+                Status = StatusCodes.Status503ServiceUnavailable,
+            });
+        }
     }
 
     /// <summary>
