@@ -158,6 +158,8 @@ public sealed class CriarVagaServiceTests
             CentroCustoId: centroCustoId,
             TurnoId: null,
             UnidadeLotacaoId: null,
+            EmpresaId: null,
+            UnitId: null,
             EixoVagaId: null,
             DescricaoCargoId: null,
             PesoCompetencia: null,

@@ -227,6 +227,14 @@ namespace RHPortal.Api.Domain.Entities
         public TimeOnly? HoraSaida { get; set; }           // vagaHoraSaida (17:00)
         public TimeSpan? Intervalo { get; set; }           // vagaIntervalo (01:00)
 
+        /// <summary>Empresa do tenant à qual o local físico da vaga pertence.</summary>
+        public Guid? EmpresaId { get; set; }
+        public Empresa? Empresa { get; set; }
+
+        /// <summary>Estabelecimento/local físico da vaga (Fábrica, Sede, etc.).</summary>
+        public Guid? UnitId { get; set; }
+        public Unit? Unit { get; set; }
+
         [StringLength(10)]
         public string? Cep { get; set; }                   // vagaCep
         [StringLength(160)]

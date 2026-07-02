@@ -1660,6 +1660,19 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Cidade).HasMaxLength(120);
             b.Property(x => x.Uf).HasMaxLength(2);
 
+            b.HasOne(x => x.Empresa)
+                .WithMany()
+                .HasForeignKey(x => x.EmpresaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.Unit)
+                .WithMany()
+                .HasForeignKey(x => x.UnitId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.EmpresaId);
+            b.HasIndex(x => new { x.TenantId, x.UnitId });
+
             b.Property(x => x.PoliticaTrabalho).HasMaxLength(200);
             b.Property(x => x.ObservacoesDeslocamento).HasMaxLength(200);
             b.Property(x => x.ObservacoesRemuneracao).HasMaxLength(240);
