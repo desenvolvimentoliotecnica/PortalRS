@@ -242,7 +242,7 @@ function mapPipeline(funil: FunilCandidaturas | null): PipelineItem[] {
     { label: "Triagem", value: findTotal("triagem"), hint: "Total atual", tone: "green" },
     { label: "Entrevista", value: findTotal("entrevista"), hint: "Total atual", tone: "purple" },
     { label: "Teste", value: findTotal("teste"), hint: "Total atual", tone: "amber" },
-    { label: "Aprovados", value: findTotal("contratad", "aprovad"), hint: "Total atual", tone: "green" },
+    { label: "Aprovados", value: findTotal("contratad", "aprovad", "processo", "proposta"), hint: "Total atual", tone: "green" },
   ];
 }
 

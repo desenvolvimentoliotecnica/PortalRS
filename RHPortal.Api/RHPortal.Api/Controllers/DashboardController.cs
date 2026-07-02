@@ -14,6 +14,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using System.Globalization;
 using System.Text;
@@ -324,7 +325,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
 
     /// <summary>
     /// Indicadores principais da carteira da Analista de RH logada.
-    /// Escopo: vagas onde <c>RecrutadorResponsavelUserId</c> é a usuária atual.
+    /// Escopo: vagas atribuídas via <c>RecrutadorResponsavelUserId</c> ou distribuição em <c>SolicitacaoVaga</c>.
     /// </summary>
     [HttpGet("analista-rh/kpis")]
     [ProducesResponseType(typeof(DashboardKpisResponse), StatusCodes.Status200OK)]
@@ -344,8 +345,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         var opts = slaOptions.Value;
         var statusAtivos = SolicitacaoVagaStatusRules.StatusAtivos;
 
-        var vagasCarteira = db.Vagas.AsNoTracking()
-            .Where(v => v.RecrutadorResponsavelUserId == userId.Value);
+        var vagasCarteira = FilterVagasCarteiraAnalistaRh(db.Vagas.AsNoTracking(), db, userId.Value);
 
         var openVagas = await vagasCarteira.CountAsync(v => v.Status == VagaStatus.Aberta, ct);
 
@@ -367,8 +367,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             vagasForaSla = 0;
         }
 
-        var candidaturasCarteira = db.Candidaturas.AsNoTracking()
-            .Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == userId.Value);
+        var candidaturasCarteira = FilterCandidaturasCarteiraAnalistaRh(db.Candidaturas.AsNoTracking(), db, userId.Value);
 
         var cvsHoje = await candidaturasCarteira
             .CountAsync(c => c.AplicadaEmUtc >= todayStart, ct);
@@ -377,7 +376,10 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             .CountAsync(c => c.Candidato != null && c.Candidato.LastMatchAtUtc == null && c.Candidato.LastMatchScore == null, ct);
 
         var aprovados = await candidaturasCarteira
-            .CountAsync(c => c.Status == CandidaturaStatus.Contratado && c.UpdatedAtUtc >= weekStart, ct);
+            .CountAsync(c => (c.EtapaMacro == EtapaMacroCandidatura.Proposta
+                              || c.EtapaMacro == EtapaMacroCandidatura.Contratado
+                              || (c.Candidato != null && c.Candidato.Status == CandidateStatus.Aprovado))
+                             && c.UpdatedAtUtc >= weekStart, ct);
 
         var solicitacoesVagaAtivas = await db.SolicitacoesVaga.AsNoTracking()
             .CountAsync(s => s.AnalistaRhResponsavelUserId == userId.Value && statusAtivos.Contains(s.Status), ct);
@@ -414,8 +416,8 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         Dictionary<DateTime, int> grouped = new();
         if (userId.HasValue)
         {
-            var appliedDates = await db.Candidaturas.AsNoTracking()
-                .Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == userId.Value && c.AplicadaEmUtc >= startDate)
+            var appliedDates = await FilterCandidaturasCarteiraAnalistaRh(db.Candidaturas.AsNoTracking(), db, userId.Value)
+                .Where(c => c.AplicadaEmUtc >= startDate)
                 .Select(c => c.AplicadaEmUtc.Date)
                 .ToListAsync(ct);
 
@@ -448,8 +450,9 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         if (!userId.HasValue)
             return Ok(new FunilCandidaturasResponse(0, null, null, null, null, Array.Empty<FunilEtapaItem>()));
 
-        var rows = await db.Candidaturas.AsNoTracking()
-            .Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == userId.Value)
+        var candidaturasCarteira = FilterCandidaturasCarteiraAnalistaRh(db.Candidaturas.AsNoTracking(), db, userId.Value);
+
+        var rows = await candidaturasCarteira
             .GroupBy(c => c.EtapaMacro)
             .Select(g => new { Etapa = g.Key, Total = g.Count() })
             .ToListAsync(ct);
@@ -458,6 +461,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         var entrevistaTotal =
             counts.GetValueOrDefault(EtapaMacroCandidatura.Entrevista) +
             counts.GetValueOrDefault(EtapaMacroCandidatura.EntrevistaTecnica);
+        var aprovadosTotal = await candidaturasCarteira.CountAsync(CandidaturaConsideradaAprovadaExpression(), ct);
 
         var etapas = new[]
         {
@@ -465,7 +469,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             new FunilEtapaItem(EtapaMacroCandidatura.EmTriagem, "Triagem", counts.GetValueOrDefault(EtapaMacroCandidatura.EmTriagem), null),
             new FunilEtapaItem(EtapaMacroCandidatura.Entrevista, "Entrevista", entrevistaTotal, null),
             new FunilEtapaItem(EtapaMacroCandidatura.Teste, "Teste", counts.GetValueOrDefault(EtapaMacroCandidatura.Teste), null),
-            new FunilEtapaItem(EtapaMacroCandidatura.Contratado, "Em processo de admissão", counts.GetValueOrDefault(EtapaMacroCandidatura.Contratado), null),
+            new FunilEtapaItem(EtapaMacroCandidatura.Contratado, "Aprovados", aprovadosTotal, null),
         };
 
         return Ok(new FunilCandidaturasResponse(etapas.Sum(e => e.Total), null, null, null, null, etapas));
@@ -492,8 +496,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         var startUtc = query.Start.HasValue ? NormalizeToUtc(query.Start.Value) : (DateTime?)null;
         var endUtc = query.End.HasValue ? NormalizeToUtc(query.End.Value) : (DateTime?)null;
         var ownerTokens = await GetCurrentUserAgendaTokensAsync(db, currentUser, ct);
-        var vagasCarteiraIds = await db.Vagas.AsNoTracking()
-            .Where(v => v.RecrutadorResponsavelUserId == userId.Value)
+        var vagasCarteiraIds = await FilterVagasCarteiraAnalistaRh(db.Vagas.AsNoTracking(), db, userId.Value)
             .Select(v => v.Id)
             .ToListAsync(ct);
         var vagasCarteiraSet = vagasCarteiraIds.ToHashSet();
@@ -929,6 +932,28 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    private static IQueryable<Vaga> FilterVagasCarteiraAnalistaRh(IQueryable<Vaga> query, AppDbContext db, Guid userId)
+        => query.Where(v =>
+            v.RecrutadorResponsavelUserId == userId
+            || db.SolicitacoesVaga.Any(s =>
+                s.VagaId == v.Id && s.AnalistaRhResponsavelUserId == userId));
+
+    private static IQueryable<Candidatura> FilterCandidaturasCarteiraAnalistaRh(
+        IQueryable<Candidatura> query,
+        AppDbContext db,
+        Guid userId)
+        => query.Where(c =>
+            db.Vagas.Any(v =>
+                v.Id == c.VagaId
+                && (v.RecrutadorResponsavelUserId == userId
+                    || db.SolicitacoesVaga.Any(s =>
+                        s.VagaId == v.Id && s.AnalistaRhResponsavelUserId == userId))));
+
+    private static System.Linq.Expressions.Expression<Func<Candidatura, bool>> CandidaturaConsideradaAprovadaExpression()
+        => c => c.EtapaMacro == EtapaMacroCandidatura.Proposta
+                || c.EtapaMacro == EtapaMacroCandidatura.Contratado
+                || (c.Candidato != null && c.Candidato.Status == CandidateStatus.Aprovado);
 
     private static string MapOrigem(CandidateOrigin fonte)
     {
