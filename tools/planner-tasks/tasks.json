@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-02T13:17:04.516Z",
-    "totalTarefas": 195
+    "atualizadoEm": "2026-07-02",
+    "totalTarefas": 196
   },
   "tarefas": [
     {
@@ -5057,6 +5057,32 @@
         "prPrd": "Merge PR #93"
       },
       "observacoes": "Promovido DEV→HML→PRD. Corrige TypeScript em SolicitacaoDetail após feat local da vaga."
+    },
+    {
+      "id": "TASK-2026-194",
+      "nome": "[Portal RH] Melhorar UI/UX distribuição analista RH no modal de requisição",
+      "descricaoAmigavel": "Redesenho da área de distribuição para analista de RH no modal Visualizar Requisição de Pessoal, com lista inline e seleção por linha, eliminando o corte do dropdown.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "09:58",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Melhorar UI/UX de distribuição para analista de RH no modal Visualizar Requisição de Pessoal; dropdown cortando. Mock aprovado e implementação promovida DEV→HML→PRD.",
+      "entregavel": "Seletor inline de analistas com busca, linha selecionada destacada e painel azul no rodapé do modal, sem clipping.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "3236c804"
+        ],
+        "branch": "DEV",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": "Aguardando merge DEV→HML→PRD para preencher horarioConclusao e PRs."
     }
   ]
 }
