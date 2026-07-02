@@ -16,17 +16,19 @@ internal static class AgendaEventVisibility
         ScheduleEventResponse evt,
         IReadOnlySet<Guid> vagasCarteiraIds,
         IReadOnlySet<string> ownerTokens) =>
-        IsVisibleToUser(evt.VagaId, evt.Owner, evt.Notes, vagasCarteiraIds, ownerTokens);
+        IsVisibleToUser(evt.VagaId, evt.Owner, evt.Notes, evt.Participants, vagasCarteiraIds, ownerTokens);
 
     public static bool IsVisibleToUser(
         Guid? vagaId,
         string? owner,
         string? notes,
+        IReadOnlyList<ScheduleEventParticipantDto>? participants,
         IReadOnlySet<Guid> vagasCarteiraIds,
         IReadOnlySet<string> ownerTokens) =>
         (vagaId.HasValue && vagasCarteiraIds.Contains(vagaId.Value))
         || OwnerMatches(owner, ownerTokens)
-        || ParticipantMatches(notes, ownerTokens);
+        || ParticipantMatches(notes, ownerTokens)
+        || ParticipantMatchesStructured(participants, ownerTokens);
 
     public static async Task<IReadOnlySet<string>> GetCurrentUserTokensAsync(
         AppDbContext db,
@@ -113,6 +115,29 @@ internal static class AgendaEventVisibility
 
         var normalizedNotes = NormalizeText(notes);
         return tokens.Any(token => normalizedNotes.Contains(token, StringComparison.Ordinal));
+    }
+
+    private static bool ParticipantMatchesStructured(
+        IReadOnlyList<ScheduleEventParticipantDto>? participants,
+        IReadOnlySet<string> tokens)
+    {
+        if (participants is null || participants.Count == 0 || tokens.Count == 0)
+            return false;
+
+        foreach (var participant in participants)
+        {
+            var normalizedName = NormalizeText(participant.Nome);
+            var normalizedEmail = NormalizeText(participant.Email);
+
+            if (tokens.Any(token =>
+                    (!string.IsNullOrEmpty(normalizedName) && normalizedName.Contains(token, StringComparison.Ordinal))
+                    || (!string.IsNullOrEmpty(normalizedEmail) && normalizedEmail.Contains(token, StringComparison.Ordinal))))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string NormalizeText(string? value)

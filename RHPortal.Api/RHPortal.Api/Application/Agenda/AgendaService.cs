@@ -91,40 +91,11 @@ public sealed class AgendaService
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
             q = q.Where(x => x.Status == status);
 
-        var items = await q
+        var rows = await q
             .OrderBy(x => x.StartAtUtc)
-            .Select(x => new ScheduleEventResponse(
-                x.Id,
-                x.Title,
-                x.StartAtUtc,
-                x.EndAtUtc,
-                x.AllDay,
-                x.Status,
-                x.Location,
-                x.MeetingFormat,
-                x.RoomEmail,
-                x.RoomDisplayName,
-                x.Owner,
-                x.Candidate,
-                x.VagaTitle,
-                x.VagaCode,
-                x.Notes,
-                x.CandidaturaId,
-                x.CandidatoId,
-                x.VagaId,
-                x.CandidateResponseStatus,
-                x.CandidateRespondedAtUtc,
-                x.CandidateSuggestedStartAtUtc,
-                x.CandidateSuggestedEndAtUtc,
-                x.CandidateResponseMessage,
-                x.CandidateConfirmationToken,
-                x.Type != null ? x.Type.Code : string.Empty,
-                x.Type != null ? x.Type.Label : string.Empty,
-                x.Type != null ? x.Type.Color : "#6c757d",
-                x.Type != null ? x.Type.Icon : "bi-calendar",
-                x.OnlineMeetingJoinUrl
-            ))
             .ToListAsync(ct);
+
+        var items = rows.Select(MapToResponse).ToList();
 
         if (AgendaEventVisibility.CanViewAllEvents(_currentUser))
             return items;
@@ -163,6 +134,7 @@ public sealed class AgendaService
             owner = TrimOrNull(_currentUser.Email);
 
         var meeting = NormalizeMeetingFields(request.MeetingFormat, request.RoomEmail, request.RoomDisplayName, request.Location);
+        var participants = await AgendaEventParticipants.NormalizeAndValidateAsync(_db, request.Participants, ct);
 
         var entity = new AgendaEvent
         {
@@ -181,7 +153,8 @@ public sealed class AgendaService
             Candidate = TrimOrNull(request.Candidate),
             VagaTitle = TrimOrNull(request.VagaTitle),
             VagaCode = TrimOrNull(request.VagaCode),
-            Notes = TrimOrNull(request.Notes)
+            Notes = TrimOrNull(request.Notes),
+            ParticipantsJson = AgendaEventParticipants.Serialize(participants)
         };
 
         _db.AgendaEvents.Add(entity);
@@ -210,6 +183,8 @@ public sealed class AgendaService
         entity.Status = request.Status.Trim();
 
         var meeting = NormalizeMeetingFields(request.MeetingFormat, request.RoomEmail, request.RoomDisplayName, request.Location);
+        var participants = await AgendaEventParticipants.NormalizeAndValidateAsync(_db, request.Participants, ct);
+
         entity.Location = meeting.Location;
         entity.MeetingFormat = meeting.MeetingFormat;
         entity.RoomEmail = meeting.RoomEmail;
@@ -220,6 +195,7 @@ public sealed class AgendaService
         entity.VagaTitle = TrimOrNull(request.VagaTitle);
         entity.VagaCode = TrimOrNull(request.VagaCode);
         entity.Notes = TrimOrNull(request.Notes);
+        entity.ParticipantsJson = AgendaEventParticipants.Serialize(participants);
 
         await _db.SaveChangesAsync(ct);
         await _graphSync.TrySyncUpdateAsync(id, ct);
@@ -321,43 +297,52 @@ public sealed class AgendaService
         return MapPublic(entity);
     }
 
-    private async Task<ScheduleEventResponse?> QueryEventResponseAsync(Guid id, CancellationToken ct) =>
-        await _db.AgendaEvents
+    private async Task<ScheduleEventResponse?> QueryEventResponseAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.AgendaEvents
             .AsNoTracking()
             .Include(x => x.Type)
-            .Where(x => x.Id == id)
-            .Select(x => new ScheduleEventResponse(
-                x.Id,
-                x.Title,
-                x.StartAtUtc,
-                x.EndAtUtc,
-                x.AllDay,
-                x.Status,
-                x.Location,
-                x.MeetingFormat,
-                x.RoomEmail,
-                x.RoomDisplayName,
-                x.Owner,
-                x.Candidate,
-                x.VagaTitle,
-                x.VagaCode,
-                x.Notes,
-                x.CandidaturaId,
-                x.CandidatoId,
-                x.VagaId,
-                x.CandidateResponseStatus,
-                x.CandidateRespondedAtUtc,
-                x.CandidateSuggestedStartAtUtc,
-                x.CandidateSuggestedEndAtUtc,
-                x.CandidateResponseMessage,
-                x.CandidateConfirmationToken,
-                x.Type != null ? x.Type.Code : string.Empty,
-                x.Type != null ? x.Type.Label : string.Empty,
-                x.Type != null ? x.Type.Color : "#6c757d",
-                x.Type != null ? x.Type.Icon : "bi-calendar",
-                x.OnlineMeetingJoinUrl
-            ))
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        return entity is null ? null : MapToResponse(entity);
+    }
+
+    private static ScheduleEventResponse MapToResponse(AgendaEvent x)
+    {
+        var participants = AgendaEventParticipants.Deserialize(x.ParticipantsJson);
+        return new ScheduleEventResponse(
+            x.Id,
+            x.Title,
+            x.StartAtUtc,
+            x.EndAtUtc,
+            x.AllDay,
+            x.Status,
+            x.Location,
+            x.MeetingFormat,
+            x.RoomEmail,
+            x.RoomDisplayName,
+            x.Owner,
+            x.Candidate,
+            x.VagaTitle,
+            x.VagaCode,
+            x.Notes,
+            x.CandidaturaId,
+            x.CandidatoId,
+            x.VagaId,
+            x.CandidateResponseStatus,
+            x.CandidateRespondedAtUtc,
+            x.CandidateSuggestedStartAtUtc,
+            x.CandidateSuggestedEndAtUtc,
+            x.CandidateResponseMessage,
+            x.CandidateConfirmationToken,
+            x.Type?.Code ?? string.Empty,
+            x.Type?.Label ?? string.Empty,
+            x.Type?.Color ?? "#6c757d",
+            x.Type?.Icon ?? "bi-calendar",
+            x.OnlineMeetingJoinUrl,
+            participants.Count > 0 ? participants : null
+        );
+    }
 
     private async Task<AgendaEventType> GetTypeByCodeAsync(string code, CancellationToken ct)
     {
@@ -553,10 +538,12 @@ public sealed class AgendaService
 
         var ownerTokens = await AgendaEventVisibility.GetCurrentUserTokensAsync(_db, _currentUser, ct);
         var vagasCarteiraIds = await AgendaEventVisibility.GetVagasCarteiraIdsAsync(_db, _currentUser, ct);
+        var participants = AgendaEventParticipants.Deserialize(entity.ParticipantsJson);
         return AgendaEventVisibility.IsVisibleToUser(
             entity.VagaId,
             entity.Owner,
             entity.Notes,
+            participants,
             vagasCarteiraIds,
             ownerTokens);
     }
