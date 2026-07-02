@@ -83,12 +83,14 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
         {
             if (isCreate)
             {
-                var graphId = await _graph.CreateCalendarEventAsync(request, ct);
-                if (string.IsNullOrWhiteSpace(graphId))
+                var graphResult = await _graph.CreateCalendarEventAsync(request, ct);
+                if (graphResult is null || string.IsNullOrWhiteSpace(graphResult.EventId))
                     return;
 
-                entity.GraphCalendarEventId = graphId;
+                entity.GraphCalendarEventId = graphResult.EventId;
                 entity.GraphCalendarUserUpn = userUpn;
+                if (!string.IsNullOrWhiteSpace(graphResult.OnlineMeetingJoinUrl))
+                    entity.OnlineMeetingJoinUrl = graphResult.OnlineMeetingJoinUrl.Trim();
                 entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
                 await _db.SaveChangesAsync(ct);
                 return;

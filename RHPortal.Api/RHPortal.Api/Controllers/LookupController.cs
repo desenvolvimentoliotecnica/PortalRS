@@ -462,6 +462,84 @@ public sealed class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Busca participantes/responsáveis para entrevistas na agenda (usuários do portal + funcionários).
+    /// Suporta busca por múltiplas palavras — cada token deve aparecer no nome ou e-mail.
+    /// </summary>
+    [HttpGet("participantes-agenda")]
+    [ProducesResponseType(typeof(LookupResponse<ParticipanteAgendaLookupItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<LookupResponse<ParticipanteAgendaLookupItem>>> ParticipantesAgenda(
+        [FromQuery] string? q,
+        [FromQuery] int pageSize = 30,
+        CancellationToken ct = default)
+    {
+        pageSize = Math.Clamp(pageSize, 5, 50);
+        var tokens = TokenizeSearchQuery(q);
+
+        var usersQuery = _db.Users.AsNoTracking()
+            .Where(u => u.IsActive && u.Email != null && u.Email != "");
+        foreach (var token in tokens)
+        {
+            var like = $"%{token}%";
+            usersQuery = usersQuery.Where(u =>
+                (u.FullName != null && EF.Functions.ILike(u.FullName, like))
+                || EF.Functions.ILike(u.Email!, like));
+        }
+
+        var users = await usersQuery
+            .OrderBy(u => u.FullName)
+            .ThenBy(u => u.Email)
+            .Take(pageSize * 2)
+            .Select(u => new ParticipanteAgendaLookupItem(
+                u.Id.ToString(),
+                u.FullName ?? u.Email ?? "",
+                u.Email,
+                "usuario"))
+            .ToListAsync(ct);
+
+        var funcQuery = _db.Funcionarios.AsNoTracking()
+            .Where(f => f.Status == FuncionarioStatus.Active);
+        foreach (var token in tokens)
+        {
+            var like = $"%{token}%";
+            funcQuery = funcQuery.Where(f =>
+                EF.Functions.ILike(f.Name, like)
+                || (f.Email != null && EF.Functions.ILike(f.Email, like)));
+        }
+
+        var funcionarios = await funcQuery
+            .OrderBy(f => f.Name)
+            .Take(pageSize * 2)
+            .Select(f => new ParticipanteAgendaLookupItem(
+                f.Id.ToString(),
+                f.Name,
+                f.Email,
+                "funcionario"))
+            .ToListAsync(ct);
+
+        var merged = new List<ParticipanteAgendaLookupItem>(pageSize);
+        var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void TryAdd(ParticipanteAgendaLookupItem item)
+        {
+            if (merged.Count >= pageSize) return;
+            var emailKey = (item.Email ?? item.Nome).Trim();
+            if (string.IsNullOrWhiteSpace(emailKey)) return;
+            if (!seenEmails.Add(emailKey)) return;
+            merged.Add(item);
+        }
+
+        foreach (var item in users) TryAdd(item);
+        foreach (var item in funcionarios) TryAdd(item);
+
+        return Ok(new LookupResponse<ParticipanteAgendaLookupItem>
+        {
+            Items = merged,
+            Total = merged.Count,
+            HasMore = users.Count + funcionarios.Count > merged.Count,
+        });
+    }
+
+    /// <summary>
     /// Lista enums gerais do sistema (candidatos, vagas, filtros e relatórios).
     /// </summary>
     [HttpGet("enums")]
@@ -806,5 +884,17 @@ public sealed class LookupController : ControllerBase
         if (string.IsNullOrWhiteSpace(value)) return value;
         var spaced = Regex.Replace(value, "([a-z0-9])([A-Z])", "$1 $2");
         return spaced.Replace("Nao ", "Nao ");
+    }
+
+    private static IReadOnlyList<string> TokenizeSearchQuery(string? q)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+            return Array.Empty<string>();
+
+        return q.Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => t.Length >= 2 || t.Any(char.IsDigit))
+            .Take(6)
+            .ToList();
     }
 }
