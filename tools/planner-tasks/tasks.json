@@ -5425,18 +5425,20 @@
       "descricaoAmigavel": "Corrigir leitura do emailAddress das salas no Graph (string vs objeto) e substituir erros JSON/técnicos por mensagens amigáveis no modal de agendamento.",
       "inicio": "2026-07-02",
       "horarioInicio": "14:03",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "14:04",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Erro técnico 'element of type Object/String' exibido ao usuário no seletor de sala — corrigir parse e mensagens amigáveis.",
       "entregavel": "Parse robusto de emailAddress no Graph; catch genérico nos endpoints de salas; filtro toUserFriendlyApiError no frontend.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": null,
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV->HML->PRD (PR #113, #114).",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "d2e7f67d"
+        ],
+        "prHml": "Merge PR #113 (DEV->HML), PR #114 (HML->PRD)"
       }
     }
   ]
