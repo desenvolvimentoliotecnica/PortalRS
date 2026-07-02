@@ -69,6 +69,9 @@ services:
     image: ${DEV_REGISTRY_PREFIX}/rhportal-web-next:${DEV_IMAGE_TAG}
     container_name: rhportal-dev-web-next
     restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
     ports:
       - "3000:80"
     networks:

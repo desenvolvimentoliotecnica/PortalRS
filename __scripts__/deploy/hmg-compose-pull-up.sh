@@ -70,3 +70,10 @@ sleep 8
 curl -fsS "http://127.0.0.1:5001/health" | head -c 400 \
   || curl -kfsS "https://127.0.0.1:5000/health" | head -c 400 \
   || echo "(verifica logs da API / Nginx TLS — docs/HMG-ENTRA-TLS.md)"
+
+VERIFY_SCRIPT="${VERIFY_SCRIPT:-$SCRIPT_DIR/verify-web-next-health.sh}"
+if [[ -x "$VERIFY_SCRIPT" ]]; then
+  WEB_NEXT_CONTAINER=rhportal-web-next bash "$VERIFY_SCRIPT"
+else
+  echo "WARN: $VERIFY_SCRIPT não encontrado; deploy continua sem validar :3000."
+fi

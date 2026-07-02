@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 220
+    "totalTarefas": 221
   },
   "tarefas": [
     {
@@ -5627,18 +5627,46 @@
       "descricaoAmigavel": "Convites Outlook/Teams passam a usar o e-mail corporativo do Azure AD, resolvido pela chapa do RM (employeeId), em vez do e-mail pessoal importado do TOTVS.",
       "inicio": "2026-07-02",
       "horarioInicio": "17:26",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "19:51",
+      "totalHoras": 2.42,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Localizar funcionário no AD pela chapa (MatriculaRm) para obter e-mail corporativo nos convites de entrevista/agenda, com fallback para usuário portal e e-mail RM.",
       "entregavel": "Resolver Graph por employeeId, participantes da agenda com e-mail corporativo, lookup enriquecido e endpoint diagnóstico ad-email-by-chapa.",
-      "observacoes": "Requer permissão User.Read.All no app Azure AD. Implementação local concluída; aguardando commit/promoção.",
+      "ambiente": "PRD",
+      "observacoes": "Requer permissão User.Read.All no app Azure AD. Promovido DEV→HML→PRD.",
       "referencias": {
-        "commits": []
+        "commits": [
+          "668ee5ea"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #139",
+        "prPrd": "Merge PR #140"
+      }
+    },
+    {
+      "id": "TASK-2026-220",
+      "nome": "[Infra] Corrigir Portal Admin :3000 (nginx crash loop pós-deploy)",
+      "descricaoAmigavel": "Restaurar acesso ao portal na porta 3000 após deploy: nginx deixa de cair ao subir e o pipeline passa a validar o health do web-next.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "20:05",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Depois do deploy, ERR_CONNECTION_REFUSED em 10.0.0.79 (porta 3000) nos 3 ambientes.",
+      "entregavel": "nginx com DNS Docker dinâmico, wait-for-api, depends_on api healthy, verify :3000 no deploy.",
+      "ambiente": "DEV",
+      "observacoes": "API :5000 OK; apenas container rhportal-*-web-next em Restarting (1) nos logs CI run 28626570270.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]
