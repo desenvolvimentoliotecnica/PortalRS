@@ -27,6 +27,7 @@ import {
     ChevronDown,
     ChevronUp,
     ChevronsUpDown,
+    UserRound,
 } from "lucide-react";
 import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 import { apiFetch } from "@/lib/api";
@@ -1216,13 +1217,24 @@ function SolicitacoesVagaContent() {
                     formOpen && viewId && viewMetaRow ? (
                         <>
                             {canDistribuirParaAnalistaRh && isStatusDistribuivelParaAnalistaRh(viewMetaRow.status) && (
-                                <div className="space-y-3 rounded-lg border border-border/60 p-3">
-                                    <div className="text-sm font-semibold">Distribuir para Analista de RH</div>
+                                <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                            <UserRound className="size-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-semibold">Distribuir para Analista de RH</div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Selecione quem irá conduzir esta requisição
+                                            </p>
+                                        </div>
+                                    </div>
                                     <RhAnalistaAutocomplete
                                         value={detailAnalistaRh.userId}
                                         onChange={(userId, displayName) => setDetailAnalistaRh({ userId, nome: displayName })}
                                         defaultLabel={detailAnalistaRh.nome ? { name: detailAnalistaRh.nome } : undefined}
                                         disabled={detailAssigning}
+                                        placeholder="Buscar analista por nome ou e-mail…"
                                     />
                                     <div className="flex justify-end gap-2">
                                         <Button size="sm" variant="outline" disabled={detailAssigning} onClick={handleFormClose}>
@@ -1230,7 +1242,7 @@ function SolicitacoesVagaContent() {
                                         </Button>
                                         <Button
                                             size="sm"
-                                            disabled={detailAssigning}
+                                            disabled={detailAssigning || !detailAnalistaRh.userId}
                                             onClick={() => void distribuirSolicitacaoDoModal()}
                                         >
                                             Distribuir
@@ -1286,6 +1298,7 @@ function SolicitacoesVagaContent() {
                             onChange={(userId, displayName) => setBulkAnalistaRh({ userId, nome: displayName })}
                             defaultLabel={bulkAnalistaRh.nome ? { name: bulkAnalistaRh.nome } : undefined}
                             disabled={bulkAssigning}
+                            listMaxHeightClassName="max-h-56"
                         />
                     </div>
                     <DialogFooter>
