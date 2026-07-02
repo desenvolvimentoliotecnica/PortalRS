@@ -262,10 +262,16 @@ function formatCentroCustoLabel(vaga: VagaData | null): string {
   return desc || code;
 }
 
-/** Cidade/UF da vaga (API já faz fallback para empresa do centro de custo). */
+/** Local da vaga: estabelecimento + cidade/UF (API já faz fallback para empresa do centro de custo). */
 function formatVagaLocal(vaga: VagaData | null): string {
-  const parts = [pickOptional(vaga, "cidade"), pickOptional(vaga, "uf")].filter(Boolean);
-  return parts.length ? parts.join(", ") : "—";
+  const unitName = pickOptional(vaga, "unitName");
+  const cidade = pickOptional(vaga, "cidade");
+  const uf = pickOptional(vaga, "uf");
+  const locParts = [cidade, uf].filter(Boolean).join(", ");
+  if (unitName && locParts) return `${unitName} — ${locParts}`;
+  if (unitName) return unitName;
+  if (locParts) return locParts;
+  return "—";
 }
 
 function fmtDate(iso: string): string {

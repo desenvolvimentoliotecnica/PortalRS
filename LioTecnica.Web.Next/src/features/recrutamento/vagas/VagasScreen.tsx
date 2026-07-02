@@ -237,6 +237,10 @@ function mapSolicitacaoToVagaPrefill(solic: SolicitacaoDetail): Record<string, u
         tipoContratacao: mapSolicTipoContratoToVagaTipoContratacao(solic.tipoContrato),
         centroCustoId: pickString(solic.centroCustoId),
         centroCustoDescription: pickString(solic.centroCustoNome),
+        empresaId: pickString(solic.empresaId),
+        empresaDescription: pickString(solic.empresaNome),
+        unitId: pickString(solic.unitId),
+        unitName: pickString(solic.unitName),
         unidadeLotacaoId: pickString(solic.unidadeLotacaoId),
         unidadeLotacaoDescription: pickString(solic.unidadeLotacaoNome),
         turnoId: pickString(solic.turnoId),
@@ -1377,7 +1381,8 @@ export default function VagasScreen() {
                                                         Nenhuma vaga
                                                     </div>
                                                 ) : colVagas.map((vaga) => {
-                                                    const location = [vaga.cidade, vaga.uf].filter(Boolean).join(" / ");
+                                                    const locParts = [vaga.cidade, vaga.uf].filter(Boolean).join(" / ");
+                                                    const location = [pickString(vaga.unitName), locParts].filter(Boolean).join(" — ");
                                                     const threshold = clamp(pickNumber(vaga.threshold ?? vaga.matchMinimoPercentual, 0), 0, 100);
                                                     return (
                                                         <div

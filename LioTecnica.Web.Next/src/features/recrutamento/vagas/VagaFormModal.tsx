@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { env } from "@/lib/env";
 import { getTenantId } from "@/lib/session";
-import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
+import { EmpresaAutocomplete } from "@/components/autocomplete/EmpresaAutocomplete";
+import { EstabelecimentoAutocomplete } from "@/components/autocomplete/EstabelecimentoAutocomplete";
 import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
@@ -107,6 +108,8 @@ type VagaDraft = {
   centroCustoId: string; centroCustoCode: string; centroCustoDescription: string;
   turnoId: string; turnoCode: string; turnoDescription: string;
   unidadeLotacaoId: string; unidadeLotacaoCode: string; unidadeLotacaoDescription: string;
+  empresaId: string; empresaCode: string; empresaDescription: string;
+  unitId: string; unitCode: string; unitName: string;
   motivoAbertura: string; orcamentoAprovado: string; gestorRequisitante: string;
   recrutadorResponsavel: string;
   /** UserId (Guid) do recrutador atribuído. Atribuição manual feature 2026-04-26. */
@@ -160,6 +163,8 @@ function emptyDraft(): VagaDraft {
     centroCustoId: "", centroCustoCode: "", centroCustoDescription: "",
     turnoId: "", turnoCode: "", turnoDescription: "",
     unidadeLotacaoId: "", unidadeLotacaoCode: "", unidadeLotacaoDescription: "",
+    empresaId: "", empresaCode: "", empresaDescription: "",
+    unitId: "", unitCode: "", unitName: "",
     motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "",
     recrutadorResponsavel: "", recrutadorResponsavelUserId: null, prioridade: "", resumoPitch: "",
     tagsResponsabilidades: "", tagsKeywords: "",
@@ -569,6 +574,8 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     centroCustoId: emptyToNull(d.centroCustoId) || null,
     turnoId: emptyToNull(d.turnoId) || null,
     unidadeLotacaoId: emptyToNull(d.unidadeLotacaoId) || null,
+    empresaId: emptyToNull(d.empresaId) || null,
+    unitId: emptyToNull(d.unitId) || null,
     motivoAbertura: emptyToNull(d.motivoAbertura),
     orcamentoAprovado: emptyToNull(d.orcamentoAprovado),
     gestorRequisitante: emptyToNull(d.gestorRequisitante),
@@ -975,6 +982,49 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     setDraft((d) => ({ ...d, [key]: fn(d[key]) }));
   }, []);
 
+  const clearLocalAddress = useCallback(() => {
+    setDraft((d) => ({
+      ...d,
+      unitId: "",
+      unitCode: "",
+      unitName: "",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      bairro: "",
+      cidade: "",
+      uf: "",
+    }));
+  }, []);
+
+  const applyUnitToDraft = useCallback(async (unitId: string | null) => {
+    if (!unitId) {
+      clearLocalAddress();
+      return;
+    }
+    try {
+      const u = await fetchJson<Record<string, unknown>>(`${BASE}/api/units/${encodeURIComponent(unitId)}`);
+      setDraft((d) => ({
+        ...d,
+        unitId,
+        unitCode: pick(u.code),
+        unitName: pick(u.name),
+        empresaId: pick(u.empresaId) || d.empresaId,
+        empresaCode: pick(u.empresaCode) || d.empresaCode,
+        empresaDescription: pick(u.empresaDescription) || d.empresaDescription,
+        cep: pick(u.zipCode),
+        logradouro: pick(u.addressLine),
+        numero: "",
+        bairro: pick(u.neighborhood),
+        cidade: pick(u.city),
+        uf: pick(u.uf),
+      }));
+    } catch {
+      setDraft((d) => ({ ...d, unitId }));
+      toast.error("Falha ao carregar endereço do local.");
+    }
+  }, [clearLocalAddress]);
+
   const selectDescricaoCargo = useCallback((item: DescricaoCargoLookupItem) => {
     setDraft((d) => ({
       ...d,
@@ -1122,6 +1172,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         unidadeLotacaoId: pick(v.unidadeLotacaoId),
         unidadeLotacaoCode: pick(v.unidadeLotacaoCode),
         unidadeLotacaoDescription: pick(v.unidadeLotacaoDescription),
+        empresaId: pick(v.empresaId),
+        empresaCode: pick(v.empresaCode),
+        empresaDescription: pick(v.empresaDescription),
+        unitId: pick(v.unitId),
+        unitCode: pick(v.unitCode),
+        unitName: pick(v.unitName),
         motivoAbertura: pickEnum(v.motivoAbertura),
         orcamentoAprovado: pickEnum(v.orcamentoAprovado), gestorRequisitante: pick(v.gestorRequisitante),
         recrutadorResponsavel: pick(v.recrutadorResponsavel),
@@ -1242,6 +1298,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       if (!draft.modalidade) campos.push("Modalidade");
       if (!draft.quantidadeVagas || draft.quantidadeVagas < 1) campos.push("Qtd. de Vagas");
       if (!draft.descricaoCargoId) campos.push("Descrição de Cargo (DNALIO)");
+      const mod = draft.modalidade.toLowerCase();
+      if ((mod === "presencial" || mod === "hibrido") && !draft.unitId.trim()) {
+        toast.error("Selecione o local da vaga (estabelecimento) para vagas presenciais ou híbridas.");
+        setTab("local");
+        return;
+      }
       if (campos.length > 0) {
         toast.error(`Preencha antes de publicar: ${campos.join(", ")}`);
         setTab(!draft.descricaoCargoId ? "matching" : "dados");
@@ -1510,33 +1572,90 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {tab === "local" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
               <SectionHeader title="Localização" />
-              <Field label="CEP" span="col-span-6 md:col-span-2">
-                <input
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  placeholder="00000-000"
-                  value={draft.cep}
-                  onChange={(e) => set("cep", e.target.value)}
-                  onBlur={async () => {
-                    // Sessão 31.8 — auto-preenche endereço via ViaCEP
-                    const res = await lookupCep(draft.cep);
-                    if (!res) return;
+
+              <div className="col-span-12">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Local da vaga</p>
+              </div>
+
+              <Field
+                label="Empresa"
+                required={draft.modalidade === "presencial" || draft.modalidade === "hibrido"}
+                span="col-span-12 md:col-span-6"
+              >
+                <EmpresaAutocomplete
+                  value={draft.empresaId || null}
+                  onChange={(id) => {
                     setDraft((d) => ({
                       ...d,
-                      logradouro: d.logradouro.trim() || res.logradouro,
-                      bairro: d.bairro.trim() || res.bairro,
-                      cidade: d.cidade.trim() || res.cidade,
-                      uf: d.uf.trim() || res.uf,
+                      empresaId: id ?? "",
+                      empresaCode: "",
+                      empresaDescription: "",
+                      unitId: "",
+                      unitCode: "",
+                      unitName: "",
+                      cep: "",
+                      logradouro: "",
+                      numero: "",
+                      bairro: "",
+                      cidade: "",
+                      uf: "",
                     }));
-                    toast.success("Endereço preenchido a partir do CEP");
                   }}
-                  title="Sair do campo (Tab) busca o endereço automaticamente"
+                  onSelect={(empresa) => {
+                    if (!empresa) return;
+                    setDraft((d) => ({
+                      ...d,
+                      empresaCode: empresa.code,
+                      empresaDescription: empresa.description,
+                    }));
+                  }}
+                  defaultLabel={draft.empresaCode ? { code: draft.empresaCode, description: draft.empresaDescription } : undefined}
+                  placeholder="Selecione a empresa..."
                 />
               </Field>
-              <Field label="Logradouro" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Rua / Av." value={draft.logradouro} onChange={(e) => set("logradouro", e.target.value)} /></Field>
-              <Field label="Número" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="123" value={draft.numero} onChange={(e) => set("numero", e.target.value)} /></Field>
-              <Field label="Bairro" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Centro" value={draft.bairro} onChange={(e) => set("bairro", e.target.value)} /></Field>
-              <Field label="Cidade" span="col-span-12 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: São Paulo" value={draft.cidade} onChange={(e) => set("cidade", e.target.value)} /></Field>
-              <Field label="UF" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="SP" maxLength={2} value={draft.uf} onChange={(e) => set("uf", e.target.value.toUpperCase())} /></Field>
+
+              <Field
+                label="Local da vaga"
+                required={draft.modalidade === "presencial" || draft.modalidade === "hibrido"}
+                span="col-span-12 md:col-span-6"
+              >
+                <EstabelecimentoAutocomplete
+                  value={draft.unitId || null}
+                  onChange={(id) => { void applyUnitToDraft(id); }}
+                  empresaId={draft.empresaId || null}
+                  defaultLabel={draft.unitCode && draft.unitName ? { code: draft.unitCode, name: draft.unitName } : undefined}
+                  placeholder={draft.empresaId ? "Selecione o estabelecimento..." : "Selecione a empresa primeiro"}
+                />
+              </Field>
+
+              <div className="col-span-12">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Endereço do local (automático)</p>
+              </div>
+
+              <div className="col-span-12 rounded-lg border border-border/60 bg-muted/30 p-4">
+                <div className="grid grid-cols-12 gap-x-4 gap-y-3">
+                  <Field label="CEP" span="col-span-6 md:col-span-2">
+                    <input className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" readOnly value={draft.cep} placeholder="—" />
+                  </Field>
+                  <Field label="Logradouro" span="col-span-12 md:col-span-6">
+                    <input className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" readOnly value={draft.logradouro} placeholder="—" />
+                  </Field>
+                  <Field label="Número" span="col-span-6 md:col-span-2">
+                    <input className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" readOnly value={draft.numero} placeholder="—" />
+                  </Field>
+                  <Field label="Bairro" span="col-span-6 md:col-span-2">
+                    <input className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" readOnly value={draft.bairro} placeholder="—" />
+                  </Field>
+                  <Field label="Cidade" span="col-span-12 md:col-span-4">
+                    <input className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" readOnly value={draft.cidade} placeholder="—" />
+                  </Field>
+                  <Field label="UF" span="col-span-6 md:col-span-2">
+                    <input className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" readOnly value={draft.uf} placeholder="—" />
+                  </Field>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">Preenchido automaticamente a partir do local selecionado.</p>
+              </div>
+
               <Field label="Política de trabalho" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: 2 dias presencial, 3 remoto" value={draft.politicaTrabalho} onChange={(e) => set("politicaTrabalho", e.target.value)} /></Field>
               <Field label="Obs. deslocamento / viagens" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: viagens 1x/mês, nacional" value={draft.observacoesDeslocamento} onChange={(e) => set("observacoesDeslocamento", e.target.value)} /></Field>
             </div>

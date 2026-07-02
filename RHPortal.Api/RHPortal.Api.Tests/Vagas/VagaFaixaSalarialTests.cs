@@ -188,6 +188,8 @@ public sealed class VagaFaixaSalarialTests
             CentroCustoId: centroCustoId,
             TurnoId: null,
             UnidadeLotacaoId: null,
+            EmpresaId: null,
+            UnitId: null,
             EixoVagaId: null,
             DescricaoCargoId: null,
             PesoCompetencia: null,

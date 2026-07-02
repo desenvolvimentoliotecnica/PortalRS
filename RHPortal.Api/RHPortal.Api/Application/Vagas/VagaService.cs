@@ -127,8 +127,8 @@ public sealed class VagaService : IVagaService
                 v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
                 v.Confidencial, v.Urgente, v.AceitaPcd,
                 v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
-                Cidade = v.Cidade ?? (v.CentroCusto != null && v.CentroCusto.Empresa != null ? v.CentroCusto.Empresa.Cidade : null),
-                Uf = v.Uf ?? (v.CentroCusto != null && v.CentroCusto.Empresa != null ? v.CentroCusto.Empresa.Uf : null),
+                Cidade = v.Cidade ?? (v.Unit != null ? v.Unit.City : null) ?? (v.CentroCusto != null && v.CentroCusto.Empresa != null ? v.CentroCusto.Empresa.Cidade : null),
+                Uf = v.Uf ?? (v.Unit != null ? v.Unit.Uf : null) ?? (v.CentroCusto != null && v.CentroCusto.Empresa != null ? v.CentroCusto.Empresa.Uf : null),
                 RequisitosTotal = v.Requisitos.Count(),
                 RequisitosObrigatorios = v.Requisitos.Count(r => r.Obrigatorio),
                 v.CreatedAtUtc, v.UpdatedAtUtc,
@@ -142,6 +142,12 @@ public sealed class VagaService : IVagaService
                 v.UnidadeLotacaoId,
                 UnidadeLotacaoCode = v.UnidadeLotacao != null ? v.UnidadeLotacao.Code : null,
                 UnidadeLotacaoName = v.UnidadeLotacao != null ? v.UnidadeLotacao.Description : null,
+                v.EmpresaId,
+                EmpresaCode = v.Empresa != null ? v.Empresa.Code : null,
+                EmpresaDescription = v.Empresa != null ? v.Empresa.Description : null,
+                v.UnitId,
+                UnitCode = v.Unit != null ? v.Unit.Code : null,
+                UnitName = v.Unit != null ? v.Unit.Name : null,
                 // Origem TOTVS RM (refactor 2026-04-26)
                 v.OrigemTipo,
                 SubstituindoNome = v.OrigemDesligamento != null && v.OrigemDesligamento.Funcionario != null
@@ -261,6 +267,12 @@ public sealed class VagaService : IVagaService
                     v.UnidadeLotacaoId,
                     v.UnidadeLotacaoCode,
                     v.UnidadeLotacaoName,
+                    v.EmpresaId,
+                    v.EmpresaCode,
+                    v.EmpresaDescription,
+                    v.UnitId,
+                    v.UnitCode,
+                    v.UnitName,
                     rodadaByVaga.TryGetValue(v.Id, out var rodada) ? (int?)rodada.Numero : null,
                     rodadaByVaga.TryGetValue(v.Id, out var rodada2) ? (int?)rodada2.TotalCandidatos : null,
                     v.OrigemTipo,
@@ -286,6 +298,8 @@ public sealed class VagaService : IVagaService
             .Include(x => x.CategoriaSalarial)
             .Include(x => x.CentroCusto)
                 .ThenInclude(c => c!.Empresa)
+            .Include(x => x.Empresa)
+            .Include(x => x.Unit)
             .Include(x => x.Turno)
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.EixoVaga)
@@ -310,6 +324,8 @@ public sealed class VagaService : IVagaService
             .Include(s => s.Motivo)
             .Include(s => s.JobPosition)
             .Include(s => s.CentroCusto)
+            .Include(s => s.Empresa)
+            .Include(s => s.Unit)
             .Include(s => s.Turno)
             .Include(s => s.UnidadeLotacao)
             .Include(s => s.DecisaoRHRevisadoPor)
@@ -369,6 +385,12 @@ public sealed class VagaService : IVagaService
                 UnidadeLotacaoId = response.UnidadeLotacaoId ?? solic.UnidadeLotacaoId,
                 UnidadeLotacaoCode = string.IsNullOrWhiteSpace(response.UnidadeLotacaoCode) ? solic.UnidadeLotacao?.Code : response.UnidadeLotacaoCode,
                 UnidadeLotacaoDescription = string.IsNullOrWhiteSpace(response.UnidadeLotacaoDescription) ? solic.UnidadeLotacao?.Description : response.UnidadeLotacaoDescription,
+                EmpresaId = response.EmpresaId ?? solic.EmpresaId,
+                EmpresaCode = string.IsNullOrWhiteSpace(response.EmpresaCode) ? solic.Empresa?.Code : response.EmpresaCode,
+                EmpresaDescription = string.IsNullOrWhiteSpace(response.EmpresaDescription) ? solic.Empresa?.Description : response.EmpresaDescription,
+                UnitId = response.UnitId ?? solic.UnitId,
+                UnitCode = string.IsNullOrWhiteSpace(response.UnitCode) ? solic.Unit?.Code : response.UnitCode,
+                UnitName = string.IsNullOrWhiteSpace(response.UnitName) ? solic.Unit?.Name : response.UnitName,
                 EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(response.EscalaTrabalhoRaw)
                     ? TurnoEscalaTrabalhoRawMapper.ResolveForNewVaga(solic.EscalaTrabalho, solic.Turno)
                     : response.EscalaTrabalhoRaw,
@@ -536,6 +558,7 @@ public sealed class VagaService : IVagaService
         if (request.Status == VagaStatus.Aberta)
             entity.DataAbertura = DateTimeOffset.UtcNow;
 
+        await ApplyEmpresaUnitAsync(entity, request.EmpresaId, request.UnitId, request.Modalidade, request.Status, ct);
         await ValidateFaixaSalarialAsync(entity, ct);
 
         // Sincroniza string RecrutadorResponsavel a partir do UserId resolvido (mantém coerência
@@ -952,6 +975,12 @@ public sealed class VagaService : IVagaService
             v.UnidadeLotacaoId,
             v.UnidadeLotacao?.Code,
             v.UnidadeLotacao?.Description,
+            v.EmpresaId,
+            v.Empresa?.Code,
+            v.Empresa?.Description,
+            v.UnitId,
+            v.Unit?.Code,
+            v.Unit?.Name,
             v.EixoVagaId,
             v.EixoVaga?.Code,
             v.EixoVaga?.Name,
@@ -1500,6 +1529,68 @@ public sealed class VagaService : IVagaService
         entity.ChecagemAntecedentes = request.ChecagemAntecedentes;
         entity.SlaDiasMetaFechamento = request.SlaDiasMetaFechamento;
         entity.NomeEngessado = TrimOrNull(request.NomeEngessado);
+        await ApplyEmpresaUnitAsync(entity, request.EmpresaId, request.UnitId, request.Modalidade, request.Status, ct);
+    }
+
+    private async Task ApplyEmpresaUnitAsync(
+        Vaga entity,
+        Guid? empresaId,
+        Guid? unitId,
+        VagaModalidade? modalidade,
+        VagaStatus status,
+        CancellationToken ct)
+    {
+        var requiresLocal = status == VagaStatus.Aberta
+            && modalidade is VagaModalidade.Presencial or VagaModalidade.Hibrido;
+
+        if (requiresLocal && (!unitId.HasValue || unitId.Value == Guid.Empty))
+            throw new InvalidOperationException("Selecione o local da vaga (estabelecimento) para vagas presenciais ou híbridas publicadas.");
+
+        if (unitId.HasValue && unitId.Value != Guid.Empty)
+        {
+            var unit = await _db.Set<Unit>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unitId.Value, ct)
+                ?? throw new InvalidOperationException("Estabelecimento inválido.");
+
+            if (unit.Status != UnitStatus.Active)
+                throw new InvalidOperationException("Estabelecimento inativo.");
+
+            if (empresaId.HasValue && empresaId.Value != Guid.Empty
+                && unit.EmpresaId.HasValue
+                && unit.EmpresaId.Value != empresaId.Value)
+                throw new InvalidOperationException("O estabelecimento não pertence à empresa selecionada.");
+
+            entity.UnitId = unit.Id;
+            entity.EmpresaId = empresaId.HasValue && empresaId.Value != Guid.Empty
+                ? empresaId
+                : unit.EmpresaId;
+            SyncAddressFromUnit(entity, unit);
+            return;
+        }
+
+        entity.UnitId = null;
+        if (empresaId.HasValue && empresaId.Value != Guid.Empty)
+        {
+            var empresaExists = await _db.Empresas.AnyAsync(e => e.Id == empresaId.Value && e.IsActive, ct);
+            if (!empresaExists)
+                throw new InvalidOperationException("Empresa inválida.");
+            entity.EmpresaId = empresaId;
+        }
+        else
+        {
+            entity.EmpresaId = null;
+        }
+    }
+
+    private static void SyncAddressFromUnit(Vaga entity, Unit unit)
+    {
+        entity.Cep = TrimOrNull(unit.ZipCode);
+        entity.Logradouro = TrimOrNull(unit.AddressLine);
+        entity.Numero = null;
+        entity.Bairro = TrimOrNull(unit.Neighborhood);
+        entity.Cidade = TrimOrNull(unit.City);
+        entity.Uf = TrimOrNull(unit.Uf);
     }
 
     private void EnsureTenantOwnership(Vaga entity)

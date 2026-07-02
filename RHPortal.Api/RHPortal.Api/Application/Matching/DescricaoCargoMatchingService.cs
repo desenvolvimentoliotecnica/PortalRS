@@ -63,6 +63,9 @@ public sealed class DescricaoCargoMatchingService
             .AsNoTracking()
             .Include(v => v.DescricaoCargo)
                 .ThenInclude(d => d!.Itens)
+            .Include(v => v.Empresa)
+            .Include(v => v.Unit)
+                .ThenInclude(u => u!.Empresa)
             .Include(v => v.CentroCusto)
                 .ThenInclude(c => c!.Empresa)
             .FirstOrDefaultAsync(v => v.Id == vagaId && v.TenantId == tenantId, ct);
@@ -107,7 +110,7 @@ public sealed class DescricaoCargoMatchingService
             }
         }
 
-        var empresa = vaga.CentroCusto?.Empresa;
+        var empresa = vaga.Empresa ?? vaga.Unit?.Empresa ?? vaga.CentroCusto?.Empresa;
         var empresaLat = empresa?.Latitude;
         var empresaLng = empresa?.Longitude;
 
