@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 221
+    "totalTarefas": 222
   },
   "tarefas": [
     {
@@ -5670,6 +5670,28 @@
         ],
         "prHml": "Merge PR #141",
         "prPrd": "Merge PR #142"
+      }
+    },
+    {
+      "id": "TASK-2026-221",
+      "nome": "[Infra] Corrigir proxy nginx /api/* (TenantHeaderMissing no login)",
+      "descricaoAmigavel": "Restaurar roteamento correto das chamadas /api/ via nginx para o login e health check funcionarem no Portal Admin.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "20:24",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Login HML exibe InfrastructureErrors.TenantHeaderMissingDetail; indicadores API/DB vermelhos.",
+      "entregavel": "nginx proxy_pass com $request_uri preservando path completo para a API.",
+      "ambiente": "HML",
+      "observacoes": "Regressão do fix :3000 — proxy_pass com variável truncava URI (/api/health -> /api/).",
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]
