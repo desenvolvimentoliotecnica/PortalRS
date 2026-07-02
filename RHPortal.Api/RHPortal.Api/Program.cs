@@ -166,6 +166,7 @@ builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.PhotonGeocodin
 builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.BrasilApiCepLookupService>();
 builder.Services.AddSingleton<RhPortal.Api.Application.Geocoding.BrasilApiCepGeocodingService>();
 builder.Services.AddSingleton<RhPortal.Api.Application.Geocoding.IGeocodingService, RhPortal.Api.Application.Geocoding.CompositeGeocodingService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Geocoding.EmpresaGeocodificacaoService>();
 builder.Services.AddCors(options =>
 {
     var allowAny = string.Equals(builder.Configuration["Cors:AllowAny"], "true", StringComparison.OrdinalIgnoreCase);
