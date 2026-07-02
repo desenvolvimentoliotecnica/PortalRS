@@ -444,6 +444,7 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
         await MotivoRequisicaoVagaSeeder.EnsureAsync(db, tenantId, ct);
+        await UnitEmpresaBackfillSeeder.EnsureAsync(db, tenantId, ct);
         await TenantRmIntegrationDefaultsSeeder.EnsureAsync(db, tenantId, ct);
         await RmRequisicaoStatusMapSeeder.EnsureAsync(db, tenantId, ct);
         await DocumentacaoPadraoConfigSeeder.EnsureAsync(db, tenantId, ct);
@@ -467,6 +468,7 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
         await MotivoRequisicaoVagaSeeder.EnsureAsync(db, tenantId, ct);
+        await UnitEmpresaBackfillSeeder.EnsureAsync(db, tenantId, ct);
         await TenantRmIntegrationDefaultsSeeder.EnsureAsync(db, tenantId, ct);
         await RmRequisicaoStatusMapSeeder.EnsureAsync(db, tenantId, ct);
         await DocumentacaoPadraoConfigSeeder.EnsureAsync(db, tenantId, ct);
