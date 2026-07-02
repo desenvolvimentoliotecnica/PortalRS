@@ -13,7 +13,16 @@ import type {
 } from "@fullcalendar/core";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import {
@@ -286,6 +295,10 @@ export default function AgendasScreen() {
   const calRef = useRef<FullCalendar | null>(null);
   const { me } = useAuth();
   const defaultOwner = me?.displayName?.trim() || me?.email?.trim() || "";
+
+  const fieldLabel = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+  const selectClass = "h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm";
+  const fieldHint = "mt-1 text-xs text-muted-foreground";
 
 
   const [busy, setBusy] = useState<Health>("loading");
@@ -1097,146 +1110,189 @@ export default function AgendasScreen() {
       </div>
 
 
-      {/* Modal simples (sem shadcn ainda) — mantém HTML enxuto e funcional */}
-      {createOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-3xl p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="mini-title mb-1">{form.id ? "Editar evento" : "Novo evento"}</div>
-                <div className="text-lg font-extrabold">{form.id ? "Atualizar" : "Agendar"}</div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>
-                Fechar
-              </Button>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="shrink-0 border-b px-6 py-4 pr-12">
+            <DialogTitle>{form.id ? "Editar evento" : "Agendar"}</DialogTitle>
+            <DialogDescription>
+              {form.id
+                ? "Atualize os dados do compromisso. Alterações serão refletidas no portal e no Outlook do responsável."
+                : "Preencha os dados do compromisso. O evento será criado no portal e sincronizado com o Outlook do responsável."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-3 py-2.5 text-xs leading-relaxed text-emerald-950">
+              Campos com <span className="font-semibold text-destructive">*</span> são obrigatórios.
+              Eventos do portal aparecem em verde no calendário e são sincronizados com o Outlook.
             </div>
 
+            <div className="mt-5 space-y-6">
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Informações básicas</h3>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="min-w-0 sm:col-span-2">
+                    <label className={fieldLabel}>
+                      Título <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      placeholder="Ex.: Entrevista RH — Maria Silva"
+                      required
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className={fieldLabel}>
+                      Tipo <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      className={selectClass}
+                      value={form.typeCode}
+                      onChange={(e) => setForm({ ...form, typeCode: e.target.value })}
+                    >
+                      {types.map((t) => (
+                        <option key={t.code} value={t.code}>
+                          {agendaTypeLabel(t.label, t.code)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </section>
 
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
-              <div className="md:col-span-12 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Campos com <span className="text-destructive">*</span> são obrigatórios. O evento será criado no portal (verde) e sincronizado com o Outlook do responsável.
-              </div>
-              <div className="md:col-span-8">
-                <label className="mini-title mb-1 block">Título <span className="text-destructive">*</span></label>
-                <input
-                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="Ex.: Entrevista RH — Maria Silva"
-                  required
-                />
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Tipo <span className="text-destructive">*</span></label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.typeCode} onChange={(e) => setForm({ ...form, typeCode: e.target.value })}>
-                  {types.map((t) => (
-                    <option key={t.code} value={t.code}>
-                      {agendaTypeLabel(t.label, t.code)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <section className="space-y-3 border-t border-border/60 pt-5">
+                <h3 className="text-sm font-semibold text-foreground">Data e horário</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <label className={fieldLabel}>
+                      Início <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="datetime-local"
+                      value={form.start}
+                      onChange={(e) => setForm({ ...form, start: e.target.value })}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className={fieldLabel}>
+                      Fim <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="datetime-local"
+                      value={form.end}
+                      onChange={(e) => setForm({ ...form, end: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </section>
 
+              <section className="space-y-3 border-t border-border/60 pt-5">
+                <h3 className="text-sm font-semibold text-foreground">Local e status</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="min-w-0 sm:col-span-2">
+                    <label className={fieldLabel}>Local</label>
+                    <Input
+                      value={form.location}
+                      onChange={(e) => setForm({ ...form, location: e.target.value })}
+                      placeholder="Ex.: Online, Sala 3 ou endereço"
+                      list="agenda-location-suggestions"
+                    />
+                    <datalist id="agenda-location-suggestions">
+                      <option value="Online" />
+                      <option value="Microsoft Teams" />
+                      <option value="Presencial" />
+                    </datalist>
+                    <p className={fieldHint}>Use &quot;Online&quot; para gerar link do Teams no Outlook.</p>
+                  </div>
+                  <div className="min-w-0">
+                    <label className={fieldLabel}>Status</label>
+                    <select
+                      className={selectClass}
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value as EventForm["status"] })}
+                    >
+                      <option value="confirmado">Confirmado</option>
+                      <option value="confirmado_candidato">Confirmado pelo candidato</option>
+                      <option value="reagendamento_sugerido">Reagendamento sugerido</option>
+                      <option value="pendente">Pendente</option>
+                      <option value="cancelado">Cancelado</option>
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className={fieldLabel}>Responsável</label>
+                    <Input
+                      value={form.owner}
+                      onChange={(e) => setForm({ ...form, owner: e.target.value })}
+                      placeholder={defaultOwner || "Nome ou e-mail corporativo"}
+                    />
+                    <p className={fieldHint}>Calendário Outlook desta pessoa.</p>
+                  </div>
+                </div>
+              </section>
 
-              <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Início <span className="text-destructive">*</span></label>
-                <input
-                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                  type="datetime-local"
-                  value={form.start}
-                  onChange={(e) => setForm({ ...form, start: e.target.value })}
-                />
-              </div>
-              <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Fim <span className="text-destructive">*</span></label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="datetime-local" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
-              </div>
+              <section className="space-y-3 border-t border-border/60 pt-5">
+                <h3 className="text-sm font-semibold text-foreground">Recrutamento</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <label className={fieldLabel}>Candidato</label>
+                    <select
+                      className={selectClass}
+                      value={form.candidateName}
+                      onChange={(e) => setForm({ ...form, candidateName: e.target.value })}
+                    >
+                      <option value="">Selecione…</option>
+                      {candidatos.map((c) => (
+                        <option key={c.id} value={c.nome ?? ""}>
+                          {(c.nome ?? "—") + (c.email ? ` • ${c.email}` : "")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className={fieldLabel}>Vaga</label>
+                    <select
+                      className={selectClass}
+                      value={form.vagaId}
+                      onChange={(e) => setForm({ ...form, vagaId: e.target.value })}
+                    >
+                      <option value="">Selecione…</option>
+                      {vagas.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.codigo ? `${v.titulo ?? ""} (${v.codigo})` : (v.titulo ?? "")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </section>
 
-
-              <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Local</label>
-                <input
-                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  placeholder="Ex.: Online, Sala 3 ou endereço"
-                  list="agenda-location-suggestions"
-                />
-                <datalist id="agenda-location-suggestions">
-                  <option value="Online" />
-                  <option value="Microsoft Teams" />
-                  <option value="Presencial" />
-                </datalist>
-                <p className="mt-1 text-[11px] text-muted-foreground">Use &quot;Online&quot; para gerar link do Teams no Outlook.</p>
-              </div>
-              <div className="md:col-span-3">
-                <label className="mini-title mb-1 block">Status</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as EventForm["status"] })}>
-                  <option value="confirmado">Confirmado</option>
-                  <option value="confirmado_candidato">Confirmado pelo candidato</option>
-                  <option value="reagendamento_sugerido">Reagendamento sugerido</option>
-                  <option value="pendente">Pendente</option>
-                  <option value="cancelado">Cancelado</option>
-                </select>
-              </div>
-              <div className="md:col-span-3">
-                <label className="mini-title mb-1 block">Responsável</label>
-                <input
-                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                  value={form.owner}
-                  onChange={(e) => setForm({ ...form, owner: e.target.value })}
-                  placeholder={defaultOwner || "Nome ou e-mail corporativo"}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">Calendário Outlook desta pessoa.</p>
-              </div>
-
-
-              <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Candidato</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.candidateName} onChange={(e) => setForm({ ...form, candidateName: e.target.value })}>
-                  <option value="">Selecione…</option>
-                  {candidatos.map((c) => (
-                    <option key={c.id} value={c.nome ?? ""}>
-                      {(c.nome ?? "—") + (c.email ? ` • ${c.email}` : "")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Vaga</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.vagaId} onChange={(e) => setForm({ ...form, vagaId: e.target.value })}>
-                  <option value="">Selecione…</option>
-                  {vagas.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.codigo ? `${v.titulo ?? ""} (${v.codigo})` : (v.titulo ?? "")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-
-              <div className="md:col-span-12">
-                <label className="mini-title mb-1 block">Notas</label>
-                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-              </div>
-            </div>
-
-
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)} disabled={savingEvent}>
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => void saveForm()}
-                disabled={savingEvent || busy === "loading"}
-              >
-                {savingEvent ? "Salvando…" : form.id ? "Salvar alterações" : "Criar evento"}
-              </Button>
+              <section className="space-y-3 border-t border-border/60 pt-5">
+                <h3 className="text-sm font-semibold text-foreground">Observações</h3>
+                <div>
+                  <label className={fieldLabel}>Notas</label>
+                  <Textarea
+                    rows={3}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    placeholder="Informações adicionais sobre o compromisso…"
+                    className="resize-y"
+                  />
+                </div>
+              </section>
             </div>
           </div>
-        </div>
-      ) : null}
+
+          <DialogFooter className="shrink-0 border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={savingEvent}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void saveForm()} disabled={savingEvent || busy === "loading"}>
+              {savingEvent ? "Salvando…" : form.id ? "Salvar alterações" : "Criar evento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
 
       {graphViewOpen && selectedGraphEvent ? (
