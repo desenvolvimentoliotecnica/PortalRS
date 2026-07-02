@@ -9,8 +9,6 @@ import { env } from "@/lib/env";
 import { getTenantId } from "@/lib/session";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
-import { EmpresaAutocomplete } from "@/components/autocomplete/EmpresaAutocomplete";
-import { EstabelecimentoAutocomplete } from "@/components/autocomplete/EstabelecimentoAutocomplete";
 import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
@@ -708,6 +706,38 @@ function EnumSelect({ value, onChange, options, placeholder }: {
   );
 }
 
+type LookupOption = { id: string; code: string; name: string };
+
+function LookupSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options: LookupOption[];
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <select
+      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">{placeholder ?? "Selecionar..."}</option>
+      {options.map((o) => (
+        <option key={o.id} value={o.id}>
+          {o.name && o.code ? `${o.name} (${o.code})` : o.name || o.code}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
 type TabKey = "identificacao" | "horario" | "dados" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos" | "posicao";
@@ -930,6 +960,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [descricaoCargoSearch, setDescricaoCargoSearch] = useState("");
   const [descricaoCargoOptions, setDescricaoCargoOptions] = useState<DescricaoCargoLookupItem[]>([]);
   const [loadingDescricaoCargo, setLoadingDescricaoCargo] = useState(false);
+  const [empresaOptions, setEmpresaOptions] = useState<LookupOption[]>([]);
+  const [unitOptions, setUnitOptions] = useState<LookupOption[]>([]);
+  const [loadingUnitOptions, setLoadingUnitOptions] = useState(false);
   const loaded = useRef(false);
   const lastBootstrapKeyRef = useRef<string>("");
   const [embeddedBootstrapLoading, setEmbeddedBootstrapLoading] = useState(false);
@@ -1072,6 +1105,51 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
     return () => window.clearTimeout(handle);
   }, [open, descricaoCargoSearch]);
+
+  useEffect(() => {
+    if (!open) {
+      setEmpresaOptions([]);
+      setUnitOptions([]);
+      return;
+    }
+    void fetchJson<LookupOption[]>(`${BASE}/api/lookup/empresas`)
+      .then((items) => {
+        const list = Array.isArray(items) ? items : [];
+        if (draft.empresaId && draft.empresaDescription && !list.some((e) => e.id === draft.empresaId)) {
+          list.unshift({
+            id: draft.empresaId,
+            code: draft.empresaCode || draft.empresaId,
+            name: draft.empresaDescription,
+          });
+        }
+        setEmpresaOptions(list);
+      })
+      .catch(() => setEmpresaOptions([]));
+  }, [open, draft.empresaId, draft.empresaCode, draft.empresaDescription]);
+
+  useEffect(() => {
+    if (!open || !draft.empresaId) {
+      setUnitOptions([]);
+      return;
+    }
+    setLoadingUnitOptions(true);
+    const params = new URLSearchParams();
+    params.set("empresaId", draft.empresaId);
+    void fetchJson<LookupOption[]>(`${BASE}/api/units/lookup?${params.toString()}`)
+      .then((items) => {
+        const list = Array.isArray(items) ? items : [];
+        if (draft.unitId && draft.unitName && !list.some((u) => u.id === draft.unitId)) {
+          list.unshift({
+            id: draft.unitId,
+            code: draft.unitCode || draft.unitId,
+            name: draft.unitName,
+          });
+        }
+        setUnitOptions(list);
+      })
+      .catch(() => setUnitOptions([]))
+      .finally(() => setLoadingUnitOptions(false));
+  }, [open, draft.empresaId, draft.unitId, draft.unitCode, draft.unitName]);
 
   useEffect(() => {
     if (!open) {
@@ -1582,14 +1660,17 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 required={draft.modalidade === "presencial" || draft.modalidade === "hibrido"}
                 span="col-span-12 md:col-span-6"
               >
-                <EmpresaAutocomplete
-                  value={draft.empresaId || null}
+                <LookupSelect
+                  value={draft.empresaId}
+                  placeholder="Selecione a empresa..."
+                  options={empresaOptions}
                   onChange={(id) => {
+                    const empresa = empresaOptions.find((e) => e.id === id);
                     setDraft((d) => ({
                       ...d,
-                      empresaId: id ?? "",
-                      empresaCode: "",
-                      empresaDescription: "",
+                      empresaId: id,
+                      empresaCode: empresa?.code ?? "",
+                      empresaDescription: empresa?.name ?? "",
                       unitId: "",
                       unitCode: "",
                       unitName: "",
@@ -1601,16 +1682,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                       uf: "",
                     }));
                   }}
-                  onSelect={(empresa) => {
-                    if (!empresa) return;
-                    setDraft((d) => ({
-                      ...d,
-                      empresaCode: empresa.code,
-                      empresaDescription: empresa.description,
-                    }));
-                  }}
-                  defaultLabel={draft.empresaCode ? { code: draft.empresaCode, description: draft.empresaDescription } : undefined}
-                  placeholder="Selecione a empresa..."
                 />
               </Field>
 
@@ -1619,12 +1690,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 required={draft.modalidade === "presencial" || draft.modalidade === "hibrido"}
                 span="col-span-12 md:col-span-6"
               >
-                <EstabelecimentoAutocomplete
-                  value={draft.unitId || null}
-                  onChange={(id) => { void applyUnitToDraft(id); }}
-                  empresaId={draft.empresaId || null}
-                  defaultLabel={draft.unitCode && draft.unitName ? { code: draft.unitCode, name: draft.unitName } : undefined}
-                  placeholder={draft.empresaId ? "Selecione o estabelecimento..." : "Selecione a empresa primeiro"}
+                <LookupSelect
+                  value={draft.unitId}
+                  placeholder={draft.empresaId ? (loadingUnitOptions ? "Carregando locais..." : "Selecione o local da vaga...") : "Selecione a empresa primeiro"}
+                  options={unitOptions}
+                  disabled={!draft.empresaId || loadingUnitOptions}
+                  onChange={(id) => { void applyUnitToDraft(id || null); }}
                 />
               </Field>
 
