@@ -2,6 +2,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RhPortal.Api.Contracts.Schedule;
 
+public sealed record ScheduleEventParticipantDto(
+    Guid FuncionarioId,
+    string Nome,
+    string Email
+);
+
 public sealed record ScheduleEventTypeResponse(
     Guid Id,
     string Code,
@@ -41,7 +47,8 @@ public sealed record ScheduleEventResponse(
     string TypeLabel,
     string TypeColor,
     string TypeIcon,
-    string? OnlineMeetingJoinUrl
+    string? OnlineMeetingJoinUrl,
+    IReadOnlyList<ScheduleEventParticipantDto>? Participants
 );
 
 public sealed record ScheduleEventsQuery(
@@ -67,7 +74,8 @@ public sealed record ScheduleEventCreateRequest(
     [MaxLength(200)] string? VagaTitle,
     [MaxLength(40)] string? VagaCode,
     [MaxLength(2000)] string? Notes,
-    [Required, MaxLength(40)] string TypeCode
+    [Required, MaxLength(40)] string TypeCode,
+    IReadOnlyList<ScheduleEventParticipantDto>? Participants
 );
 
 public sealed record ScheduleEventUpdateRequest(
@@ -85,7 +93,8 @@ public sealed record ScheduleEventUpdateRequest(
     [MaxLength(200)] string? VagaTitle,
     [MaxLength(40)] string? VagaCode,
     [MaxLength(2000)] string? Notes,
-    [Required, MaxLength(40)] string TypeCode
+    [Required, MaxLength(40)] string TypeCode,
+    IReadOnlyList<ScheduleEventParticipantDto>? Participants
 );
 
 public sealed record PublicInterviewResponse(

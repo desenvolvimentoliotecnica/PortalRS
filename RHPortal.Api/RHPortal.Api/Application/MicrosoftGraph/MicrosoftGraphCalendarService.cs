@@ -39,6 +39,7 @@ public sealed class GraphCalendarEventDto
     public string? OrganizerName { get; set; }
     public string? WebLink { get; set; }
     public bool IsOnlineMeeting { get; set; }
+    public bool IsCancelled { get; set; }
     public string Source { get; set; } = "microsoft-graph";
 }
 
@@ -61,6 +62,7 @@ public sealed class GraphCalendarEventWriteRequest
     public bool IsOnlineMeeting { get; init; }
     public string? RoomEmail { get; init; }
     public string? RoomDisplayName { get; init; }
+    public IReadOnlyList<GraphEventAttendee> ParticipantAttendees { get; init; } = Array.Empty<GraphEventAttendee>();
 }
 
 public sealed class GraphMeetingRoomDto
@@ -649,23 +651,43 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
             payload["onlineMeetingProvider"] = "teamsForBusiness";
         }
 
+        var attendees = new List<object>();
+
+        foreach (var participant in request.ParticipantAttendees)
+        {
+            if (string.IsNullOrWhiteSpace(participant.Email))
+                continue;
+
+            attendees.Add(new
+            {
+                emailAddress = new
+                {
+                    address = participant.Email.Trim(),
+                    name = string.IsNullOrWhiteSpace(participant.Name)
+                        ? participant.Email.Trim()
+                        : participant.Name.Trim(),
+                },
+                type = string.IsNullOrWhiteSpace(participant.Type) ? "required" : participant.Type.Trim(),
+            });
+        }
+
         if (!string.IsNullOrWhiteSpace(request.RoomEmail))
         {
-            payload["attendees"] = new[]
+            attendees.Add(new
             {
-                new
+                emailAddress = new
                 {
-                    emailAddress = new
-                    {
-                        address = request.RoomEmail.Trim(),
-                        name = string.IsNullOrWhiteSpace(request.RoomDisplayName)
-                            ? request.RoomEmail.Trim()
-                            : request.RoomDisplayName.Trim(),
-                    },
-                    type = "resource",
+                    address = request.RoomEmail.Trim(),
+                    name = string.IsNullOrWhiteSpace(request.RoomDisplayName)
+                        ? request.RoomEmail.Trim()
+                        : request.RoomDisplayName.Trim(),
                 },
-            };
+                type = "resource",
+            });
         }
+
+        if (attendees.Count > 0)
+            payload["attendees"] = attendees;
 
         return JsonSerializer.Serialize(payload, JsonWriteOptions);
     }
@@ -735,7 +757,7 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         var end = Uri.EscapeDataString(endUtc.ToString("o"));
         var upn = Uri.EscapeDataString(userUpn.Trim());
         var url =
-            $"{GraphBaseUrl}/users/{upn}/calendarView?startDateTime={start}&endDateTime={end}&$$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,webLink,isOnlineMeeting&$$orderby=start/dateTime&$$top=200";
+            $"{GraphBaseUrl}/users/{upn}/calendarView?startDateTime={start}&endDateTime={end}&$$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,webLink,isOnlineMeeting,isCancelled&$$orderby=start/dateTime&$$top=200";
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -767,6 +789,7 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
             var bodyPreview = item.TryGetProperty("bodyPreview", out var preview) ? preview.GetString() : null;
             var webLink = item.TryGetProperty("webLink", out var link) ? link.GetString() : null;
             var isOnlineMeeting = item.TryGetProperty("isOnlineMeeting", out var online) && online.GetBoolean();
+            var isCancelled = item.TryGetProperty("isCancelled", out var cancelled) && cancelled.GetBoolean();
             string? organizerName = null;
             if (item.TryGetProperty("organizer", out var organizer)
                 && organizer.TryGetProperty("emailAddress", out var email)
@@ -791,6 +814,7 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
                 OrganizerName = organizerName,
                 WebLink = webLink,
                 IsOnlineMeeting = isOnlineMeeting,
+                IsCancelled = isCancelled,
             });
         }
 

@@ -43,6 +43,10 @@ import {
 } from "@/lib/schemas/recrutamento";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  AgendaParticipantsField,
+  type AgendaParticipant,
+} from "@/features/recrutamento/agendas/AgendaParticipantsField";
 
 
 type CandidatoListItem = CandidatoListItemBase & {
@@ -77,6 +81,7 @@ type EventForm = {
   candidateName: string;
   vagaId: string;
   notes: string;
+  participants: AgendaParticipant[];
 };
 
 
@@ -108,9 +113,30 @@ type GraphCalendarEventApi = {
   organizerName?: string | null;
   webLink?: string | null;
   isOnlineMeeting?: boolean;
+  isCancelled?: boolean;
   source: string;
 };
 
+
+function mapParticipantsForApi(participants: AgendaParticipant[]) {
+  return participants.map((item) => ({
+    funcionarioId: item.funcionarioId,
+    nome: item.nome,
+    email: item.email,
+  }));
+}
+
+function mapApiParticipants(
+  participants: AgendaEventApi["participants"] | null | undefined,
+): AgendaParticipant[] {
+  return (participants ?? [])
+    .map((item) => ({
+      funcionarioId: String(item.funcionarioId ?? ""),
+      nome: String(item.nome ?? ""),
+      email: String(item.email ?? ""),
+    }))
+    .filter((item) => item.funcionarioId && item.nome && item.email);
+}
 
 const BASE = "/app";
 const AGENDA_API_BASE = `/api/agenda`;
@@ -119,6 +145,9 @@ const PORTAL_EVENT_COLOR = "#16a34a";
 const PORTAL_EVENT_BORDER = "#15803d";
 const GRAPH_EVENT_COLOR = "#0078d4";
 const GRAPH_EVENT_BORDER = "#005a9e";
+const CANCELLED_EVENT_COLOR = "#9ca3af";
+const CANCELLED_EVENT_BORDER = "#6b7280";
+const CANCELLED_EVENT_TEXT = "#374151";
 
 
 function toLocalIsoInputValue(d: Date) {
@@ -150,6 +179,20 @@ function statusLabel(s: string) {
   if (s === "pendente") return "Pendente";
   if (s === "cancelado") return "Cancelado";
   return s || "—";
+}
+
+
+function isCancelledStatus(status?: string | null) {
+  return (status ?? "").trim().toLowerCase() === "cancelado";
+}
+
+
+function isCancelledGraphSubject(subject?: string | null) {
+  return (subject ?? "").trim().toLowerCase().startsWith("cancelado:");
+}
+
+function isCancelledGraphEvent(ev: Pick<GraphCalendarEventApi, "subject" | "isCancelled">) {
+  return Boolean(ev.isCancelled) || isCancelledGraphSubject(ev.subject);
 }
 
 
@@ -437,6 +480,7 @@ export default function AgendasScreen() {
     candidateName: "",
     vagaId: "",
     notes: "",
+    participants: [],
   }));
 
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoomOption[]>([]);
@@ -628,28 +672,34 @@ export default function AgendasScreen() {
 
   const calendarEvents = useMemo(
     () => [
-      ...filtered.map((ev) => ({
-        id: ev.id,
-        title: ev.title ?? "Evento",
-        start: ev.startAtUtc,
-        end: ev.endAtUtc ?? undefined,
-        backgroundColor: PORTAL_EVENT_COLOR,
-        borderColor: PORTAL_EVENT_BORDER,
-        textColor: "#fff",
-        editable: true,
-        extendedProps: { source: "portal" },
-      })),
-      ...filteredGraphEvents.map((ev) => ({
-        id: ev.id,
-        title: ev.subject || "Evento Outlook",
-        start: ev.start,
-        end: ev.end,
-        backgroundColor: GRAPH_EVENT_COLOR,
-        borderColor: GRAPH_EVENT_BORDER,
-        textColor: "#fff",
-        editable: false,
-        extendedProps: { source: "microsoft-graph", location: ev.location },
-      })),
+      ...filtered.map((ev) => {
+        const cancelled = isCancelledStatus(ev.status);
+        return {
+          id: ev.id,
+          title: ev.title ?? "Evento",
+          start: ev.startAtUtc,
+          end: ev.endAtUtc ?? undefined,
+          backgroundColor: cancelled ? CANCELLED_EVENT_COLOR : PORTAL_EVENT_COLOR,
+          borderColor: cancelled ? CANCELLED_EVENT_BORDER : PORTAL_EVENT_BORDER,
+          textColor: cancelled ? CANCELLED_EVENT_TEXT : "#fff",
+          editable: !cancelled,
+          extendedProps: { source: "portal", cancelled },
+        };
+      }),
+      ...filteredGraphEvents.map((ev) => {
+        const cancelled = isCancelledGraphEvent(ev);
+        return {
+          id: ev.id,
+          title: ev.subject || "Evento Outlook",
+          start: ev.start,
+          end: ev.end,
+          backgroundColor: cancelled ? CANCELLED_EVENT_COLOR : GRAPH_EVENT_COLOR,
+          borderColor: cancelled ? CANCELLED_EVENT_BORDER : GRAPH_EVENT_BORDER,
+          textColor: cancelled ? CANCELLED_EVENT_TEXT : "#fff",
+          editable: false,
+          extendedProps: { source: "microsoft-graph", location: ev.location, cancelled },
+        };
+      }),
     ],
     [filtered, filteredGraphEvents],
   );
@@ -657,7 +707,6 @@ export default function AgendasScreen() {
 
   const kpis = useMemo(() => {
     const now = new Date();
-    const list = filtered;
     const isSameDay = (a: Date, b: Date) =>
       a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     const startOfWeek = (d: Date) => {
@@ -675,7 +724,9 @@ export default function AgendasScreen() {
     let week = 0;
     let pending = 0;
     let interviews = 0;
-    for (const ev of list) {
+
+    for (const ev of filtered) {
+      if (isCancelledStatus(ev.status)) continue;
       const s = new Date(ev.startAtUtc);
       if (!Number.isNaN(s.getTime()) && isSameDay(s, now)) today++;
       if (!Number.isNaN(s.getTime()) && s >= w0 && s < w1) week++;
@@ -683,14 +734,23 @@ export default function AgendasScreen() {
       if ((ev.typeCode ?? "").toLowerCase() === "entrevista" && !Number.isNaN(s.getTime()) && s >= w0 && s < w1)
         interviews++;
     }
+
+    for (const ev of filteredGraphEvents) {
+      if (isCancelledGraphEvent(ev)) continue;
+      const s = new Date(ev.start);
+      if (!Number.isNaN(s.getTime()) && isSameDay(s, now)) today++;
+      if (!Number.isNaN(s.getTime()) && s >= w0 && s < w1) week++;
+    }
+
     return { today, week, pending, interviews };
-  }, [filtered]);
+  }, [filtered, filteredGraphEvents]);
 
 
   const sideList = useMemo(() => {
     const start = activeRange?.start;
     const end = activeRange?.end;
     const portalItems = filtered
+      .filter((ev) => !isCancelledStatus(ev.status) && !isCancelledGraphSubject(ev.title))
       .filter((ev) => {
         const s = new Date(ev.startAtUtc);
         if (Number.isNaN(s.getTime())) return false;
@@ -712,6 +772,7 @@ export default function AgendasScreen() {
       }));
 
     const graphItems = filteredGraphEvents
+      .filter((ev) => !isCancelledGraphEvent(ev))
       .filter((ev) => {
         const s = new Date(ev.start);
         if (Number.isNaN(s.getTime())) return false;
@@ -756,6 +817,7 @@ export default function AgendasScreen() {
       candidateName: "",
       vagaId: "",
       notes: "",
+      participants: [],
       start: toLocalIsoInputValue(s),
       end: toLocalIsoInputValue(e),
     }));
@@ -788,6 +850,7 @@ export default function AgendasScreen() {
       candidateName: ev.candidate ?? "",
       vagaId: vaga?.id ?? "",
       notes: ev.notes ?? "",
+      participants: mapApiParticipants(ev.participants),
     });
     setCreateOpen(true);
   }
@@ -839,6 +902,7 @@ export default function AgendasScreen() {
       vagaCode: vagas.find((v) => v.id === form.vagaId)?.codigo ?? "",
       notes: form.notes?.trim() || "",
       typeCode: form.typeCode,
+      participants: mapParticipantsForApi(form.participants),
     };
 
     setSavingEvent(true);
@@ -900,6 +964,9 @@ export default function AgendasScreen() {
       endAtUtc: toLocalIsoInputValue(plus7e),
       allDay: false,
       status: String(ev.status ?? "confirmado").toLowerCase(),
+      meetingFormat: inferMeetingFormat(ev),
+      roomEmail: ev.roomEmail ?? null,
+      roomDisplayName: ev.roomDisplayName ?? null,
       location: ev.location ?? "",
       owner: ev.owner ?? "",
       candidate: ev.candidate ?? "",
@@ -907,6 +974,7 @@ export default function AgendasScreen() {
       vagaCode: ev.vagaCode ?? "",
       notes: ev.notes ?? "",
       typeCode: ev.typeCode ?? types[0]?.code ?? "entrevista",
+      participants: mapParticipantsForApi(mapApiParticipants(ev.participants)),
     };
     await fetchJson(`${AGENDA_API_BASE}/events`, {
       method: "POST",
@@ -929,6 +997,9 @@ export default function AgendasScreen() {
       endAtUtc: toLocalIsoInputValue(arg.event.end ?? arg.event.start ?? new Date()),
       allDay: !!arg.event.allDay,
       status: ev.status ?? "confirmado",
+      meetingFormat: inferMeetingFormat(ev),
+      roomEmail: ev.roomEmail ?? null,
+      roomDisplayName: ev.roomDisplayName ?? null,
       location: ev.location ?? "",
       owner: ev.owner ?? "",
       candidate: ev.candidate ?? "",
@@ -936,6 +1007,7 @@ export default function AgendasScreen() {
       vagaCode: ev.vagaCode ?? "",
       notes: ev.notes ?? "",
       typeCode: ev.typeCode ?? types[0]?.code ?? "entrevista",
+      participants: mapParticipantsForApi(mapApiParticipants(ev.participants)),
     };
     await fetchJson(`${AGENDA_API_BASE}/events/${encodeURIComponent(id)}`, {
       method: "PUT",
@@ -989,6 +1061,9 @@ export default function AgendasScreen() {
         endAtUtc: String(ev?.end ?? ev?.start ?? ""),
         allDay: false,
         status: String(p?.status ?? "confirmado"),
+        meetingFormat: "online",
+        roomEmail: null,
+        roomDisplayName: null,
         location: String(p?.location ?? ""),
         owner: String(p?.owner ?? ""),
         candidate: String(p?.candidate ?? ""),
@@ -996,6 +1071,7 @@ export default function AgendasScreen() {
         vagaCode: String(p?.vagaCode ?? ""),
         notes: String(p?.notes ?? ""),
         typeCode: String(p?.type ?? types[0]?.code ?? "entrevista"),
+        participants: [],
       };
       await fetchJson(`${AGENDA_API_BASE}/events`, {
         method: "POST",
@@ -1502,6 +1578,15 @@ export default function AgendasScreen() {
               </section>
 
               <section className="space-y-3 border-t border-border/60 pt-5">
+                <h3 className="text-sm font-semibold text-foreground">Participantes</h3>
+                <AgendaParticipantsField
+                  value={form.participants}
+                  onChange={(participants) => setForm({ ...form, participants })}
+                  disabled={savingEvent}
+                />
+              </section>
+
+              <section className="space-y-3 border-t border-border/60 pt-5">
                 <h3 className="text-sm font-semibold text-foreground">Recrutamento</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="min-w-0">
@@ -1716,6 +1801,18 @@ export default function AgendasScreen() {
                 <div className="mini-title mb-1">Owner</div>
                 <div className="font-semibold">{selectedEvent.owner ?? "—"}</div>
               </div>
+              {(selectedEvent.participants?.length ?? 0) > 0 ? (
+                <div className="card-soft p-3 md:col-span-2" style={{ boxShadow: "none" }}>
+                  <div className="mini-title mb-1">Participantes</div>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {selectedEvent.participants!.map((participant) => (
+                      <span key={participant.funcionarioId} className="badge-soft text-xs">
+                        {participant.nome}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="card-soft p-3 md:col-span-2" style={{ boxShadow: "none" }}>
                 <div className="mini-title mb-1">Notas</div>
                 <div className="text-muted-foreground whitespace-pre-wrap text-sm">{selectedEvent.notes ?? "—"}</div>
