@@ -61,13 +61,18 @@ public sealed class GraphCalendarEventWriteRequest
     public bool IsOnlineMeeting { get; init; }
 }
 
+public sealed record GraphCalendarEventCreateResult(
+    string EventId,
+    string? OnlineMeetingJoinUrl,
+    string? WebLink);
+
 public interface IMicrosoftGraphCalendarService
 {
     Task<GraphCalendarConfigView> GetConfigAsync(CancellationToken ct);
     Task<GraphCalendarConfigView> SaveConfigAsync(GraphCalendarConfigRequest request, CancellationToken ct);
     Task<GraphCalendarTestResponse> TestConnectionAsync(CancellationToken ct);
     Task<IReadOnlyList<GraphCalendarEventDto>> ListEventsAsync(DateTimeOffset? startUtc, DateTimeOffset? endUtc, CancellationToken ct);
-    Task<string?> CreateCalendarEventAsync(GraphCalendarEventWriteRequest request, CancellationToken ct);
+    Task<GraphCalendarEventCreateResult?> CreateCalendarEventAsync(GraphCalendarEventWriteRequest request, CancellationToken ct);
     Task UpdateCalendarEventAsync(string userUpn, string graphEventId, GraphCalendarEventWriteRequest request, CancellationToken ct);
     Task DeleteCalendarEventAsync(string userUpn, string graphEventId, CancellationToken ct);
 }
@@ -197,7 +202,7 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         }
     }
 
-    public async Task<string?> CreateCalendarEventAsync(GraphCalendarEventWriteRequest request, CancellationToken ct)
+    public async Task<GraphCalendarEventCreateResult?> CreateCalendarEventAsync(GraphCalendarEventWriteRequest request, CancellationToken ct)
     {
         var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: true);
         if (credentials is null)
@@ -220,8 +225,21 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         if (!resp.IsSuccessStatusCode)
             throw new InvalidOperationException($"Microsoft Graph retornou {(int)resp.StatusCode}: {TrimGraphError(body)}");
 
-        using var doc = JsonDocument.Parse(body);
-        return doc.RootElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+        var created = ParseCreateResponse(body);
+        if (string.IsNullOrWhiteSpace(created.EventId))
+            return null;
+
+        if (request.IsOnlineMeeting && string.IsNullOrWhiteSpace(created.OnlineMeetingJoinUrl))
+        {
+            var fetched = await FetchEventMeetingLinksAsync(http, token, request.UserUpn.Trim(), created.EventId, ct);
+            return created with
+            {
+                OnlineMeetingJoinUrl = fetched.JoinUrl ?? created.OnlineMeetingJoinUrl,
+                WebLink = fetched.WebLink ?? created.WebLink,
+            };
+        }
+
+        return created;
     }
 
     public async Task UpdateCalendarEventAsync(
@@ -274,6 +292,49 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
         var body = await resp.Content.ReadAsStringAsync(ct);
         throw new InvalidOperationException($"Microsoft Graph retornou {(int)resp.StatusCode}: {TrimGraphError(body)}");
+    }
+
+    private static GraphCalendarEventCreateResult ParseCreateResponse(string body)
+    {
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
+        var joinUrl = root.TryGetProperty("onlineMeeting", out var om)
+                      && om.TryGetProperty("joinUrl", out var ju)
+            ? ju.GetString()
+            : null;
+        var webLink = root.TryGetProperty("webLink", out var wl) ? wl.GetString() : null;
+        return new GraphCalendarEventCreateResult(id, joinUrl, webLink);
+    }
+
+    private static async Task<(string? JoinUrl, string? WebLink)> FetchEventMeetingLinksAsync(
+        HttpClient http,
+        string token,
+        string userUpn,
+        string graphEventId,
+        CancellationToken ct)
+    {
+        var upn = Uri.EscapeDataString(userUpn.Trim());
+        var eventId = Uri.EscapeDataString(graphEventId.Trim());
+        var url =
+            $"{GraphBaseUrl}/users/{upn}/events/{eventId}?$select=onlineMeeting,webLink";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await http.SendAsync(req, ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            return (null, null);
+
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        var joinUrl = root.TryGetProperty("onlineMeeting", out var om)
+                      && om.TryGetProperty("joinUrl", out var ju)
+            ? ju.GetString()
+            : null;
+        var webLink = root.TryGetProperty("webLink", out var wl) ? wl.GetString() : null;
+        return (joinUrl, webLink);
     }
 
     private async Task<HashSet<string>> GetLinkedGraphEventIdsAsync(CancellationToken ct)

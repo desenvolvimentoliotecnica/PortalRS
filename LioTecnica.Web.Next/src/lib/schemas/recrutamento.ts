@@ -167,6 +167,7 @@ export const AgendaEventApiSchema = z.object({
     typeLabel: z.string().optional().nullable(),
     typeColor: z.string().optional().nullable(),
     typeIcon: z.string().optional().nullable(),
+    onlineMeetingJoinUrl: z.string().optional().nullable(),
 });
 
 export type AgendaEventApi = z.infer<typeof AgendaEventApiSchema>;

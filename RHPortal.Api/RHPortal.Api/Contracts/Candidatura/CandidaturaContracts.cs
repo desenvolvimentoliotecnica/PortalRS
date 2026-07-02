@@ -32,6 +32,16 @@ public sealed record AvancarEtapaRequest(
     AgendarEntrevistaCandidaturaRequest? Entrevista = null
 );
 
+public sealed record AvancarEtapaResponse(
+    CandidaturaResponse Candidatura,
+    EntrevistaAgendadaResponse? Entrevista
+);
+
+public sealed record EntrevistaAgendadaResponse(
+    Guid AgendaEventId,
+    string? OnlineMeetingJoinUrl
+);
+
 public sealed record AgendarEntrevistaCandidaturaRequest(
     DateTime InicioUtc,
     int DuracaoMinutos,

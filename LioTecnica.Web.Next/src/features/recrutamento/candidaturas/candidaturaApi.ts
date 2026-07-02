@@ -221,12 +221,20 @@ export function getKanbanVagas() {
   return apiJson<KanbanVagaFiltroItem[]>("/api/candidaturas/kanban/vagas");
 }
 
+export type AvancarEtapaResponse = {
+  candidatura: CandidaturaDetalhe;
+  entrevista?: {
+    agendaEventId: string;
+    onlineMeetingJoinUrl?: string | null;
+  } | null;
+};
+
 export async function avancarEtapa(
   candidaturaId: string,
   novaEtapa: EtapaMacroCandidatura,
   observacao?: string | null,
   entrevista?: AgendarEntrevistaCandidaturaRequest | null,
-) {
+): Promise<AvancarEtapaResponse> {
   const res = await apiFetch(`/api/candidaturas/${candidaturaId}/avancar-etapa`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -240,7 +248,7 @@ export async function avancarEtapa(
     } catch { /* ignore */ }
     throw new Error(msg);
   }
-  return res.json();
+  return res.json() as Promise<AvancarEtapaResponse>;
 }
 
 export type AgendarEntrevistaCandidaturaRequest = {

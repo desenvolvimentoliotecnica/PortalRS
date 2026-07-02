@@ -59,10 +59,10 @@ public sealed class CandidaturasController : ControllerBase
 
     /// <summary>Avança (ou retrocede) a etapa de uma candidatura — registra histórico e dispara notificação.</summary>
     [HttpPost("{id:guid}/avancar-etapa")]
-    [ProducesResponseType(typeof(CandidaturaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AvancarEtapaResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<CandidaturaResponse>> AvancarEtapa(
+    public async Task<ActionResult<AvancarEtapaResponse>> AvancarEtapa(
         Guid id,
         [FromBody] AvancarEtapaRequest request,
         CancellationToken ct)

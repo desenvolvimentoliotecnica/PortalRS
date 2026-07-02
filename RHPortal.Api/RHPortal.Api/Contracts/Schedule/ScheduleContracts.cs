@@ -37,7 +37,8 @@ public sealed record ScheduleEventResponse(
     string TypeCode,
     string TypeLabel,
     string TypeColor,
-    string TypeIcon
+    string TypeIcon,
+    string? OnlineMeetingJoinUrl
 );
 
 public sealed record ScheduleEventsQuery(

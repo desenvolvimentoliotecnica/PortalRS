@@ -312,6 +312,7 @@ export default function AgendasScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [graphViewOpen, setGraphViewOpen] = useState(false);
+  const [createdJoinUrlDialog, setCreatedJoinUrlDialog] = useState<{ title: string; url: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedGraphEventId, setSelectedGraphEventId] = useState<string | null>(null);
 
@@ -638,14 +639,21 @@ export default function AgendasScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        toast.success("Evento atualizado.");
       } else {
-        await fetchJson(`${AGENDA_API_BASE}/events`, {
+        const created = await fetchJson<AgendaEventApi>(`${AGENDA_API_BASE}/events`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        const joinUrl = created?.onlineMeetingJoinUrl?.trim();
+        if (joinUrl) {
+          setCreatedJoinUrlDialog({ title: form.title.trim() || "Evento", url: joinUrl });
+          toast.success("Evento criado e sincronizado com o Outlook.");
+        } else {
+          toast.success("Evento criado e sincronizado com o Outlook.");
+        }
       }
-      toast.success(form.id ? "Evento atualizado." : "Evento criado e sincronizado com o Outlook.");
       await loadEventsForCurrentRange();
       setCreateOpen(false);
     } catch (err) {
@@ -1355,6 +1363,22 @@ export default function AgendasScreen() {
                 <div className="mini-title mb-1">Local</div>
                 <div className="font-semibold">{selectedEvent.location ?? "—"}</div>
               </div>
+              {selectedEvent.onlineMeetingJoinUrl?.trim() ? (
+                <div className="card-soft border-emerald-200 bg-emerald-50 p-3 md:col-span-2" style={{ boxShadow: "none" }}>
+                  <div className="mini-title mb-1 flex items-center gap-1">
+                    <Video className="size-4" />
+                    Link de ingresso Teams
+                  </div>
+                  <a
+                    href={selectedEvent.onlineMeetingJoinUrl.trim()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all text-sm font-medium text-emerald-800 underline"
+                  >
+                    {selectedEvent.onlineMeetingJoinUrl.trim()}
+                  </a>
+                </div>
+              ) : null}
               <div className="card-soft p-3" style={{ boxShadow: "none" }}>
                 <div className="mini-title mb-1">Owner</div>
                 <div className="font-semibold">{selectedEvent.owner ?? "—"}</div>
@@ -1387,6 +1411,26 @@ export default function AgendasScreen() {
 
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
+              {selectedEvent.onlineMeetingJoinUrl?.trim() ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(selectedEvent.onlineMeetingJoinUrl!.trim())
+                        .then(() => toast.success("Link copiado."))
+                        .catch(() => toast.error("Não foi possível copiar o link."));
+                    }}
+                  >
+                    Copiar link Teams
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={selectedEvent.onlineMeetingJoinUrl.trim()} target="_blank" rel="noopener noreferrer">
+                      Entrar na reunião
+                    </a>
+                  </Button>
+                </>
+              ) : null}
               <Button variant="outline" size="sm" onClick={() => void duplicatePlus7(selectedEvent.id)}>
                 Duplicar +7d
               </Button>
@@ -1405,6 +1449,59 @@ export default function AgendasScreen() {
               </Button>
               <Button size="sm" onClick={() => setViewOpen(false)}>
                 OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {createdJoinUrlDialog ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <div className="card-soft w-full max-w-lg p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="mini-title mb-1">Evento criado</div>
+                <div className="text-lg font-extrabold">{createdJoinUrlDialog.title}</div>
+                <div className="text-muted-foreground mt-1 text-sm">
+                  Reunião online sincronizada com o Outlook. Use o link abaixo para ingressar.
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setCreatedJoinUrlDialog(null)}>
+                Fechar
+              </Button>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <div className="mini-title mb-1 flex items-center gap-1">
+                <Video className="size-4" />
+                Link de ingresso Teams
+              </div>
+              <a
+                href={createdJoinUrlDialog.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="break-all text-sm font-medium text-emerald-800 underline"
+              >
+                {createdJoinUrlDialog.url}
+              </a>
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard.writeText(createdJoinUrlDialog.url)
+                    .then(() => toast.success("Link copiado."))
+                    .catch(() => toast.error("Não foi possível copiar o link."));
+                }}
+              >
+                Copiar link
+              </Button>
+              <Button size="sm" asChild>
+                <a href={createdJoinUrlDialog.url} target="_blank" rel="noopener noreferrer">
+                  Entrar na reunião
+                </a>
               </Button>
             </div>
           </div>
