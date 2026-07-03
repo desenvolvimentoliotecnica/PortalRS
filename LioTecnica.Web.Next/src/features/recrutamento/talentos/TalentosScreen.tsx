@@ -365,6 +365,11 @@ export default function TalentosScreen() {
     try {
       const tal = await fetchJson<unknown>(`${BASE}/api/talentos/${encodeURIComponent(cadTalentoId)}`);
       const t = asRec(tal) ?? {};
+      const celular = str(t.celular, "").trim() || str(t.fone, "").trim();
+      if (!celular) {
+        toast.error("Talento sem telefone/celular. Cadastre um telefone antes de candidatar.");
+        return;
+      }
       await fetchJson(`${BASE}/api/candidatos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -372,8 +377,10 @@ export default function TalentosScreen() {
           nome: str(t.nome, ""),
           email: str(t.email, ""),
           fone: str(t.fone, "") || null,
+          celular,
           cidade: str(t.cidade, "") || null,
           uf: str(t.uf, "").toUpperCase().slice(0, 2) || null,
+          linkedinUrl: str(t.linkedinUrl, "") || null,
           fonte: "Talentos",
           status: "Triagem",
           vagaId: cadVagaId,
