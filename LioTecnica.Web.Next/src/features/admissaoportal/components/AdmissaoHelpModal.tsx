@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { sendAtendimento, type AdmissaoPortalSession } from "../publicApi";
+import { isMockPortalSession, sendAtendimento, type AdmissaoPortalSession } from "../publicApi";
 
 export const ATENDIMENTO_ASSUNTOS = [
     "Dúvida sobre documentos",
@@ -49,6 +49,11 @@ export default function AdmissaoHelpModal({ open, onOpenChange, session }: Props
     const handleSubmit = async () => {
         if (!session) {
             toast.error("Sessão expirada. Faça login novamente.");
+            return;
+        }
+        if (isMockPortalSession(session)) {
+            toast.info("Modo demonstração — mensagem não enviada.");
+            handleClose(false);
             return;
         }
         if (!assunto) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { admissaoPortalFetch, type AdmissaoPortalSession } from "../publicApi";
+import { admissaoPortalFetch, isMockPortalSession, type AdmissaoPortalSession } from "../publicApi";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 
 /** Auto-save debounced dos dados do formulário. */
@@ -10,6 +10,7 @@ export function usePortalFormAutoSave(session: AdmissaoPortalSession) {
     const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
     useEffect(() => {
+        if (isMockPortalSession(session)) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(async () => {
             setAutoSaving(true);

@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import {
     FileText, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
+import DocumentoAdmissaoMockScreen from "./DocumentoAdmissaoMockScreen";
 import { formatMissingDocumentsMessage } from "./portalValidation";
 import { buildWizardPlan, validateAllDocuments } from "./wizardSteps";
 import {
@@ -362,7 +363,7 @@ export default function DocumentoAdmissaoScreen() {
         setCpfInput("");
     }
 
-    if (!tenantId || !preAdmissaoId) {
+    if (!tenantId) {
         return (
             <div className="flex-1 flex items-start justify-center px-4 py-10">
             <div className="w-full max-w-md">
@@ -376,6 +377,10 @@ export default function DocumentoAdmissaoScreen() {
             </div>
             </div>
         );
+    }
+
+    if (!preAdmissaoId) {
+        return <DocumentoAdmissaoMockScreen tenantId={tenantId} />;
     }
 
     /* LOGIN */
