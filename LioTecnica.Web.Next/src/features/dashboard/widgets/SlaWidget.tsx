@@ -32,7 +32,7 @@ export function SlaWidget({ data, loading }: { data: SlaData | null; loading: bo
           <div className="text-sm font-semibold">SLA de Vagas</div>
           <div className="text-muted-foreground text-xs">Prazo de abertura</div>
         </div>
-        <Link href="/app/sla" className="text-xs text-primary hover:underline">
+        <Link href="/recrutamento/sla" className="text-xs text-primary hover:underline">
           Ver tudo →
         </Link>
       </div>

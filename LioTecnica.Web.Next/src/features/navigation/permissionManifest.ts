@@ -45,6 +45,8 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-candidatos",                label: "Candidatos",                  href: "/candidatos",                     icon: "users",            permission: "candidatos.view" },
     { id: "nav-triagem",                   label: "Candidaturas",                href: "/recrutamento/candidaturas",      icon: "bi-funnel",        permission: "triagem.view" },
     { id: "nav-propostas-vaga",            label: "Propostas",                   href: "/recrutamento/propostas-vaga",    icon: "file-text",        permission: "propostas-vaga.view" },
+    { id: "nav-sla-dashboard",             label: "SLA Dashboard",               href: "/recrutamento/sla",               icon: "timer",            permission: "sla.dashboard.view" },
+    { id: "nav-sla-etapas-config",         label: "SLA por Etapa",               href: "/recrutamento/sla-etapas",        icon: "listchecks",       permission: "sla.etapas.manage" },
     { id: "nav-rh-contrat-triagem",        label: "Contratações — Triagem",      href: "/rh/contratacoes/triagem",        icon: "clipboardlist",      permission: "rh.contratacoes.triagem" },
     { id: "nav-rh-contrat-selecao",        label: "Contratações — Seleção",       href: "/rh/contratacoes/selecao",        icon: "usercheck",          permission: "rh.contratacoes.selecao" },
     { id: "nav-rh-contrat-aprovacoes",    label: "Contratações — Aprovações",     href: "/gestao/aprovacoes",            icon: "listchecks",          permission: "gestao.dashboard" },
@@ -96,6 +98,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-admin-organograma",         label: "Organograma",                 href: "/admin/organograma",              icon: "bi-diagram-2",      permission: "access.manage" },
 
     { id: "nav-admin-tenant-config",       label: "Configurações",               href: "/admin/tenant-configuracao",      icon: "bi-gear",           permission: "access.manage" },
+    { id: "nav-admin-sla-status-config",   label: "SLA por Status",                href: "/admin/tenant-configuracao?secao=sla-status", icon: "clock", permission: "access.manage" },
     { id: "nav-admin-reset-operacional",   label: "Reset operacional",           href: "/admin/reset-operacional",        icon: "triangle-alert",    permission: "access.manage" },
     { id: "nav-admin-configuracao-rm",     label: "Configuração RM",             href: "/admin/configuracao-rm",          icon: "database",          permission: "access.manage" },
     { id: "nav-admin-ia",                  label: "Configuração de IA",          href: "/admin/ia",                       icon: "brain",             permission: "ai.config" },

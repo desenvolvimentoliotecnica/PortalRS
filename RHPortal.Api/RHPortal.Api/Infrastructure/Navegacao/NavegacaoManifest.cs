@@ -105,6 +105,8 @@ public static class NavegacaoManifest
         new("nav-candidatos",               "Candidatos",             "/candidatos",                     "users",             "candidatos.view",          Ordem: 30),
         new("nav-candidaturas",             "Kanban de Candidaturas", "/recrutamento/candidaturas",      "gitbranch",         "candidatos.view",          Ordem: 35),
         new("nav-propostas-vaga",           "Propostas",              "/recrutamento/propostas-vaga",    "file-text",         "propostas-vaga.view",      Ordem: 38),
+        new("nav-sla-dashboard",            "SLA Dashboard",          "/recrutamento/sla",               "timer",             "sla.dashboard.view",       Ordem: 36),
+        new("nav-sla-etapas-config",        "SLA por Etapa",          "/recrutamento/sla-etapas",        "listchecks",        "sla.etapas.manage",        Ordem: 37),
         new("nav-admissao",                 "Admissão",               "/admissao",                       "usercheck",         "admissao.view",            Ordem: 40),
         // Fase 4 — Chatbot RAG + geração de conteúdo via Ollama (Qwen 2.5 + bge-m3)
         new("nav-assistente-ia",            "Assistente IA",          "/assistente-ia",                  "bot",               "matching.view",            Ordem: 52, OcultarDoOwner: true),
@@ -189,6 +191,7 @@ public static class NavegacaoManifest
         new("nav-admin-api-keys",           "API Keys",               "/admin/api-keys",                 "bi-key",            "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 50),
         new("nav-admin-localization",       "Localização",            "/admin/localization",             "bi-translate",      "localization-config.manage", Ordem: 60),
         new("nav-admin-tenant-config",      "Configurações do Tenant","/admin/tenant-configuracao",      "bi-gear",           "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 70),
+        new("nav-admin-sla-status-config",  "SLA por Status",         "/admin/tenant-configuracao?secao=sla-status", "clock", "access.manage", GrupoUiOverride: "configuracoes", Ordem: 71),
         new("nav-admin-configuracao-rm",    "Configuração RM",        "/admin/configuracao-rm",          "database",          "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 72),
         // Fase 4 LLM-agnóstico — tela única do módulo "ai". Quando módulo OFF,
         // o item ainda aparece para o admin, mas a UI mostra banner "IA não habilitada".

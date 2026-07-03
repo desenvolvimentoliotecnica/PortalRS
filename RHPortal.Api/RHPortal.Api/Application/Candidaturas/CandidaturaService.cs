@@ -56,6 +56,7 @@ public sealed class CandidaturaService : ICandidaturaService
     private readonly IFuncionarioCorporateEmailResolver _corporateEmailResolver;
     private readonly ILogger<CandidaturaService> _logger;
     private readonly HybridMatchingService? _hybridMatchingService;
+    private readonly ISlaEtapaResolver _slaEtapaResolver;
 
     public CandidaturaService(
         AppDbContext db,
@@ -64,6 +65,7 @@ public sealed class CandidaturaService : ICandidaturaService
         ICandidaturaNotificacaoService notificacaoService,
         IAgendaGraphSyncService agendaGraphSync,
         IFuncionarioCorporateEmailResolver corporateEmailResolver,
+        ISlaEtapaResolver slaEtapaResolver,
         ILogger<CandidaturaService> logger,
         HybridMatchingService? hybridMatchingService = null)
     {
@@ -73,6 +75,7 @@ public sealed class CandidaturaService : ICandidaturaService
         _notificacaoService = notificacaoService;
         _agendaGraphSync = agendaGraphSync;
         _corporateEmailResolver = corporateEmailResolver;
+        _slaEtapaResolver = slaEtapaResolver;
         _logger = logger;
         _hybridMatchingService = hybridMatchingService;
     }
@@ -729,9 +732,12 @@ public sealed class CandidaturaService : ICandidaturaService
         var etapas = KanbanColunasDefinicao();
 
         var nowSla = DateTimeOffset.UtcNow;
+        var slaPorEtapa = await _slaEtapaResolver.GetMapAsync(ct);
         var colunas = etapas.Select(def =>
         {
-            var slaEtapaDefault = SlaDiasPorEtapa(def.EtapaChave);
+            var slaEtapaDefault = slaPorEtapa.TryGetValue(def.EtapaChave, out var diasMeta)
+                ? diasMeta
+                : SlaEtapaDefaults.GetDias(def.EtapaChave);
             var itens = rows
                 .Where(r => def.IncluirEtapa(r.EtapaMacro))
                 .Select(r =>
@@ -1017,28 +1023,6 @@ public sealed class CandidaturaService : ICandidaturaService
             Falha: resultados.Count(r => !r.Sucesso),
             Itens: resultados);
     }
-
-    /// <summary>
-    /// SLA default em dias por etapa do funil de candidaturas (Sessão 31.8).
-    /// Estes thresholds geram o semáforo verde/amarelo/vermelho no kanban.
-    /// Etapas terminais (Contratado/Recusado/Desistiu) usam SLA muito alto
-    /// (qualquer tempo é aceitável — etapa final).
-    /// </summary>
-    private static int SlaDiasPorEtapa(EtapaMacroCandidatura etapa) => etapa switch
-    {
-        EtapaMacroCandidatura.Aplicada    => 2,
-        EtapaMacroCandidatura.EmTriagem   => 5,
-        EtapaMacroCandidatura.Entrevista  => 10,
-        EtapaMacroCandidatura.EntrevistaTecnica => 10,
-        EtapaMacroCandidatura.Teste       => 7,
-        EtapaMacroCandidatura.Proposta    => 5,
-        EtapaMacroCandidatura.Contratado       => 365, // terminal
-        EtapaMacroCandidatura.ReprovadoRh      => 365, // terminal
-        EtapaMacroCandidatura.ReprovadoGestor => 365, // terminal
-        EtapaMacroCandidatura.Recusado         => 365, // terminal
-        EtapaMacroCandidatura.Desistiu         => 365, // terminal
-        _                                 => 7,
-    };
 
     private static bool IsEtapaComAgendaEntrevista(EtapaMacroCandidatura etapa)
         => etapa is EtapaMacroCandidatura.Entrevista or EtapaMacroCandidatura.EntrevistaTecnica;

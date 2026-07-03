@@ -100,6 +100,8 @@ public static class MenuRoleSeeder
             ["Analista de RH"] =
             [
                 "dashboard.view",
+                "sla.dashboard.view",
+                "sla.etapas.manage",
                 "solicitacoes-vaga.view",
                 "vagas.view",
                 "candidatos.view",
@@ -121,6 +123,8 @@ public static class MenuRoleSeeder
             ["Especialista de RH"] =
             [
                 "dashboard.view",
+                "sla.dashboard.view",
+                "sla.etapas.manage",
                 "solicitacoes-vaga.view",
                 "feedback.send",
                 "feedback.view",

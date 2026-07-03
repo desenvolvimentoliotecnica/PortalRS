@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -231,6 +232,8 @@ function formatDateTime(value: string | null | undefined): string {
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function TenantConfiguracaoScreen() {
+    const searchParams = useSearchParams();
+    const slaStatusSectionRef = useRef<HTMLDivElement | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [savingBlip, setSavingBlip] = useState(false);
@@ -306,6 +309,20 @@ export default function TenantConfiguracaoScreen() {
     }, []);
 
     useEffect(() => { void load(); }, [load]);
+
+    useEffect(() => {
+        if (searchParams.get("secao") !== "sla-status" || loading) return;
+        setExpandedGroups((prev) => {
+            const next = new Set(prev);
+            next.add("Vaga");
+            next.add("SolicitacaoVaga");
+            return next;
+        });
+        const timer = window.setTimeout(() => {
+            slaStatusSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 150);
+        return () => window.clearTimeout(timer);
+    }, [searchParams, loading]);
 
     async function buildPayload() {
         return {
@@ -755,7 +772,7 @@ export default function TenantConfiguracaoScreen() {
                     <MicrosoftGraphCalendarConfigCard />
 
                     {/* ── Configuração de Status ── */}
-                    <div className="space-y-4">
+                    <div ref={slaStatusSectionRef} className="space-y-4 scroll-mt-6">
                         <div className="flex items-center gap-2">
                             <Clock className="size-4 text-muted-foreground" />
                             <h2 className="text-base font-semibold">Configuração de Status e SLA</h2>
