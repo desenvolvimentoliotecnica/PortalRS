@@ -15,6 +15,7 @@ public static class RolePermissionManifest
     private static readonly IReadOnlyList<string> TenantPermissions =
     [
         "dashboard.view",
+        "sla.dashboard.view",
         "agenda.view",
         "vagas.view",
         "solicitacoes-vaga.view",
@@ -106,6 +107,7 @@ public static class RolePermissionManifest
     private static readonly IReadOnlyList<string> GestorCompliancePermissions =
     [
         "dashboard.view",
+        "sla.dashboard.view",
         "solicitacoes-vaga.view",
         "gestao.dashboard",
         "agenda.view",

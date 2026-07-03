@@ -79,6 +79,7 @@ public sealed class CandidaturaServiceTests
             notificacaoMock.Object,
             graphSyncMock.Object,
             corporateEmailMock.Object,
+            new SlaEtapaResolver(db),
             NullLogger<CandidaturaService>.Instance);
         return (db, service, notificacaoMock);
     }

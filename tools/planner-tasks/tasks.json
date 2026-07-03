@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 226
+    "totalTarefas": 227
   },
   "tarefas": [
     {
@@ -5800,6 +5800,28 @@
         "prHml": "Merge PR #151",
         "prPrd": "Merge PR #152"
       }
+    },
+    {
+      "id": "TASK-2026-227",
+      "nome": "[Portal RH] Menu SLA Dashboard, config SLA por etapa e visibilidade SLA por status",
+      "descricaoAmigavel": "Inclui SLA Dashboard no menu para todos os perfis padrão, cria tela de configuração de SLA por etapa do funil (Analista e Especialista de RH) e torna a configuração de SLA por status encontrável no menu.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "09:54",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 70,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Incluir SLA Dashboard no menu lateral para todos os perfis; criar view para configurar SLA por etapa (Analista/Especialista RH); tornar Configuração de Status e SLA encontrável no menu.",
+      "entregavel": "Itens de menu novos, API e tela de configuração de SLA por etapa do kanban, permissões padrão nos perfis RH.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": null
     }
   ]
 }
