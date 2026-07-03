@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
-import { AlertTriangle, CheckCircle2, Clock, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, RefreshCw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -78,6 +79,7 @@ const PRIORIDADE_BADGE: Record<string, string> = {
 /* ────── component ────── */
 
 export default function SlaDashboardScreen() {
+    const router = useRouter();
     const [data, setData] = useState<SlaResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>("");
@@ -207,6 +209,15 @@ export default function SlaDashboardScreen() {
                                             />
                                         </div>
                                     </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="shrink-0 self-center"
+                                        onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(v.id)}`)}
+                                    >
+                                        <ExternalLink className="size-3.5 mr-1.5" />
+                                        Abrir vaga
+                                    </Button>
                                 </div>
                             );
                         })}
