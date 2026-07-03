@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-02",
-    "totalTarefas": 223
+    "atualizadoEm": "2026-07-03",
+    "totalTarefas": 224
   },
   "tarefas": [
     {
@@ -5721,6 +5721,29 @@
         "branch": "origin/PRD",
         "prHml": "Merge PR #145",
         "prPrd": "Merge PR #146"
+      }
+    },
+    {
+      "id": "TASK-2026-223",
+      "nome": "[Portal RH] Menu enviar para etapa no kanban de candidaturas",
+      "descricaoAmigavel": "Cards do kanban ganham menu de três pontos para movimentar candidato entre etapas com modal de confirmação e opção de notificar o candidato.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "05:16",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 70,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "No kanban de candidaturas, cards com menu 3 pontos e opção enviar para etapa, modal com etapa destino e notificar envolvidos.",
+      "entregavel": "Menu no card, modal com seleção de etapa e checkbox de notificação integrado ao avancar-etapa.",
+      "ambiente": "DEV",
+      "observacoes": null,
+      "referencias": {
+        "commits": [],
+        "branch": null,
+        "prHml": null
       }
     }
   ]

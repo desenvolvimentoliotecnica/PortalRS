@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, MoreHorizontal, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -19,6 +26,7 @@ import {
   bulkAvancarEtapa,
   ETAPA_KANBAN_LABELS,
   ETAPAS_KANBAN,
+  ETAPAS_DECLINADO,
   getKanban,
   getKanbanVagas,
   isEtapaDeclinado,
@@ -36,6 +44,16 @@ import MatchingBreakdownDialog, { useMatchingBreakdownDialog } from "@/features/
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 
 const ETAPA_LABELS = ETAPA_KANBAN_LABELS;
+
+/** Etapas disponíveis como destino no modal (Declinado expandido em Recusado + Desistiu). */
+const ETAPAS_DESTINO: EtapaMacroCandidatura[] = [
+  ...ETAPAS_KANBAN.filter((e) => e !== KANBAN_COLUNA_DECLINADO),
+  ...ETAPAS_DECLINADO,
+];
+
+function etapasDestinoDisponiveis(origem: EtapaMacroCandidatura): EtapaMacroCandidatura[] {
+  return ETAPAS_DESTINO.filter((e) => e !== origem);
+}
 
 const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: string }> = {
   Aplicada:   { header: "bg-sky-50 text-sky-900",         accent: "border-sky-200" },
@@ -91,8 +109,9 @@ function formatDate(iso: string | null) {
 type MoveDialogState = {
   item: KanbanCandidaturaItem;
   origem: EtapaMacroCandidatura;
-  destino: EtapaMacroCandidatura;
+  destino: EtapaMacroCandidatura | "";
   observacao: string;
+  notificarEnvolvidos: boolean;
   entrevista: InterviewDraft;
   saving: boolean;
 };
@@ -329,6 +348,20 @@ export default function CandidaturasKanbanScreen() {
     return t;
   }, [columns]);
 
+  const openMoveDialog = useCallback((item: KanbanCandidaturaItem, destino?: EtapaMacroCandidatura) => {
+    const origem = resolveEtapa(item.etapaMacro);
+    if (destino && origem === destino) return;
+    setMoveDialog({
+      item,
+      origem,
+      destino: destino ?? "",
+      observacao: "",
+      notificarEnvolvidos: true,
+      entrevista: defaultInterviewDraft(me?.displayName || me?.email || "Analista de RH"),
+      saving: false,
+    });
+  }, [me?.displayName, me?.email]);
+
   const onDropTo = (etapa: EtapaMacroCandidatura) => {
     setHoverEtapa(null);
     const item = dragging;
@@ -336,20 +369,16 @@ export default function CandidaturasKanbanScreen() {
     if (!item) return;
     const atual = resolveEtapa(item.etapaMacro);
     if (atual === etapa) return;
-
-    setMoveDialog({
-      item,
-      origem: atual,
-      destino: etapa,
-      observacao: "",
-      entrevista: defaultInterviewDraft(me?.displayName || me?.email || "Analista de RH"),
-      saving: false,
-    });
+    openMoveDialog(item, etapa);
   };
 
   async function confirmMove() {
     if (!moveDialog) return;
-    const { item, destino, observacao, entrevista } = moveDialog;
+    const { item, destino, observacao, entrevista, notificarEnvolvidos } = moveDialog;
+    if (!destino) {
+      toast.error("Selecione a etapa de destino.");
+      return;
+    }
     let entrevistaPayload: AgendarEntrevistaCandidaturaRequest | null = null;
 
     if (shouldScheduleInterview(destino)) {
@@ -386,8 +415,13 @@ export default function CandidaturasKanbanScreen() {
 
     setMoveDialog((prev) => prev ? { ...prev, saving: true } : prev);
     try {
-      const result = await avancarEtapa(item.id, destino, observacao.trim() || null, entrevistaPayload);
-      toast.success(shouldScheduleInterview(destino) ? `Movido para ${ETAPA_LABELS[destino]} e compromisso criado na agenda.` : `Movido para ${ETAPA_LABELS[destino]}.`);
+      const result = await avancarEtapa(item.id, destino, observacao.trim() || null, entrevistaPayload, notificarEnvolvidos);
+      const notifSuffix = notificarEnvolvidos ? "" : " (sem notificação ao candidato)";
+      toast.success(
+        shouldScheduleInterview(destino)
+          ? `Movido para ${ETAPA_LABELS[destino]} e compromisso criado na agenda.${notifSuffix}`
+          : `Movido para ${ETAPA_LABELS[destino]}.${notifSuffix}`,
+      );
       setMoveDialog(null);
       await load();
       const joinUrl = result.entrevista?.onlineMeetingJoinUrl?.trim();
@@ -533,7 +567,37 @@ export default function CandidaturasKanbanScreen() {
                               title="Selecionar para ação em massa"
                             />
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-neutral-900">{it.candidatoNome}</div>
+                              <div className="flex items-start justify-between gap-1">
+                                <div className="font-medium text-neutral-900 min-w-0">{it.candidatoNome}</div>
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="size-7 shrink-0 text-neutral-500 hover:text-neutral-800"
+                                        title="Ações do card"
+                                      >
+                                        <MoreHorizontal className="size-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      <DropdownMenuItem onClick={() => openMoveDialog(it)}>
+                                        <Send className="mr-2 size-4" />
+                                        Enviar para etapa
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setDetailItem(it)}>
+                                        <Eye className="mr-2 size-4" />
+                                        Ver detalhes
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
                               {it.candidatoEmail && (
                                 <div className="truncate text-xs text-neutral-500">{it.candidatoEmail}</div>
                               )}
@@ -607,7 +671,7 @@ export default function CandidaturasKanbanScreen() {
           if (!open && !moveDialog?.saving) setMoveDialog(null);
         }}
       >
-        <DialogContent className={moveDialog && shouldScheduleInterview(moveDialog.destino) ? "sm:max-w-2xl" : "sm:max-w-md"}>
+        <DialogContent className={moveDialog?.destino && shouldScheduleInterview(moveDialog.destino) ? "sm:max-w-2xl" : "sm:max-w-md"}>
           <DialogHeader>
             <DialogTitle>Mover candidato</DialogTitle>
             <DialogDescription>
@@ -627,12 +691,70 @@ export default function CandidaturasKanbanScreen() {
                   />
                 </div>
                 <div className="mt-1 text-xs">
-                  De <strong>{ETAPA_LABELS[moveDialog.origem]}</strong> para{" "}
-                  <strong>{ETAPA_LABELS[moveDialog.destino]}</strong>
+                  Etapa atual: <strong>{ETAPA_LABELS[moveDialog.origem]}</strong>
+                  {moveDialog.destino ? (
+                    <>
+                      {" "}→ <strong>{ETAPA_LABELS[moveDialog.destino]}</strong>
+                    </>
+                  ) : null}
                 </div>
               </div>
 
-              {shouldScheduleInterview(moveDialog.destino) && (
+              <label className="block text-xs font-medium text-neutral-700">
+                Mover para
+                <select
+                  className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
+                  value={moveDialog.destino}
+                  disabled={moveDialog.saving}
+                  onChange={(e) => setMoveDialog((prev) => prev ? {
+                    ...prev,
+                    destino: e.target.value as EtapaMacroCandidatura,
+                  } : prev)}
+                >
+                  <option value="">Selecione a etapa...</option>
+                  {etapasDestinoDisponiveis(moveDialog.origem).map((e) => (
+                    <option key={e} value={e}>{labelEtapaKanban(e)}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 p-3 space-y-2">
+                <div className="text-xs font-medium text-neutral-700">Notificar envolvidos</div>
+                <label className="flex items-start gap-2 text-sm text-neutral-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 accent-sky-600"
+                    checked={moveDialog.notificarEnvolvidos}
+                    disabled={moveDialog.saving}
+                    onChange={(e) => setMoveDialog((prev) => prev ? {
+                      ...prev,
+                      notificarEnvolvidos: e.target.checked,
+                    } : prev)}
+                  />
+                  <span>
+                    Notificar candidato
+                    <span className="block text-xs font-normal text-neutral-500 mt-0.5">
+                      O candidato receberá e-mail e/ou WhatsApp conforme preferências cadastradas.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-neutral-400 cursor-not-allowed" title="Em breve">
+                  <input type="checkbox" className="mt-0.5" disabled />
+                  <span>
+                    Notificar analista RH
+                    <span className="block text-xs font-normal mt-0.5">Em breve</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-neutral-400 cursor-not-allowed" title="Em breve">
+                  <input type="checkbox" className="mt-0.5" disabled />
+                  <span>
+                    Notificar gestor
+                    <span className="block text-xs font-normal mt-0.5">Em breve</span>
+                  </span>
+                </label>
+              </div>
+
+              {moveDialog.destino && shouldScheduleInterview(moveDialog.destino) && (
                 <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3">
                   <div>
                     <h3 className="text-sm font-semibold text-violet-950">Dados da entrevista</h3>
@@ -930,7 +1052,7 @@ export default function CandidaturasKanbanScreen() {
             </Button>
             <Button
               onClick={() => void confirmMove()}
-              disabled={!moveDialog || moveDialog.saving}
+              disabled={!moveDialog || moveDialog.saving || !moveDialog.destino}
             >
               {moveDialog?.saving ? "Movendo..." : "Confirmar movimentação"}
             </Button>
