@@ -1,14 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.EixoVaga;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using EixoVagaEntity = RhPortal.Api.Domain.Entities.EixoVaga;
 
 namespace RhPortal.Api.Controllers;
 
 /// <summary>
-/// Cadastro de Eixos de Vaga. Admin configura SLA de fechamento por eixo;
-/// vagas apontam para um eixo e usam esse SLA como override do SLA global.
+/// Cadastro de Tipos de Vaga (eixos). Define SLA em dias úteis e meta de permanência (turnover).
 /// </summary>
 [ApiController]
 [Route("api/eixos-vaga")]
@@ -44,7 +44,12 @@ public sealed class EixoVagaController : ControllerBase
             .Take(take)
             .Select(x => new EixoVagaResponse(
                 x.Id, x.Code, x.Name, x.Description,
-                x.SlaDiasMetaFechamento, x.IsActive,
+                x.SlaDiasMetaFechamento,
+                x.PermanenciaTurnoverDias,
+                x.PermanenciaTurnoverMeses,
+                x.PermanenciaNaoAplica,
+                EixoVagaPermanencia.Formatar(x.PermanenciaNaoAplica, x.PermanenciaTurnoverDias, x.PermanenciaTurnoverMeses),
+                x.IsActive,
                 x.CreatedAtUtc, x.UpdatedAtUtc))
             .ToListAsync(ct);
 
@@ -73,7 +78,11 @@ public sealed class EixoVagaController : ControllerBase
             .Select(x => new EixoVagaLookupItem(
                 x.Id, x.Code, x.Name,
                 $"{x.Code} - {x.Name}",
-                x.SlaDiasMetaFechamento))
+                x.SlaDiasMetaFechamento,
+                x.PermanenciaTurnoverDias,
+                x.PermanenciaTurnoverMeses,
+                x.PermanenciaNaoAplica,
+                EixoVagaPermanencia.Formatar(x.PermanenciaNaoAplica, x.PermanenciaTurnoverDias, x.PermanenciaTurnoverMeses)))
             .ToListAsync(ct);
 
         return Ok(items);
@@ -92,7 +101,12 @@ public sealed class EixoVagaController : ControllerBase
             .Where(x => x.Id == id)
             .Select(x => new EixoVagaResponse(
                 x.Id, x.Code, x.Name, x.Description,
-                x.SlaDiasMetaFechamento, x.IsActive,
+                x.SlaDiasMetaFechamento,
+                x.PermanenciaTurnoverDias,
+                x.PermanenciaTurnoverMeses,
+                x.PermanenciaNaoAplica,
+                EixoVagaPermanencia.Formatar(x.PermanenciaNaoAplica, x.PermanenciaTurnoverDias, x.PermanenciaTurnoverMeses),
+                x.IsActive,
                 x.CreatedAtUtc, x.UpdatedAtUtc))
             .FirstOrDefaultAsync(ct);
 
@@ -109,10 +123,12 @@ public sealed class EixoVagaController : ControllerBase
     {
         var code = request.Code.Trim();
         if (await db.EixosVaga.AnyAsync(x => x.Code == code, ct))
-            return Conflict(new { message = $"Já existe um eixo com o código '{code}'." });
+            return Conflict(new { message = $"Já existe um tipo de vaga com o código '{code}'." });
 
-        if (request.SlaDiasMetaFechamento is int sla && sla <= 0)
-            return BadRequest(new { message = "SLA deve ser um número positivo de dias." });
+        var validation = ValidateRequest(request.SlaDiasMetaFechamento, request.PermanenciaTurnoverDias,
+            request.PermanenciaTurnoverMeses, request.PermanenciaNaoAplica);
+        if (validation is not null)
+            return BadRequest(new { message = validation });
 
         var now = DateTimeOffset.UtcNow;
         var entity = new EixoVagaEntity
@@ -122,6 +138,9 @@ public sealed class EixoVagaController : ControllerBase
             Name = request.Name.Trim(),
             Description = NullIfBlank(request.Description),
             SlaDiasMetaFechamento = request.SlaDiasMetaFechamento,
+            PermanenciaTurnoverDias = request.PermanenciaNaoAplica ? null : request.PermanenciaTurnoverDias,
+            PermanenciaTurnoverMeses = request.PermanenciaNaoAplica ? null : request.PermanenciaTurnoverMeses,
+            PermanenciaNaoAplica = request.PermanenciaNaoAplica,
             IsActive = request.IsActive,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
@@ -130,12 +149,7 @@ public sealed class EixoVagaController : ControllerBase
         db.EixosVaga.Add(entity);
         await db.SaveChangesAsync(ct);
 
-        var created = new EixoVagaResponse(
-            entity.Id, entity.Code, entity.Name, entity.Description,
-            entity.SlaDiasMetaFechamento, entity.IsActive,
-            entity.CreatedAtUtc, entity.UpdatedAtUtc);
-
-        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, created);
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapResponse(entity));
     }
 
     [HttpPut("{id:guid}")]
@@ -153,24 +167,26 @@ public sealed class EixoVagaController : ControllerBase
 
         var code = request.Code.Trim();
         if (await db.EixosVaga.AnyAsync(x => x.Id != id && x.Code == code, ct))
-            return Conflict(new { message = $"Já existe outro eixo com o código '{code}'." });
+            return Conflict(new { message = $"Já existe outro tipo de vaga com o código '{code}'." });
 
-        if (request.SlaDiasMetaFechamento is int sla && sla <= 0)
-            return BadRequest(new { message = "SLA deve ser um número positivo de dias." });
+        var validation = ValidateRequest(request.SlaDiasMetaFechamento, request.PermanenciaTurnoverDias,
+            request.PermanenciaTurnoverMeses, request.PermanenciaNaoAplica);
+        if (validation is not null)
+            return BadRequest(new { message = validation });
 
         entity.Code = code;
         entity.Name = request.Name.Trim();
         entity.Description = NullIfBlank(request.Description);
         entity.SlaDiasMetaFechamento = request.SlaDiasMetaFechamento;
+        entity.PermanenciaTurnoverDias = request.PermanenciaNaoAplica ? null : request.PermanenciaTurnoverDias;
+        entity.PermanenciaTurnoverMeses = request.PermanenciaNaoAplica ? null : request.PermanenciaTurnoverMeses;
+        entity.PermanenciaNaoAplica = request.PermanenciaNaoAplica;
         entity.IsActive = request.IsActive;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
 
-        return Ok(new EixoVagaResponse(
-            entity.Id, entity.Code, entity.Name, entity.Description,
-            entity.SlaDiasMetaFechamento, entity.IsActive,
-            entity.CreatedAtUtc, entity.UpdatedAtUtc));
+        return Ok(MapResponse(entity));
     }
 
     [HttpDelete("{id:guid}")]
@@ -187,12 +203,40 @@ public sealed class EixoVagaController : ControllerBase
 
         var inUse = await db.Vagas.AnyAsync(v => v.EixoVagaId == id, ct);
         if (inUse)
-            return Conflict(new { message = "Eixo em uso por uma ou mais vagas. Desative em vez de excluir." });
+            return Conflict(new { message = "Tipo em uso por uma ou mais vagas. Desative em vez de excluir." });
 
         db.EixosVaga.Remove(entity);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
+
+    private static string? ValidateRequest(int? sla, int? permDias, int? permMeses, bool permNaoAplica)
+    {
+        if (sla is int s && s <= 0)
+            return "SLA deve ser um número positivo de dias úteis.";
+
+        try
+        {
+            EixoVagaPermanencia.Validar(permNaoAplica, permDias, permMeses);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ex.Message;
+        }
+
+        return null;
+    }
+
+    private static EixoVagaResponse MapResponse(EixoVagaEntity x) => new(
+        x.Id, x.Code, x.Name, x.Description,
+        x.SlaDiasMetaFechamento,
+        x.PermanenciaTurnoverDias,
+        x.PermanenciaTurnoverMeses,
+        x.PermanenciaNaoAplica,
+        x.PermanenciaDisplay,
+        x.IsActive,
+        x.CreatedAtUtc,
+        x.UpdatedAtUtc);
 
     private static string? NullIfBlank(string? s)
         => string.IsNullOrWhiteSpace(s) ? null : s.Trim();

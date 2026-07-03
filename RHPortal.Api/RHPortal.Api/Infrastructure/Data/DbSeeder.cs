@@ -169,6 +169,8 @@ public static class DbSeeder
                     // Seeds idempotentes de tabelas parametrizáveis (rodam a cada startup — no-op se já populadas).
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.MotivoRequisicaoVagaSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.TipoVagaSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.UnitEmpresaBackfillSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
                     var empresaGeocoding = tenantScope.ServiceProvider.GetRequiredService<RhPortal.Api.Application.Geocoding.EmpresaGeocodificacaoService>();

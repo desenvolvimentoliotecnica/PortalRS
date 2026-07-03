@@ -52,10 +52,10 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         {
             var vagasAbertasComSla = await db.Vagas.AsNoTracking()
                 .Where(v => v.Status == VagaStatus.Aberta && v.DataAbertura != null)
-                .Select(v => new { v.DataAbertura, v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade })
+                .Select(v => new { v.DataAbertura, TipoSla = v.EixoVaga != null ? v.EixoVaga.SlaDiasMetaFechamento : (int?)null })
                 .ToListAsync(ct);
             vagasForaSla = vagasAbertasComSla.Count(v =>
-                (now - v.DataAbertura!.Value).TotalDays > SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, opts));
+                SlaVagaMetaResolver.EstaForaDoSlaUteis(v.DataAbertura!.Value, now, v.TipoSla, opts));
         }
         catch (PostgresException ex) when (ex.SqlState == "42703")
         {
@@ -354,11 +354,11 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         {
             var vagasAbertasComSla = await vagasCarteira
                 .Where(v => v.Status == VagaStatus.Aberta && v.DataAbertura != null)
-                .Select(v => new { v.DataAbertura, v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade })
+                .Select(v => new { v.DataAbertura, TipoSla = v.EixoVaga != null ? v.EixoVaga.SlaDiasMetaFechamento : (int?)null })
                 .ToListAsync(ct);
 
             vagasForaSla = vagasAbertasComSla.Count(v =>
-                (now - v.DataAbertura!.Value).TotalDays > SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, opts));
+                SlaVagaMetaResolver.EstaForaDoSlaUteis(v.DataAbertura!.Value, now, v.TipoSla, opts));
         }
         catch (PostgresException ex) when (ex.SqlState == "42703")
         {
@@ -643,11 +643,11 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         {
             var vagasComSla = await db.Vagas.AsNoTracking()
                 .Where(v => !v.IsEstrutural && v.Status == VagaStatus.Aberta && v.DataAbertura != null)
-                .Select(v => new { v.DataAbertura, v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade })
+                .Select(v => new { v.DataAbertura, TipoSla = v.EixoVaga != null ? v.EixoVaga.SlaDiasMetaFechamento : (int?)null })
                 .ToListAsync(ct);
 
             vagasForaSla = vagasComSla.Count(v =>
-                (now - v.DataAbertura!.Value).TotalDays > SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, opts));
+                SlaVagaMetaResolver.EstaForaDoSlaUteis(v.DataAbertura!.Value, now, v.TipoSla, opts));
         }
         catch (PostgresException ex) when (ex.SqlState == "42703")
         {

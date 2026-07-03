@@ -356,6 +356,10 @@ public sealed record VagaResponse(
     string? EixoVagaCode,
     string? EixoVagaName,
     int? EixoVagaSlaDiasMetaFechamento,
+    int? EixoVagaPermanenciaTurnoverDias,
+    int? EixoVagaPermanenciaTurnoverMeses,
+    bool? EixoVagaPermanenciaNaoAplica,
+    string? EixoVagaPermanenciaDisplay,
     int? SlaEfetivoDias,
     // Sessão 31.8 — DescricaoCargo + pesos calibrados + dist max
     Guid? DescricaoCargoId,

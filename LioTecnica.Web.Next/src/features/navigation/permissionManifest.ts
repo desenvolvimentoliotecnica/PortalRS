@@ -81,7 +81,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-centros-custo",             label: "Centros de Custo",            href: "/centros-custo",                  icon: "landmark",         permission: "areas.view" },
     { id: "nav-categorias-salariais",      label: "Categorias Salariais",        href: "/categorias-salariais",           icon: "badge-dollar-sign", permission: "categories.view" },
     { id: "nav-turnos",                    label: "Turnos",                      href: "/turnos",                         icon: "clock",            permission: "areas.view" },
-    { id: "nav-sla-vagas",                label: "SLA de Vagas",                href: "/sla-vagas",                       icon: "timer",            permission: "vagas.view" },
+    { id: "nav-sla-vagas",                label: "Tipos de Vaga",               href: "/sla-vagas",                       icon: "timer",            permission: "vagas.view" },
     { id: "nav-motivos-requisicao",        label: "Motivos de Requisição",       href: "/motivos-requisicao",             icon: "list-checks",      permission: "units.view" },
     { id: "nav-pessoas",                   label: "Pessoas",                     href: "/pessoas",                        icon: "user",             permission: "funcionarios.view" },
     { id: "nav-funcionarios",              label: "Funcionários",                href: "/funcionarios",                   icon: "users",            permission: "funcionarios.view" },

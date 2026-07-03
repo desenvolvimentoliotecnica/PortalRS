@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-03",
+    "atualizadoEm": "2026-07-03T11:03:00-03:00",
     "totalTarefas": 230
   },
   "tarefas": [
@@ -5886,21 +5886,25 @@
       "descricaoAmigavel": "Cada linha do SLA Dashboard ganha botão de ação à direita para abrir o hub da vaga diretamente.",
       "inicio": "2026-07-03",
       "horarioInicio": "10:59",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "11:02",
+      "totalHoras": 0.05,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Incluir botão de ação à direita das rows da grid SLA Dashboard para a vaga.",
       "entregavel": "Botão Abrir vaga em cada linha, navegando para /vagas/hub?id=.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "8b7c888f"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #159",
+        "prPrd": "Merge PR #160"
       },
-      "observacoes": null
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }

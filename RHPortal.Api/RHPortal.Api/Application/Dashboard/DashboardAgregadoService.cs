@@ -6,6 +6,7 @@ using RhPortal.Api.Domain;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Time;
 using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
 using System.Globalization;
@@ -131,9 +132,7 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
                 v.Codigo,
                 v.Titulo,
                 v.DataAbertura,
-                v.SlaDiasMetaFechamento,
-                v.Urgente,
-                v.Prioridade
+                TipoSlaDiasUteis = v.EixoVaga != null ? v.EixoVaga.SlaDiasMetaFechamento : null,
             })
             .ToListAsync(ct);
 
@@ -142,9 +141,9 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
         var carteiraMapeada = carteiraVagas
             .Select(v =>
             {
-                var metaDias = SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, slaOpts);
+                var metaDias = SlaVagaMetaResolver.GetDiasMetaUteisFromTipo(v.TipoSlaDiasUteis, slaOpts);
                 var diasAberta = v.DataAbertura.HasValue
-                    ? (int)Math.Max(0, Math.Round((now - v.DataAbertura.Value).TotalDays))
+                    ? DiasUteisBrasil.ContarDiasUteisDecorridos(v.DataAbertura.Value, now)
                     : 0;
                 return new
                 {
@@ -414,16 +413,24 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
 
         var vagasParaSla = await _db.Vagas.AsNoTracking()
             .Where(v => v.Status == VagaStatus.Aberta && !v.IsEstrutural && v.DataAbertura != null)
-            .Select(v => new { v.Id, v.Codigo, v.Titulo, v.DataAbertura, v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, v.CentroCustoId })
+            .Select(v => new
+            {
+                v.Id,
+                v.Codigo,
+                v.Titulo,
+                v.DataAbertura,
+                TipoSlaDiasUteis = v.EixoVaga != null ? v.EixoVaga.SlaDiasMetaFechamento : null,
+                v.CentroCustoId,
+            })
             .ToListAsync(ct);
 
         var slaOpts = _slaOptions.Value;
         var foraSlaDetalhe = vagasParaSla
             .Select(v =>
             {
-                var metaDias = SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, slaOpts);
+                var metaDias = SlaVagaMetaResolver.GetDiasMetaUteisFromTipo(v.TipoSlaDiasUteis, slaOpts);
                 var diasAberta = v.DataAbertura.HasValue
-                    ? (int)Math.Max(0, Math.Round((now - v.DataAbertura!.Value).TotalDays))
+                    ? DiasUteisBrasil.ContarDiasUteisDecorridos(v.DataAbertura!.Value, now)
                     : 0;
                 return new
                 {

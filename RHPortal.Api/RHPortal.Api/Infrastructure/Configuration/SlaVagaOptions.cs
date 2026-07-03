@@ -1,4 +1,5 @@
 using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Time;
 
 namespace RhPortal.Api.Infrastructure.Configuration;
 
@@ -61,5 +62,29 @@ public static class SlaVagaMetaResolver
         }
 
         return options.DiasMetaFechamento > 0 ? options.DiasMetaFechamento : 30;
+    }
+
+    /// <summary>
+    /// Meta de SLA em dias úteis a partir do tipo de vaga. Sem exceção por vaga — usa apenas o tipo.
+    /// </summary>
+    public static int GetDiasMetaUteisFromTipo(int? tipoSlaDiasUteis, SlaVagaOptions options)
+    {
+        if (tipoSlaDiasUteis.HasValue && tipoSlaDiasUteis.Value > 0)
+            return tipoSlaDiasUteis.Value;
+
+        return options.DiasMetaFechamento > 0 ? options.DiasMetaFechamento : 30;
+    }
+
+    public static int ContarDiasUteisAbertos(DateTimeOffset? dataAbertura, DateTimeOffset now)
+    {
+        if (!dataAbertura.HasValue)
+            return 0;
+        return DiasUteisBrasil.ContarDiasUteisDecorridos(dataAbertura.Value, now);
+    }
+
+    public static bool EstaForaDoSlaUteis(DateTimeOffset dataAbertura, DateTimeOffset now, int? tipoSlaDiasUteis, SlaVagaOptions options)
+    {
+        var meta = GetDiasMetaUteisFromTipo(tipoSlaDiasUteis, options);
+        return ContarDiasUteisAbertos(dataAbertura, now) > meta;
     }
 }
