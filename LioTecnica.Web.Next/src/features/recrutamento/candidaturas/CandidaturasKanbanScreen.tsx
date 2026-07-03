@@ -55,6 +55,10 @@ function etapasDestinoDisponiveis(origem: EtapaMacroCandidatura): EtapaMacroCand
   return ETAPAS_DESTINO.filter((e) => e !== origem);
 }
 
+/** Notificações internas ainda não implementadas — ocultar no modal até habilitar. */
+const NOTIFICAR_ANALISTA_RH_HABILITADO = false;
+const NOTIFICAR_GESTOR_HABILITADO = false;
+
 const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: string }> = {
   Aplicada:   { header: "bg-sky-50 text-sky-900",         accent: "border-sky-200" },
   EmTriagem:  { header: "bg-indigo-50 text-indigo-900",   accent: "border-indigo-200" },
@@ -738,20 +742,18 @@ export default function CandidaturasKanbanScreen() {
                     </span>
                   </span>
                 </label>
-                <label className="flex items-start gap-2 text-sm text-neutral-400 cursor-not-allowed" title="Em breve">
-                  <input type="checkbox" className="mt-0.5" disabled />
-                  <span>
-                    Notificar analista RH
-                    <span className="block text-xs font-normal mt-0.5">Em breve</span>
-                  </span>
-                </label>
-                <label className="flex items-start gap-2 text-sm text-neutral-400 cursor-not-allowed" title="Em breve">
-                  <input type="checkbox" className="mt-0.5" disabled />
-                  <span>
-                    Notificar gestor
-                    <span className="block text-xs font-normal mt-0.5">Em breve</span>
-                  </span>
-                </label>
+                {NOTIFICAR_ANALISTA_RH_HABILITADO && (
+                  <label className="flex items-start gap-2 text-sm text-neutral-800 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 accent-sky-600" disabled={moveDialog.saving} />
+                    <span>Notificar analista RH</span>
+                  </label>
+                )}
+                {NOTIFICAR_GESTOR_HABILITADO && (
+                  <label className="flex items-start gap-2 text-sm text-neutral-800 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 accent-sky-600" disabled={moveDialog.saving} />
+                    <span>Notificar gestor</span>
+                  </label>
+                )}
               </div>
 
               {moveDialog.destino && shouldScheduleInterview(moveDialog.destino) && (

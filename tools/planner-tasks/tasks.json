@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 225
+    "totalTarefas": 226
   },
   "tarefas": [
     {
@@ -5773,6 +5773,29 @@
         "branch": "origin/PRD",
         "prHml": "Merge PR #149",
         "prPrd": "Merge PR #150"
+      }
+    },
+    {
+      "id": "TASK-2026-225",
+      "nome": "[Portal RH] Ocultar notificações desabilitadas no modal do kanban",
+      "descricaoAmigavel": "Remove do modal de movimentação os checkboxes de analista RH e gestor enquanto essas notificações ainda não estão disponíveis.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "09:06",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Checkboxes Notificar analista RH e Notificar gestor com Em breve — ocultar quando desabilitados por configuração.",
+      "entregavel": "Modal exibe apenas Notificar candidato até as notificações internas serem implementadas.",
+      "ambiente": "DEV",
+      "observacoes": null,
+      "referencias": {
+        "commits": [],
+        "branch": null,
+        "prHml": null
       }
     }
   ]
