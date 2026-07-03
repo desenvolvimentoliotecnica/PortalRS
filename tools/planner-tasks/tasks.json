@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 227
+    "totalTarefas": 228
   },
   "tarefas": [
     {
@@ -5807,21 +5807,47 @@
       "descricaoAmigavel": "Inclui SLA Dashboard no menu para todos os perfis padrão, cria tela de configuração de SLA por etapa do funil (Analista e Especialista de RH) e torna a configuração de SLA por status encontrável no menu.",
       "inicio": "2026-07-03",
       "horarioInicio": "09:54",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 70,
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "10:05",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Incluir SLA Dashboard no menu lateral para todos os perfis; criar view para configurar SLA por etapa (Analista/Especialista RH); tornar Configuração de Status e SLA encontrável no menu.",
       "entregavel": "Itens de menu novos, API e tela de configuração de SLA por etapa do kanban, permissões padrão nos perfis RH.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "31f13418"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #153",
+        "prPrd": "Merge PR #154"
+      },
+      "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-228",
+      "nome": "[Portal RH] Modal de mensagem antes de abrir WhatsApp Web",
+      "descricaoAmigavel": "Ao clicar em Conversar com WhatsApp Web, o analista vê um modal para revisar ou escrever a mensagem antes de abrir o WhatsApp, com texto inicial personalizado com nome do candidato e do usuário.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "10:04",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Em todos os pontos de Conversar com WhatsApp Web, abrir modal para escrever mensagem padrão antes de abrir o WhatsApp Web, com componente único reutilizável.",
+      "entregavel": "WhatsAppMessageDialog reutilizável integrado ao WhatsAppContactButton em todas as telas de candidato, com saudação Olá [candidato], sou [usuário] do RH da [empresa].",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
         "branch": "DEV"
       },
-      "observacoes": null
+      "observacoes": "Implementação frontend em LioTecnica.Web.Next; link wa.me montado no cliente."
     }
   ]
 }
