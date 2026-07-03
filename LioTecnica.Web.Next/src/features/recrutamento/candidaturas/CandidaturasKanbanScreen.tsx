@@ -55,6 +55,15 @@ type ResponsavelEntrevistaOption = {
   id: string;
   nome: string;
   email?: string | null;
+  origem?: "funcionario" | "usuario";
+};
+
+type EntrevistaParticipante = {
+  funcionarioId?: string | null;
+  userId?: string | null;
+  nome: string;
+  email?: string | null;
+  origem?: "funcionario" | "usuario";
 };
 
 type InterviewDraft = {
@@ -65,7 +74,7 @@ type InterviewDraft = {
   responsavel: string;
   responsavelBusca: string;
   participanteBusca: string;
-  participantesOpcionais: string[];
+  participantes: EntrevistaParticipante[];
   local: string;
   observacao: string;
 };
@@ -111,7 +120,7 @@ function defaultInterviewDraft(responsavel: string): InterviewDraft {
     responsavel,
     responsavelBusca: responsavel,
     participanteBusca: "",
-    participantesOpcionais: [],
+    participantes: [],
     local: "Online",
     observacao: "",
   };
@@ -127,8 +136,27 @@ type EntrevistaCriadaDialogState = {
   onlineMeetingJoinUrl: string;
 };
 
+function participanteKey(p: EntrevistaParticipante) {
+  return p.funcionarioId ?? p.userId ?? `${p.nome}|${p.email ?? ""}`;
+}
+
 function optionLabel(option: ResponsavelEntrevistaOption) {
   return option.email ? `${option.nome} <${option.email}>` : option.nome;
+}
+
+function participanteLabel(p: EntrevistaParticipante) {
+  return p.email ? `${p.nome} <${p.email}>` : p.nome;
+}
+
+function toParticipante(option: ResponsavelEntrevistaOption): EntrevistaParticipante {
+  const origem = option.origem ?? "funcionario";
+  return {
+    funcionarioId: origem === "funcionario" ? option.id : null,
+    userId: origem === "usuario" ? option.id : null,
+    nome: option.nome,
+    email: option.email,
+    origem,
+  };
 }
 
 async function fetchParticipantesAgenda(q: string): Promise<ResponsavelEntrevistaOption[]> {
@@ -136,12 +164,13 @@ async function fetchParticipantesAgenda(q: string): Promise<ResponsavelEntrevist
   if (q.trim()) params.set("q", q.trim());
   const res = await apiFetch(`/api/lookup/participantes-agenda?${params.toString()}`);
   if (!res.ok) return [];
-  const data = (await res.json()) as { items?: Array<{ id?: string; nome?: string; email?: string | null }> };
+  const data = (await res.json()) as { items?: Array<{ id?: string; nome?: string; email?: string | null; origem?: string }> };
   return (data.items ?? [])
     .map((item) => ({
       id: String(item.id ?? ""),
       nome: String(item.nome ?? ""),
       email: item.email ?? null,
+      origem: item.origem === "usuario" ? "usuario" as const : "funcionario" as const,
     }))
     .filter((item) => item.id && item.nome);
 }
@@ -273,11 +302,11 @@ export default function CandidaturasKanbanScreen() {
   const filteredResponsaveis = useMemo(() => lookupOptions.slice(0, 30), [lookupOptions]);
 
   const filteredParticipantes = useMemo(() => {
-    const selected = new Set(moveDialog?.entrevista.participantesOpcionais.map((p) => p.toLowerCase()) ?? []);
+    const selected = new Set(moveDialog?.entrevista.participantes.map((p) => participanteKey(p)) ?? []);
     return lookupOptions
-      .filter((r) => !selected.has(optionLabel(r).toLowerCase()))
+      .filter((r) => !selected.has(r.id))
       .slice(0, 30);
-  }, [lookupOptions, moveDialog?.entrevista.participantesOpcionais]);
+  }, [lookupOptions, moveDialog?.entrevista.participantes]);
 
   const columns = useMemo(() => {
     const map = new Map<EtapaMacroCandidatura, KanbanCandidaturaItem[]>();
@@ -342,7 +371,14 @@ export default function CandidaturasKanbanScreen() {
         duracaoMinutos: entrevista.duracaoMinutos,
         formato: entrevista.formato,
         responsavel: entrevista.responsavel.trim(),
-        participantesOpcionais: entrevista.participantesOpcionais,
+        participantesOpcionais: entrevista.participantes.map((p) => participanteLabel(p)),
+        participantes: entrevista.participantes.map((p) => ({
+          funcionarioId: p.funcionarioId ?? null,
+          userId: p.userId ?? null,
+          nome: p.nome,
+          email: p.email ?? null,
+          origem: p.origem ?? null,
+        })),
         local: entrevista.local.trim() || null,
         observacao: entrevista.observacao.trim() || null,
       };
@@ -755,14 +791,17 @@ export default function CandidaturasKanbanScreen() {
                           onClick={() => {
                             const value = moveDialog.entrevista.participanteBusca.trim();
                             if (!value) return;
+                            const match = lookupOptions.find((r) => optionLabel(r).toLowerCase() === value.toLowerCase() || r.nome.toLowerCase() === value.toLowerCase());
+                            const participante = match ? toParticipante(match) : { nome: value, email: null };
+                            const key = participanteKey(participante);
                             setMoveDialog((prev) => prev ? {
                               ...prev,
                               entrevista: {
                                 ...prev.entrevista,
                                 participanteBusca: "",
-                                participantesOpcionais: prev.entrevista.participantesOpcionais.some((p) => p.toLowerCase() === value.toLowerCase())
-                                  ? prev.entrevista.participantesOpcionais
-                                  : [...prev.entrevista.participantesOpcionais, value],
+                                participantes: prev.entrevista.participantes.some((p) => participanteKey(p) === key)
+                                  ? prev.entrevista.participantes
+                                  : [...prev.entrevista.participantes, participante],
                               },
                             } : prev);
                             setParticipanteOpen(false);
@@ -787,12 +826,13 @@ export default function CandidaturasKanbanScreen() {
                                   className="block w-full px-3 py-2 text-left hover:bg-violet-50"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => {
+                                    const participante = toParticipante(r);
                                     setMoveDialog((prev) => prev ? {
                                       ...prev,
                                       entrevista: {
                                         ...prev.entrevista,
                                         participanteBusca: "",
-                                        participantesOpcionais: [...prev.entrevista.participantesOpcionais, label],
+                                        participantes: [...prev.entrevista.participantes, participante],
                                       },
                                     } : prev);
                                     setParticipanteOpen(false);
@@ -806,14 +846,14 @@ export default function CandidaturasKanbanScreen() {
                           )}
                         </div>
                       )}
-                      {moveDialog.entrevista.participantesOpcionais.length > 0 && (
+                      {moveDialog.entrevista.participantes.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {moveDialog.entrevista.participantesOpcionais.map((participante) => (
+                          {moveDialog.entrevista.participantes.map((participante) => (
                             <span
-                              key={participante}
+                              key={participanteKey(participante)}
                               className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white px-2 py-1 text-xs text-violet-900"
                             >
-                              {participante}
+                              {participanteLabel(participante)}
                               <button
                                 type="button"
                                 className="font-semibold text-violet-500 hover:text-violet-800"
@@ -822,7 +862,7 @@ export default function CandidaturasKanbanScreen() {
                                   ...prev,
                                   entrevista: {
                                     ...prev.entrevista,
-                                    participantesOpcionais: prev.entrevista.participantesOpcionais.filter((p) => p !== participante),
+                                    participantes: prev.entrevista.participantes.filter((p) => participanteKey(p) !== participanteKey(participante)),
                                   },
                                 } : prev)}
                               >

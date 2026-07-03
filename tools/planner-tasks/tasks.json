@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 222
+    "totalTarefas": 223
   },
   "tarefas": [
     {
@@ -5678,11 +5678,11 @@
       "descricaoAmigavel": "Restaurar roteamento correto das chamadas /api/ via nginx para o login e health check funcionarem no Portal Admin.",
       "inicio": "2026-07-02",
       "horarioInicio": "20:24",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "20:24",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Login HML exibe InfrastructureErrors.TenantHeaderMissingDetail; indicadores API/DB vermelhos.",
@@ -5690,8 +5690,31 @@
       "ambiente": "HML",
       "observacoes": "Regressão do fix :3000 — proxy_pass com variável truncava URI (/api/health -> /api/).",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "6f97d80e"
+        ],
+        "prHml": "Merge PR #143",
+        "prPrd": "Merge PR #144"
+      }
+    },
+    {
+      "id": "TASK-2026-222",
+      "nome": "[Portal RH] Participantes kanban com e-mail corporativo no Graph",
+      "descricaoAmigavel": "Entrevistas agendadas pelo kanban gravam participantes estruturados (ParticipantsJson) e enviam convites Outlook com e-mail corporativo, igual à agenda.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "20:59",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Estender resolução de e-mail corporativo via AD também para entrevistas criadas pelo kanban de candidaturas.",
+      "entregavel": "Kanban envia participantes estruturados; CandidaturaService popula ParticipantsJson e Graph convida com mail corporativo.",
+      "observacoes": "Compatível com payload legado participantesOpcionais (strings).",
+      "referencias": {
+        "commits": []
       }
     }
   ]

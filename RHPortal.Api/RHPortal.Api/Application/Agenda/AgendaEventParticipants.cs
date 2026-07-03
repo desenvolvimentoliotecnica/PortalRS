@@ -27,7 +27,7 @@ internal static class AgendaEventParticipants
         {
             var items = JsonSerializer.Deserialize<List<ScheduleEventParticipantDto>>(json, JsonOptions);
             return items?
-                       .Where(x => x.FuncionarioId != Guid.Empty && !string.IsNullOrWhiteSpace(x.Email))
+                       .Where(x => !string.IsNullOrWhiteSpace(x.Email))
                        .ToList()
                    ?? [];
         }

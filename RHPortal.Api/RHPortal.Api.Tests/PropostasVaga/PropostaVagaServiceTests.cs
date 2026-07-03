@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using RhPortal.Api.Application.Agenda;
 using RhPortal.Api.Application.Candidaturas;
+using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Application.PropostasVaga;
 using RhPortal.Api.Contracts.PropostaVaga;
 using RhPortal.Api.Domain.Entities;
@@ -38,9 +40,13 @@ public sealed class PropostaVagaServiceTests
         userContext.Setup(x => x.IsAdmin).Returns(false);
 
         var notificacaoMock = new Mock<ICandidaturaNotificacaoService>();
+        var graphSyncMock = new Mock<IAgendaGraphSyncService>();
+        var corporateEmailMock = new Mock<IFuncionarioCorporateEmailResolver>();
         var candidaturaService = new CandidaturaService(
             db, tenantMock.Object, userContext.Object,
             notificacaoMock.Object,
+            graphSyncMock.Object,
+            corporateEmailMock.Object,
             NullLogger<CandidaturaService>.Instance);
 
         var emailQueue = new Mock<IEmailQueueService>();
