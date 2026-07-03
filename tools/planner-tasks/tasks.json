@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 229
+    "totalTarefas": 230
   },
   "tarefas": [
     {
@@ -5860,6 +5860,32 @@
       "descricaoAmigavel": "Remove limitação de largura na tela SLA Dashboard para o conteúdo usar toda a área útil ao lado do menu.",
       "inicio": "2026-07-03",
       "horarioInicio": "10:34",
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "10:36",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Ajustar largura do conteúdo em /recrutamento/sla para ocupar o container.",
+      "entregavel": "SLA Dashboard sem max-width centralizado; lista e KPIs em largura total.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "1e84414d"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #157",
+        "prPrd": "Merge PR #158"
+      },
+      "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-230",
+      "nome": "[Portal RH] Botão Abrir vaga no SLA Dashboard",
+      "descricaoAmigavel": "Cada linha do SLA Dashboard ganha botão de ação à direita para abrir o hub da vaga diretamente.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "10:59",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
@@ -5867,8 +5893,8 @@
       "percentualConcluido": 80,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Ajustar largura do conteúdo em /recrutamento/sla para ocupar o container.",
-      "entregavel": "SLA Dashboard sem max-width centralizado; lista e KPIs em largura total.",
+      "pedidoOriginal": "Incluir botão de ação à direita das rows da grid SLA Dashboard para a vaga.",
+      "entregavel": "Botão Abrir vaga em cada linha, navegando para /vagas/hub?id=.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
