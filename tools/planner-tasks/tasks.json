@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 224
+    "totalTarefas": 225
   },
   "tarefas": [
     {
@@ -5729,22 +5729,48 @@
       "descricaoAmigavel": "Cards do kanban ganham menu de três pontos para movimentar candidato entre etapas com modal de confirmação e opção de notificar o candidato.",
       "inicio": "2026-07-03",
       "horarioInicio": "05:16",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 70,
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "05:29",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "No kanban de candidaturas, cards com menu 3 pontos e opção enviar para etapa, modal com etapa destino e notificar envolvidos.",
       "entregavel": "Menu no card, modal com seleção de etapa e checkbox de notificação integrado ao avancar-etapa.",
+      "ambiente": "PRD",
+      "observacoes": "Promovido DEV→HML→PRD.",
+      "referencias": {
+        "commits": [
+          "a300ec15"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #147",
+        "prPrd": "Merge PR #148"
+      }
+    },
+    {
+      "id": "TASK-2026-224",
+      "nome": "[Portal RH] Corrigir candidatura de talento à vaga",
+      "descricaoAmigavel": "Ao candidatar um talento do banco de talentos a uma vaga, o sistema passa a aceitar a origem correta e enviar os dados obrigatórios do candidato.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "08:25",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Erro 400 ao candidatar talento à vaga na tela /app/talentos — fonte Talentos inválida e celular ausente.",
+      "entregavel": "Candidatura de talento à vaga funcionando com origem Banco de Talentos e validação de telefone.",
       "ambiente": "DEV",
-      "observacoes": null,
       "referencias": {
         "commits": [],
         "branch": null,
         "prHml": null
-      }
+      },
+      "observacoes": "Correção de enum CandidateOrigin.Talentos e payload POST /api/candidatos no TalentosScreen."
     }
   ]
 }

@@ -974,6 +974,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             CandidateOrigin.LinkedIn => "LinkedIn",
             CandidateOrigin.Indicacao => "Indicacao",
             CandidateOrigin.Site => "Site",
+            CandidateOrigin.Talentos => "Talentos",
             _ => "Outro"
         };
     }
