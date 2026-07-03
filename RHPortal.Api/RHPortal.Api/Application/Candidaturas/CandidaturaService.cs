@@ -18,6 +18,7 @@ public interface ICandidaturaService
     Task<IReadOnlyList<CandidaturaResponse>> ListarDoCandidatoAsync(Guid candidatoId, CancellationToken ct);
     Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct);
     Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct);
+    Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, bool notificar, CancellationToken ct);
     Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct);
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
     Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct);
@@ -223,9 +224,12 @@ public sealed class CandidaturaService : ICandidaturaService
     }
 
     public Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct)
-        => AvancarEtapaAsync(candidaturaId, novaEtapa, observacao, null, ct);
+        => AvancarEtapaAsync(candidaturaId, novaEtapa, observacao, null, true, ct);
 
-    public async Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct)
+    public Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct)
+        => AvancarEtapaAsync(candidaturaId, novaEtapa, observacao, entrevista, true, ct);
+
+    public async Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, bool notificar, CancellationToken ct)
     {
         var cand = await _db.Candidaturas.FirstOrDefaultAsync(x => x.Id == candidaturaId, ct);
         if (cand is null) return null;
@@ -297,13 +301,16 @@ public sealed class CandidaturaService : ICandidaturaService
         //  - se continua ativa, valida que VagaId do candidato = VagaId desta candidatura mais recente.
         await RecalcularVagaPrincipalAsync(cand.CandidatoId, ct);
 
-        try
+        if (notificar)
         {
-            await _notificacaoService.NotificarMudancaEtapaAsync(cand.Id, etapaAnterior, novaEtapa, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha best-effort ao notificar mudança de etapa da candidatura {CandidaturaId} ({EtapaAnterior}→{EtapaNova})", cand.Id, etapaAnterior, novaEtapa);
+            try
+            {
+                await _notificacaoService.NotificarMudancaEtapaAsync(cand.Id, etapaAnterior, novaEtapa, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha best-effort ao notificar mudança de etapa da candidatura {CandidaturaId} ({EtapaAnterior}→{EtapaNova})", cand.Id, etapaAnterior, novaEtapa);
+            }
         }
 
         var candidatura = await BuildSingle(cand.Id, ct);

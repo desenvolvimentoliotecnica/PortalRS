@@ -69,7 +69,7 @@ public sealed class CandidaturasController : ControllerBase
     {
         try
         {
-            var resp = await _service.AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, request.Entrevista, ct);
+            var resp = await _service.AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, request.Entrevista, request.Notificar, ct);
             if (resp is null) return NotFound();
             return Ok(resp);
         }
