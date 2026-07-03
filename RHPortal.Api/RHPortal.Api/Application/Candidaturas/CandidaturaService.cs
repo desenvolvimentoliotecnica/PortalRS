@@ -3,10 +3,12 @@ using Microsoft.Extensions.Logging;
 using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
-using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Agenda;
+using RhPortal.Api.Application.Funcionarios;
+using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Contracts.Schedule;
 
 namespace RhPortal.Api.Application.Candidaturas;
 
@@ -50,6 +52,7 @@ public sealed class CandidaturaService : ICandidaturaService
     private readonly ICurrentUserContext _currentUser;
     private readonly ICandidaturaNotificacaoService _notificacaoService;
     private readonly IAgendaGraphSyncService _agendaGraphSync;
+    private readonly IFuncionarioCorporateEmailResolver _corporateEmailResolver;
     private readonly ILogger<CandidaturaService> _logger;
     private readonly HybridMatchingService? _hybridMatchingService;
 
@@ -59,6 +62,7 @@ public sealed class CandidaturaService : ICandidaturaService
         ICurrentUserContext currentUser,
         ICandidaturaNotificacaoService notificacaoService,
         IAgendaGraphSyncService agendaGraphSync,
+        IFuncionarioCorporateEmailResolver corporateEmailResolver,
         ILogger<CandidaturaService> logger,
         HybridMatchingService? hybridMatchingService = null)
     {
@@ -67,6 +71,7 @@ public sealed class CandidaturaService : ICandidaturaService
         _currentUser = currentUser;
         _notificacaoService = notificacaoService;
         _agendaGraphSync = agendaGraphSync;
+        _corporateEmailResolver = corporateEmailResolver;
         _logger = logger;
         _hybridMatchingService = hybridMatchingService;
     }
@@ -318,12 +323,11 @@ public sealed class CandidaturaService : ICandidaturaService
         var responsavel = request.Responsavel.Trim();
         if (string.IsNullOrWhiteSpace(responsavel))
             throw new InvalidOperationException("Informe o responsável pela entrevista.");
-        var participantes = request.ParticipantesOpcionais?
-            .Select(x => x.Trim())
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(20)
-            .ToList() ?? [];
+
+        var participantesResolvidos = await ResolveEntrevistaParticipantesAsync(request, ct);
+        var participantesLegado = participantesResolvidos
+            .Select(x => string.IsNullOrWhiteSpace(x.Nome) ? x.Email.Trim() : $"{x.Nome.Trim()} <{x.Email.Trim()}>")
+            .ToList();
 
         var inicioUtc = request.InicioUtc.Kind == DateTimeKind.Utc
             ? request.InicioUtc
@@ -372,7 +376,7 @@ public sealed class CandidaturaService : ICandidaturaService
             $"CandidaturaId: {cand.Id}",
             $"Formato: {formato}",
             $"Responsável: {responsavel}",
-            participantes.Count == 0 ? null : $"Participantes opcionais: {string.Join(", ", participantes)}",
+            participantesLegado.Count == 0 ? null : $"Participantes opcionais: {string.Join(", ", participantesLegado)}",
             $"Duração: {request.DuracaoMinutos} minutos",
             string.IsNullOrWhiteSpace(request.Observacao) ? null : $"Observação: {request.Observacao.Trim()}",
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
@@ -404,10 +408,211 @@ public sealed class CandidaturaService : ICandidaturaService
             VagaId = details?.VagaId ?? cand.VagaId,
             CandidateConfirmationToken = Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant(),
             CandidateResponseStatus = "pendente",
+            ParticipantsJson = AgendaEventParticipants.Serialize(participantesResolvidos),
         };
 
         _db.AgendaEvents.Add(entity);
         return entity;
+    }
+
+    private async Task<IReadOnlyList<ScheduleEventParticipantDto>> ResolveEntrevistaParticipantesAsync(
+        AgendarEntrevistaCandidaturaRequest request,
+        CancellationToken ct)
+    {
+        var inputs = request.Participantes?
+            .Where(x => !string.IsNullOrWhiteSpace(x.Nome))
+            .ToList();
+
+        if (inputs is null or { Count: 0 })
+            inputs = (await ParseParticipantesOpcionaisLegacyAsync(request.ParticipantesOpcionais, ct)).ToList();
+
+        if (inputs.Count == 0)
+            return [];
+
+        if (inputs.Count > 20)
+            throw new InvalidOperationException("Máximo de 20 participantes por entrevista.");
+
+        var funcionarioDtos = inputs
+            .Where(x => x.FuncionarioId.HasValue && x.FuncionarioId != Guid.Empty)
+            .Select(x => new ScheduleEventParticipantDto(
+                x.FuncionarioId!.Value,
+                x.Nome.Trim(),
+                x.Email?.Trim() ?? ""))
+            .ToList();
+
+        var normalizedFuncionarios = funcionarioDtos.Count == 0
+            ? Array.Empty<ScheduleEventParticipantDto>()
+            : await AgendaEventParticipants.NormalizeAndValidateAsync(_db, _corporateEmailResolver, funcionarioDtos, ct);
+
+        var result = normalizedFuncionarios.ToList();
+        var seenEmails = new HashSet<string>(
+            result.Select(x => x.Email),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var input in inputs.Where(x => x.UserId.HasValue && x.UserId != Guid.Empty))
+        {
+            var email = await ResolvePortalUserInviteEmailAsync(input.UserId!.Value, input.Email, ct);
+            if (string.IsNullOrWhiteSpace(email) || !seenEmails.Add(email))
+                continue;
+
+            result.Add(new ScheduleEventParticipantDto(
+                Guid.Empty,
+                input.Nome.Trim(),
+                email));
+        }
+
+        foreach (var input in inputs.Where(x =>
+                     (!x.FuncionarioId.HasValue || x.FuncionarioId == Guid.Empty)
+                     && (!x.UserId.HasValue || x.UserId == Guid.Empty)
+                     && !string.IsNullOrWhiteSpace(x.Email)))
+        {
+            var email = input.Email!.Trim();
+            if (!seenEmails.Add(email))
+                continue;
+
+            result.Add(new ScheduleEventParticipantDto(
+                Guid.Empty,
+                input.Nome.Trim(),
+                email));
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<EntrevistaParticipanteInput>> ParseParticipantesOpcionaisLegacyAsync(
+        IReadOnlyList<string>? participantesOpcionais,
+        CancellationToken ct)
+    {
+        if (participantesOpcionais is null || participantesOpcionais.Count == 0)
+            return [];
+
+        var parsed = participantesOpcionais
+            .Select(x => x?.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .Select(ParseParticipanteLegacyLabel)
+            .ToList();
+
+        var emails = parsed
+            .Select(x => x.Email)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var names = parsed
+            .Select(x => x.Nome)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var funcionarios = emails.Count == 0 && names.Count == 0
+            ? []
+            : await _db.Funcionarios.AsNoTracking()
+                .Where(f => f.Status == FuncionarioStatus.Active)
+                .Where(f =>
+                    (emails.Count > 0 && f.Email != null && emails.Contains(f.Email))
+                    || (names.Count > 0 && names.Contains(f.Name)))
+                .Select(f => new { f.Id, f.Name, f.Email })
+                .ToListAsync(ct);
+
+        var users = emails.Count == 0 && names.Count == 0
+            ? []
+            : await _db.Users.AsNoTracking()
+                .Where(u => u.IsActive && u.Email != null && u.Email != "")
+                .Where(u =>
+                    (emails.Count > 0 && emails.Contains(u.Email!))
+                    || (names.Count > 0 && (names.Contains(u.FullName ?? "") || names.Contains(u.UserName ?? ""))))
+                .Select(u => new { u.Id, Nome = u.FullName ?? u.UserName ?? u.Email!, u.Email })
+                .ToListAsync(ct);
+
+        var result = new List<EntrevistaParticipanteInput>();
+
+        foreach (var item in parsed)
+        {
+            var funcionario = funcionarios.FirstOrDefault(f =>
+                (!string.IsNullOrWhiteSpace(item.Email) && string.Equals(f.Email, item.Email, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(f.Name, item.Nome, StringComparison.OrdinalIgnoreCase));
+
+            if (funcionario is not null)
+            {
+                result.Add(new EntrevistaParticipanteInput(
+                    funcionario.Id,
+                    null,
+                    funcionario.Name,
+                    funcionario.Email,
+                    "funcionario"));
+                continue;
+            }
+
+            var user = users.FirstOrDefault(u =>
+                (!string.IsNullOrWhiteSpace(item.Email) && string.Equals(u.Email, item.Email, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(u.Nome, item.Nome, StringComparison.OrdinalIgnoreCase));
+
+            if (user is not null)
+            {
+                result.Add(new EntrevistaParticipanteInput(
+                    null,
+                    user.Id,
+                    user.Nome,
+                    user.Email,
+                    "usuario"));
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(item.Email))
+            {
+                result.Add(new EntrevistaParticipanteInput(
+                    null,
+                    null,
+                    item.Nome,
+                    item.Email,
+                    "legado"));
+            }
+        }
+
+        return result;
+    }
+
+    private static (string Nome, string? Email) ParseParticipanteLegacyLabel(string value)
+    {
+        var start = value.LastIndexOf('<');
+        var end = value.LastIndexOf('>');
+        if (start >= 0 && end > start)
+        {
+            var email = value[(start + 1)..end].Trim();
+            var nome = value[..start].Trim();
+            return (string.IsNullOrWhiteSpace(nome) ? email : nome, email);
+        }
+
+        if (value.Contains('@', StringComparison.Ordinal))
+            return (value, value);
+
+        return (value, null);
+    }
+
+    private async Task<string?> ResolvePortalUserInviteEmailAsync(Guid userId, string? fallbackEmail, CancellationToken ct)
+    {
+        var user = await _db.Users.AsNoTracking()
+            .Where(u => u.Id == userId && u.IsActive)
+            .Select(u => new { u.Email, u.FuncionarioId })
+            .FirstOrDefaultAsync(ct);
+
+        if (user is null)
+            return string.IsNullOrWhiteSpace(fallbackEmail) ? null : fallbackEmail.Trim();
+
+        if (user.FuncionarioId.HasValue)
+        {
+            var corporate = await _corporateEmailResolver.ResolveEmailAsync(user.FuncionarioId.Value, ct);
+            if (!string.IsNullOrWhiteSpace(corporate))
+                return corporate.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+            return user.Email.Trim();
+
+        return string.IsNullOrWhiteSpace(fallbackEmail) ? null : fallbackEmail.Trim();
     }
 
     public async Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct)

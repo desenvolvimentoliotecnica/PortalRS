@@ -42,6 +42,14 @@ public sealed record EntrevistaAgendadaResponse(
     string? OnlineMeetingJoinUrl
 );
 
+public sealed record EntrevistaParticipanteInput(
+    Guid? FuncionarioId,
+    Guid? UserId,
+    string Nome,
+    string? Email,
+    string? Origem
+);
+
 public sealed record AgendarEntrevistaCandidaturaRequest(
     DateTime InicioUtc,
     int DuracaoMinutos,
@@ -49,7 +57,8 @@ public sealed record AgendarEntrevistaCandidaturaRequest(
     string Responsavel,
     IReadOnlyList<string>? ParticipantesOpcionais,
     string? Local,
-    string? Observacao
+    string? Observacao,
+    IReadOnlyList<EntrevistaParticipanteInput>? Participantes = null
 );
 
 public sealed record RegistrarObservacaoCandidaturaRequest(

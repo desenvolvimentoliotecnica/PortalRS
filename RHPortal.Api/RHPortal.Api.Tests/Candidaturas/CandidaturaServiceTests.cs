@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using RhPortal.Api.Application.Agenda;
 using RhPortal.Api.Application.Candidaturas;
+using RhPortal.Api.Application.Funcionarios;
+using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -41,7 +44,42 @@ public sealed class CandidaturaServiceTests
             .Setup(x => x.NotificarMudancaEtapaAsync(It.IsAny<Guid>(), It.IsAny<EtapaMacroCandidatura>(), It.IsAny<EtapaMacroCandidatura>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var service = new CandidaturaService(db, tenantMock.Object, userContext.Object, notificacaoMock.Object, NullLogger<CandidaturaService>.Instance);
+        var graphSyncMock = new Mock<IAgendaGraphSyncService>();
+        graphSyncMock
+            .Setup(x => x.TrySyncCreateAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var corporateEmailMock = new Mock<IFuncionarioCorporateEmailResolver>();
+        corporateEmailMock
+            .Setup(x => x.ResolveEmailsAsync(It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()))
+            .Returns(async (IReadOnlyList<Guid> ids, CancellationToken ct) =>
+            {
+                return await db.Funcionarios.AsNoTracking()
+                    .Where(f => ids.Contains(f.Id) && f.Email != null && f.Email != "")
+                    .ToDictionaryAsync(
+                        f => f.Id,
+                        f => f.Email!.Contains('@') ? $"corp.{f.Email}" : f.Email!,
+                        ct);
+            });
+        corporateEmailMock
+            .Setup(x => x.ResolveEmailAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(async (Guid id, CancellationToken ct) =>
+            {
+                var map = await db.Funcionarios.AsNoTracking()
+                    .Where(f => f.Id == id && f.Email != null && f.Email != "")
+                    .Select(f => f.Email!)
+                    .FirstOrDefaultAsync(ct);
+                return map is null ? null : $"corp.{map}";
+            });
+
+        var service = new CandidaturaService(
+            db,
+            tenantMock.Object,
+            userContext.Object,
+            notificacaoMock.Object,
+            graphSyncMock.Object,
+            corporateEmailMock.Object,
+            NullLogger<CandidaturaService>.Instance);
         return (db, service);
     }
 
@@ -476,5 +514,43 @@ public sealed class CandidaturaServiceTests
         db.ChangeTracker.Clear();
         var cand = db.Candidatos.AsNoTracking().First(x => x.Id == candId);
         Assert.Equal(vagaAtiva, cand.VagaId);
+    }
+
+    [Fact]
+    public async Task AvancarEtapa_EntrevistaComParticipante_PersisteParticipantsJson()
+    {
+        var (db, svc) = CriarServico();
+        var candId = SeedCandidato(db);
+        var vagaId = SeedVaga(db);
+        var funcionarioId = Guid.NewGuid();
+        db.Funcionarios.Add(new Funcionario
+        {
+            Id = funcionarioId,
+            TenantId = TenantTeste,
+            Name = "Gestor Teste",
+            Email = "pessoal@exemplo.com",
+            MatriculaRm = "00000581",
+            Status = FuncionarioStatus.Active,
+        });
+        db.SaveChanges();
+
+        var c = await svc.GetOrCreateAsync(candId, vagaId, "Portal", null, default);
+
+        var entrevista = new AgendarEntrevistaCandidaturaRequest(
+            DateTime.UtcNow.AddDays(1),
+            60,
+            "Online",
+            "Analista RH",
+            null,
+            "Online",
+            null,
+            [
+                new EntrevistaParticipanteInput(funcionarioId, null, "Gestor Teste", "pessoal@exemplo.com", "funcionario"),
+            ]);
+
+        await svc.AvancarEtapaAsync(c.Id, EtapaMacroCandidatura.Entrevista, null, entrevista, default);
+
+        var evento = db.AgendaEvents.Single();
+        Assert.Contains("corp.pessoal@exemplo.com", evento.ParticipantsJson!, StringComparison.Ordinal);
     }
 }
