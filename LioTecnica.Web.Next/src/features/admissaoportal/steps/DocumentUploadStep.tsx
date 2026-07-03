@@ -20,6 +20,7 @@ import { confirmDocumentAiValidation } from "../documentAiValidationDialog";
 import { TIPO_DOC_LABELS } from "../constants";
 import {
     admissaoPortalFetch,
+    isMockPortalSession,
     removeDocument,
     validateDocument,
     type AdmissaoPortalSession,
@@ -107,6 +108,29 @@ export default function DocumentUploadStep({
         const setDoc = isVerso ? setUploadedDocVerso : setUploadedDoc;
         const setAi  = isVerso ? setAiExtractionVerso : setAiExtraction;
         const removeDoc = isVerso ? removeUploadedDocVerso : removeUploadedDoc;
+
+        if (isMockPortalSession(session)) {
+            const localPreview = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+            setDoc(tipo, {
+                id: `mock-${tipo}-${side}`,
+                tipo,
+                nomeArquivo: file.name,
+                tamanhoBytes: file.size,
+                status: 0,
+                thumbnail: localPreview,
+                presignedUrl: localPreview,
+            });
+            setAi(tipo, {
+                tipo,
+                isValid: true,
+                confidence: 1,
+                extractedFields: {},
+                validationMessage: null,
+                processing: false,
+            });
+            toast.info("Modo demonstração — arquivo não enviado ao servidor.");
+            return;
+        }
 
         const existing = isVerso ? uploadedDocsVerso.get(tipo) : uploadedDocs.get(tipo);
         if (existing?.id) {
@@ -241,13 +265,20 @@ export default function DocumentUploadStep({
         });
         if (!ok) return;
 
+        if (isMockPortalSession(session)) {
+            if (side === "verso") removeUploadedDocVerso(tipo);
+            else removeUploadedDoc(tipo);
+            toast.success("Documento removido.");
+            return;
+        }
+
         try {
             await removeUploaded(tipo, side, docId);
             toast.success("Documento removido.");
         } catch {
             toast.error("Erro ao remover documento.");
         }
-    }, [removeUploaded]);
+    }, [removeUploaded, removeUploadedDoc, removeUploadedDocVerso, session]);
 
     if (activeDocument) {
         return (

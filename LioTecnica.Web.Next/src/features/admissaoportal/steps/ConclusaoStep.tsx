@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import WizardStepCard from "../components/WizardStepCard";
-import { downloadComprovanteEnvio, type AdmissaoPortalSession } from "../publicApi";
+import { downloadComprovanteEnvio, isMockPortalSession, type AdmissaoPortalSession } from "../publicApi";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 
 interface Props {
@@ -40,6 +40,10 @@ export default function ConclusaoStep({
         : new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
     const handleDownload = async () => {
+        if (isMockPortalSession(session)) {
+            toast.info("Modo demonstração — comprovante indisponível.");
+            return;
+        }
         setDownloading(true);
         try {
             await downloadComprovanteEnvio(session);

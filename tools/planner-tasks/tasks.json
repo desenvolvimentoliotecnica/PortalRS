@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-03T12:23:00-03:00",
-    "totalTarefas": 231
+    "atualizadoEm": "2026-07-03T15:07:00-03:00",
+    "totalTarefas": 232
   },
   "tarefas": [
     {
@@ -5931,6 +5931,28 @@
         "prPrd": "Merge PR #162"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-232",
+      "nome": "[Portal RH] Preview Portal de Admissão para Owner",
+      "descricaoAmigavel": "O menu Portal de Admissão (exemplo) abre o wizard completo em modo demonstração, com dados fictícios, sem exigir pré-admissão real.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "15:07",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Owner quer ver o portal como mock/demonstração, não lista de pré-admissões.",
+      "entregavel": "Modo demonstração com wizard navegável, dados de exemplo e banner; uploads/mensagens não persistem.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Mock ativado quando URL tem tenantId sem preAdmissaoId (link do menu Owner)."
     }
   ]
 }

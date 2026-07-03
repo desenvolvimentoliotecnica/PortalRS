@@ -11,6 +11,22 @@ export type AdmissaoPortalSession = {
     nome?: string;
 };
 
+/** ID fixo usado no modo demonstração (Owner / preview do portal). */
+export const MOCK_PRE_ADMISSAO_ID = "00000000-0000-4000-8000-000000000001";
+
+export function isMockPortalSession(session: AdmissaoPortalSession): boolean {
+    return session.preAdmissaoId === MOCK_PRE_ADMISSAO_ID;
+}
+
+export function createMockPortalSession(tenantId: string): AdmissaoPortalSession {
+    return {
+        tenantId,
+        preAdmissaoId: MOCK_PRE_ADMISSAO_ID,
+        cpf: "00000000000",
+        nome: "Maria Silva (exemplo)",
+    };
+}
+
 function key(tenantId: string) {
     return `${STORAGE_PREFIX}${tenantId.toLowerCase()}`;
 }
