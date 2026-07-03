@@ -279,6 +279,9 @@
   <data name="ControllerLabels.Site" xml:space="preserve">
     <value>Site</value>
   </data>
+  <data name="ControllerLabels.Talentos" xml:space="preserve">
+    <value>Banco de Talentos</value>
+  </data>
   <data name="ControllerLabels.StatusNovo" xml:space="preserve">
     <value>Novo</value>
   </data>

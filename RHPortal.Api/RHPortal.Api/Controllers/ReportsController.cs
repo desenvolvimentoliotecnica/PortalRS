@@ -3167,6 +3167,7 @@ public sealed class ReportsController : ControllerBase
             CandidateOrigin.LinkedIn => _localizer["ControllerLabels.LinkedIn"].Value,
             CandidateOrigin.Indicacao => _localizer["ControllerLabels.Indicacao"].Value,
             CandidateOrigin.Site => _localizer["ControllerLabels.Site"].Value,
+            CandidateOrigin.Talentos => _localizer["ControllerLabels.Talentos"].Value,
             _ => _localizer["ControllerLabels.Outro"].Value
         };
     }

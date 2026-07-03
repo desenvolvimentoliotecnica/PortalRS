@@ -6,5 +6,6 @@ public enum CandidateOrigin
     Pasta,
     LinkedIn,
     Indicacao,
-    Site
+    Site,
+    Talentos
 }
