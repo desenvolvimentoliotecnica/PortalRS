@@ -5833,23 +5833,26 @@
       "descricaoAmigavel": "Ao clicar em Conversar com WhatsApp Web, o analista vê um modal para revisar ou escrever a mensagem antes de abrir o WhatsApp, com texto inicial personalizado com nome do candidato e do usuário.",
       "inicio": "2026-07-03",
       "horarioInicio": "10:04",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "10:16",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Em todos os pontos de Conversar com WhatsApp Web, abrir modal para escrever mensagem padrão antes de abrir o WhatsApp Web, com componente único reutilizável.",
       "entregavel": "WhatsAppMessageDialog reutilizável integrado ao WhatsAppContactButton em todas as telas de candidato, com saudação Olá [candidato], sou [usuário] do RH da [empresa].",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "49f6c832"
+          "49f6c832",
+          "262bc47f"
         ],
-        "branch": "DEV"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #155",
+        "prPrd": "Merge PR #156"
       },
-      "observacoes": "Implementação frontend em LioTecnica.Web.Next; link wa.me montado no cliente."
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
