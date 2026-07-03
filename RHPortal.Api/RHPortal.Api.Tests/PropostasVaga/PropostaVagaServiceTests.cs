@@ -47,6 +47,7 @@ public sealed class PropostaVagaServiceTests
             notificacaoMock.Object,
             graphSyncMock.Object,
             corporateEmailMock.Object,
+            new SlaEtapaResolver(db),
             NullLogger<CandidaturaService>.Instance);
 
         var emailQueue = new Mock<IEmailQueueService>();

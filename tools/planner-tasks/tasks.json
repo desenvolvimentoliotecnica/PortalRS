@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 226
+    "totalTarefas": 227
   },
   "tarefas": [
     {
@@ -5781,22 +5781,47 @@
       "descricaoAmigavel": "Remove do modal de movimentação os checkboxes de analista RH e gestor enquanto essas notificações ainda não estão disponíveis.",
       "inicio": "2026-07-03",
       "horarioInicio": "09:06",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "09:07",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Checkboxes Notificar analista RH e Notificar gestor com Em breve — ocultar quando desabilitados por configuração.",
       "entregavel": "Modal exibe apenas Notificar candidato até as notificações internas serem implementadas.",
+      "ambiente": "PRD",
+      "observacoes": "Promovido DEV→HML→PRD.",
+      "referencias": {
+        "commits": [
+          "dd5061e0"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #151",
+        "prPrd": "Merge PR #152"
+      }
+    },
+    {
+      "id": "TASK-2026-227",
+      "nome": "[Portal RH] Menu SLA Dashboard, config SLA por etapa e visibilidade SLA por status",
+      "descricaoAmigavel": "Inclui SLA Dashboard no menu para todos os perfis padrão, cria tela de configuração de SLA por etapa do funil (Analista e Especialista de RH) e torna a configuração de SLA por status encontrável no menu.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "09:54",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 70,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Incluir SLA Dashboard no menu lateral para todos os perfis; criar view para configurar SLA por etapa (Analista/Especialista RH); tornar Configuração de Status e SLA encontrável no menu.",
+      "entregavel": "Itens de menu novos, API e tela de configuração de SLA por etapa do kanban, permissões padrão nos perfis RH.",
       "ambiente": "DEV",
-      "observacoes": null,
       "referencias": {
         "commits": [],
-        "branch": null,
-        "prHml": null
-      }
+        "branch": "DEV"
+      },
+      "observacoes": null
     }
   ]
 }

@@ -200,6 +200,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Holerite> Holerites => Set<Holerite>();
     public DbSet<HistoricoStatus> HistoricosStatus => Set<HistoricoStatus>();
     public DbSet<SlaStatusConfig> SlaStatusConfigs => Set<SlaStatusConfig>();
+    public DbSet<SlaEtapaCandidaturaConfig> SlaEtapaCandidaturaConfigs => Set<SlaEtapaCandidaturaConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -3845,6 +3846,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Status).HasMaxLength(80).IsRequired();
 
             b.HasIndex(x => new { x.TenantId, x.TipoEntidade, x.Status }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SlaEtapaCandidaturaConfig>(b =>
+        {
+            b.ToTable("SlaEtapaCandidaturaConfigs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Etapa).HasConversion<short>();
+
+            b.HasIndex(x => new { x.TenantId, x.Etapa }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
