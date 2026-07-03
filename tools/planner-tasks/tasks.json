@@ -5755,22 +5755,25 @@
       "descricaoAmigavel": "Ao candidatar um talento do banco de talentos a uma vaga, o sistema passa a aceitar a origem correta e enviar os dados obrigatórios do candidato.",
       "inicio": "2026-07-03",
       "horarioInicio": "08:25",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "08:42",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Erro 400 ao candidatar talento à vaga na tela /app/talentos — fonte Talentos inválida e celular ausente.",
       "entregavel": "Candidatura de talento à vaga funcionando com origem Banco de Talentos e validação de telefone.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
+      "observacoes": "Promovido DEV→HML→PRD.",
       "referencias": {
-        "commits": [],
-        "branch": null,
-        "prHml": null
-      },
-      "observacoes": "Correção de enum CandidateOrigin.Talentos e payload POST /api/candidatos no TalentosScreen."
+        "commits": [
+          "9a5c0d96"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #149",
+        "prPrd": "Merge PR #150"
+      }
     }
   ]
 }
