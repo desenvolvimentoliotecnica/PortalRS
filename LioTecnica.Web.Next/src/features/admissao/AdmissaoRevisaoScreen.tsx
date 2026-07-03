@@ -684,7 +684,7 @@ export default function AdmissaoRevisaoScreen() {
                     <div className="text-muted-foreground text-sm">{data.nome} {data.cpf ? `— ${data.cpf}` : ""}</div>
                 </div>
                 <div className="flex gap-2">
-                    <WhatsAppContactButton size="sm" celular={data.celular} fone={data.telefone} />
+                    <WhatsAppContactButton size="sm" celular={data.celular} fone={data.telefone} candidatoNome={data.nome} />
                     <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ${s.color}`}>
                         <Icon className="size-3.5" /> {s.label}
                     </span>

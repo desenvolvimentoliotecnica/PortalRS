@@ -350,7 +350,7 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                                         <div className="font-medium">{r.nome}</div>
                                         <div className="text-[11px] text-muted-foreground">{r.email ?? "—"}</div>
                                         <div className="mt-1">
-                                            <WhatsAppContactButton size="xs" celular={r.celular} fone={r.fone} />
+                                            <WhatsAppContactButton size="xs" celular={r.celular} fone={r.fone} candidatoNome={r.nome} />
                                         </div>
                                     </td>
                                     <td className="px-3 py-2 text-center">

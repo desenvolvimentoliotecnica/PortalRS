@@ -134,7 +134,7 @@ export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, 
                                 Cache automático — mesma combinação de CV/descrição/pesos retorna instantânea.
                             </DialogDescription>
                         </div>
-                        <WhatsAppContactButton size="sm" celular={phone.celular} fone={phone.fone} />
+                        <WhatsAppContactButton size="sm" celular={phone.celular} fone={phone.fone} candidatoNome={candidatoNome} />
                     </div>
                 </DialogHeader>
 

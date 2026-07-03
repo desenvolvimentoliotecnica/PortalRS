@@ -1822,6 +1822,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                     size="sm"
                     celular={newCandForm.celular}
                     fone={newCandForm.fone}
+                    candidatoNome={newCandForm.nome}
                   />
                 )}
                 {candidateFormReadOnly && editingCandidateId && (

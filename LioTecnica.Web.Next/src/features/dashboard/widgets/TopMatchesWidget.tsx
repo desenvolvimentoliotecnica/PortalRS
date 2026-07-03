@@ -109,6 +109,7 @@ export function TopMatchesWidget({ topMatches }: { topMatches: TopMatchRow[] }) 
                         size="xs"
                         celular={getPhone(x.candidatoId).celular}
                         fone={getPhone(x.candidatoId).fone}
+                        candidatoNome={x.candidatoNome}
                       />
                     </div>
                   </TableCell>

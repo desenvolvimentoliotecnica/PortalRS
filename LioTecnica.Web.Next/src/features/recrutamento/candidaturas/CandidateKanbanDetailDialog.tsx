@@ -295,6 +295,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
                 <WhatsAppContactButton
                   celular={item.candidatoCelular ?? perfilBasico?.celular}
                   fone={item.candidatoFone ?? perfilBasico?.fone}
+                  candidatoNome={item.candidatoNome}
                 />
               </div>
               <Field label="Vaga" value={[item.vagaTitulo, item.vagaCodigo].filter(Boolean).join(" · ")} />
