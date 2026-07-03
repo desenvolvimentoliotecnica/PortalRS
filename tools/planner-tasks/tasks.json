@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 229
+    "totalTarefas": 230
   },
   "tarefas": [
     {
@@ -5879,6 +5879,28 @@
         "prPrd": "Merge PR #158"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-230",
+      "nome": "[Portal RH] Botão Abrir vaga no SLA Dashboard",
+      "descricaoAmigavel": "Cada linha do SLA Dashboard ganha botão de ação à direita para abrir o hub da vaga diretamente.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "10:59",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Incluir botão de ação à direita das rows da grid SLA Dashboard para a vaga.",
+      "entregavel": "Botão Abrir vaga em cada linha, navegando para /vagas/hub?id=.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": null
     }
   ]
 }
