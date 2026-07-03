@@ -104,7 +104,7 @@ export default function SlaDashboardScreen() {
     const vagas = data?.vagas ?? [];
 
     return (
-        <section className="space-y-5">
+        <section className="w-full space-y-5">
             {/* Header */}
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -195,7 +195,7 @@ export default function SlaDashboardScreen() {
                                             {v.diasAberto} dias em aberto · Meta: {v.metaDias} dias · Status: {v.status}
                                         </div>
                                     </div>
-                                    <div className="w-full sm:w-48 space-y-1 shrink-0">
+                                    <div className="w-full sm:w-56 lg:w-72 xl:w-80 space-y-1 shrink-0">
                                         <div className="flex justify-between text-xs text-muted-foreground">
                                             <span>{pct.toFixed(0)}%</span>
                                             <span>{v.diasAberto}/{v.metaDias}d</span>

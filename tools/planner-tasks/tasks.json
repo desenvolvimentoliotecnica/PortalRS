@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-03",
-    "totalTarefas": 228
+    "totalTarefas": 229
   },
   "tarefas": [
     {
@@ -5853,6 +5853,28 @@
         "prPrd": "Merge PR #156"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-229",
+      "nome": "[Portal RH] SLA Dashboard ocupa largura total do container",
+      "descricaoAmigavel": "Remove limitação de largura na tela SLA Dashboard para o conteúdo usar toda a área útil ao lado do menu.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "10:34",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Ajustar largura do conteúdo em /recrutamento/sla para ocupar o container.",
+      "entregavel": "SLA Dashboard sem max-width centralizado; lista e KPIs em largura total.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": null
     }
   ]
 }
