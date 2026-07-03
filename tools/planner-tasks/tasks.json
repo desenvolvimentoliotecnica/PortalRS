@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-03T15:07:00-03:00",
+    "atualizadoEm": "2026-07-03T15:13:00-03:00",
     "totalTarefas": 232
   },
   "tarefas": [
@@ -5938,21 +5938,25 @@
       "descricaoAmigavel": "O menu Portal de Admissão (exemplo) abre o wizard completo em modo demonstração, com dados fictícios, sem exigir pré-admissão real.",
       "inicio": "2026-07-03",
       "horarioInicio": "15:07",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "15:12",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Owner quer ver o portal como mock/demonstração, não lista de pré-admissões.",
       "entregavel": "Modo demonstração com wizard navegável, dados de exemplo e banner; uploads/mensagens não persistem.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "55da45e0"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #163",
+        "prPrd": "Merge PR #164"
       },
-      "observacoes": "Mock ativado quando URL tem tenantId sem preAdmissaoId (link do menu Owner)."
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
