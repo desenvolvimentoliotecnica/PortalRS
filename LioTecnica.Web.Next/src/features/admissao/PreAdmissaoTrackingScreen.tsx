@@ -524,7 +524,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     <InfoRow icon={<Mail className="size-4" />} label="E-mail" value={data.email} />
                     <InfoRow icon={<Phone className="size-4" />} label="Celular" value={data.celular} />
                     <div className="sm:col-span-2">
-                        <WhatsAppContactButton size="sm" celular={data.celular} fone={data.telefone} />
+                        <WhatsAppContactButton size="sm" celular={data.celular} fone={data.telefone} candidatoNome={data.nome} />
                     </div>
                     <InfoRow icon={<FileText className="size-4" />} label="CPF" value={data.cpf} />
                     <InfoRow icon={<Building2 className="size-4" />} label="Centro de Custo" value={data.centroCustoNome ?? data.areaNome} />

@@ -610,6 +610,7 @@ export default function CandidaturasKanbanScreen() {
                                   size="xs"
                                   celular={it.candidatoCelular}
                                   fone={it.candidatoFone}
+                                  candidatoNome={it.candidatoNome}
                                 />
                               </div>
                             </div>
@@ -692,6 +693,7 @@ export default function CandidaturasKanbanScreen() {
                     size="xs"
                     celular={moveDialog.item.candidatoCelular}
                     fone={moveDialog.item.candidatoFone}
+                    candidatoNome={moveDialog.item.candidatoNome}
                   />
                 </div>
                 <div className="mt-1 text-xs">

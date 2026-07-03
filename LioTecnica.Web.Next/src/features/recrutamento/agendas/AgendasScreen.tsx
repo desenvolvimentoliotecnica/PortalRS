@@ -1761,6 +1761,7 @@ export default function AgendasScreen() {
                       size="xs"
                       celular={candidatos.find((c) => c.id === selectedEvent.candidatoId)?.celular}
                       fone={candidatos.find((c) => c.id === selectedEvent.candidatoId)?.fone}
+                      candidatoNome={candidatos.find((c) => c.id === selectedEvent.candidatoId)?.nome ?? selectedEvent.candidate}
                     />
                   </div>
                 ) : null}

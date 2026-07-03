@@ -923,7 +923,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                       <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
                           {r.email && <a href={`mailto:${r.email}`} title={`Email: ${r.email}`} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-slate-100 transition-colors" onClick={e => e.stopPropagation()}><Mail className="size-3.5" /></a>}
-                          <WhatsAppContactButton size="xs" fone={r.fone} className="h-auto px-1 py-1" onClick={e => e.stopPropagation()} />
+                          <WhatsAppContactButton size="xs" fone={r.fone} candidatoNome={r.nome} className="h-auto px-1 py-1" onClick={e => e.stopPropagation()} />
                           {r.linkedinUrl && <a href={r.linkedinUrl} target="_blank" rel="noopener noreferrer" title="LinkedIn" className="p-1 rounded text-muted-foreground hover:text-blue-700 hover:bg-blue-50 transition-colors" onClick={e => e.stopPropagation()}><Linkedin className="size-3.5" /></a>}
                         </div>
                       </td>

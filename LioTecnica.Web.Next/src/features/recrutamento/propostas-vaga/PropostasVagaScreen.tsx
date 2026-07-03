@@ -744,6 +744,7 @@ export default function PropostasVagaScreen() {
                           size="xs"
                           celular={candidatosById.get(p.candidatoId)?.celular}
                           fone={candidatosById.get(p.candidatoId)?.fone}
+                          candidatoNome={p.candidatoNome ?? candidatosById.get(p.candidatoId)?.nome}
                         />
                       </div>
                     </TableCell>

@@ -1004,6 +1004,7 @@ export default function CandidatosScreen() {
                                 size="xs"
                                 celular={pickString((c as Record<string, unknown>)?.celular, "")}
                                 fone={c.fone}
+                                candidatoNome={c.nome}
                               />
                             </div>
                           </div>
@@ -1201,6 +1202,7 @@ export default function CandidatosScreen() {
                     size="sm"
                     celular={pickString((detail as Record<string, unknown> | null)?.celular, "")}
                     fone={detail?.fone}
+                    candidatoNome={detail?.nome}
                   />
                   <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
                     Fechar
