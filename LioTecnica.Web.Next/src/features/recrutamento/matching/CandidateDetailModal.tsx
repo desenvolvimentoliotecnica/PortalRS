@@ -106,7 +106,7 @@ export default function CandidateDetailModal({ item, candidatoFull, vagaDetail, 
                             <span className="text-muted-foreground text-xs block">Contato direto</span>
                             <div className="flex flex-wrap gap-2 mt-0.5">
                                 {displayEmail && <a href={`mailto:${displayEmail}`} className="inline-flex items-center gap-1 text-sm hover:underline text-blue-600" title="Email"><Mail className="size-3.5" /> Email</a>}
-                                <WhatsAppContactButton size="xs" fone={candidatoFull?.fone || item.fone} />
+                                <WhatsAppContactButton size="xs" fone={candidatoFull?.fone || item.fone} candidatoNome={candidatoFull?.nome || item.nome} />
                                 {(candidatoFull?.linkedinUrl || item.linkedinUrl) && <a href={candidatoFull?.linkedinUrl || item.linkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm hover:underline text-blue-700" title="LinkedIn"><Linkedin className="size-3.5" /> LinkedIn</a>}
                             </div>
                         </div>

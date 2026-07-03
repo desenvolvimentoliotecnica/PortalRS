@@ -128,7 +128,7 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
                 Explicação granular: peso configurado por critério, sub-score, contribuição e itens da Descrição de Cargo cobertos/faltando.
               </DialogDescription>
             </div>
-            <WhatsAppContactButton size="sm" celular={candidatoCelular} fone={candidatoFone} />
+            <WhatsAppContactButton size="sm" celular={candidatoCelular} fone={candidatoFone} candidatoNome={candidatoNome} />
           </div>
         </DialogHeader>
 

@@ -1101,7 +1101,7 @@ export default function TriagemScreen({
             </div>
 
             <div className="mt-3">
-              <WhatsAppContactButton size="sm" fone={selected.fone} />
+              <WhatsAppContactButton size="sm" fone={selected.fone} candidatoNome={selected.nome} />
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">

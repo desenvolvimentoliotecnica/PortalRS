@@ -279,6 +279,7 @@ export default function IntegracaoDetalhesDrawer({
                                 size="sm"
                                 celular={typeof detalhe?.celular === "string" ? detalhe.celular : null}
                                 fone={typeof detalhe?.telefone === "string" ? detalhe.telefone : null}
+                                candidatoNome={item.nome}
                             />
                         </div>
                     </DialogHeader>

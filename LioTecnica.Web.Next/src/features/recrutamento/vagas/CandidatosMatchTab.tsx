@@ -617,7 +617,7 @@ export default function CandidatosMatchTab({
                                                 <div className="font-medium">{r.nome}</div>
                                                 <div className="text-[11px] text-muted-foreground">{r.email ?? "—"}</div>
                                                 <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                                                    <WhatsAppContactButton size="xs" celular={r.celular} fone={r.fone} />
+                                                    <WhatsAppContactButton size="xs" celular={r.celular} fone={r.fone} candidatoNome={r.nome} />
                                                 </div>
                                             </td>
                                             <td className="px-3 py-2">

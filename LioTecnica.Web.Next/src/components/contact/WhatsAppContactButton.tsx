@@ -1,37 +1,27 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { WhatsAppMessageDialog } from "@/components/contact/WhatsAppMessageDialog";
+import { normalizeBrazilWhatsAppE164 } from "@/components/contact/whatsapp-utils";
+
+export { normalizeBrazilWhatsAppE164 } from "@/components/contact/whatsapp-utils";
 
 type ButtonSize = "default" | "xs" | "sm" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
 type ButtonVariant = "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
 
-export function normalizeBrazilWhatsAppE164(celular?: string | null, fone?: string | null): string | null {
-    const raw = (celular?.trim() || fone?.trim() || "");
-    if (!raw) return null;
-
-    let digits = raw.replace(/\D/g, "");
-    if (!digits) return null;
-
-    if (digits.startsWith("0")) {
-        digits = digits.replace(/^0+/, "");
-    }
-    if (!digits.startsWith("55")) {
-        digits = `55${digits}`;
-    }
-
-    return digits.length >= 12 ? digits : null;
-}
-
 export type WhatsAppContactButtonProps = {
     celular?: string | null;
     fone?: string | null;
+    candidatoNome?: string | null;
+    empresaNome?: string | null;
+    defaultMessage?: string | null;
     size?: ButtonSize;
     variant?: ButtonVariant;
     className?: string;
-    onClick?: React.MouseEventHandler<HTMLElement>;
+    onClick?: React.MouseEventHandler<HTMLButtonElement>;
 };
 
 const DISABLED_TOOLTIP = "Sem telefone cadastrado";
@@ -39,6 +29,9 @@ const DISABLED_TOOLTIP = "Sem telefone cadastrado";
 export function WhatsAppContactButton({
     celular,
     fone,
+    candidatoNome,
+    empresaNome,
+    defaultMessage,
     size = "sm",
     variant = "outline",
     className,
@@ -46,6 +39,7 @@ export function WhatsAppContactButton({
 }: WhatsAppContactButtonProps) {
     const phone = normalizeBrazilWhatsAppE164(celular, fone);
     const label = "Conversar com WhatsApp Web";
+    const [dialogOpen, setDialogOpen] = useState(false);
 
     if (!phone) {
         return (
@@ -65,22 +59,35 @@ export function WhatsAppContactButton({
         );
     }
 
+    function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+        onClick?.(e);
+        if (e.defaultPrevented) return;
+        setDialogOpen(true);
+    }
+
     return (
-        <Button
-            asChild
-            size={size}
-            variant={variant}
-            className={cn("gap-1.5 text-green-700 hover:text-green-800 hover:bg-green-50", className)}
-        >
-            <a
-                href={`https://wa.me/${phone}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onClick}
+        <>
+            <Button
+                type="button"
+                size={size}
+                variant={variant}
+                className={cn("gap-1.5 text-green-700 hover:text-green-800 hover:bg-green-50", className)}
+                onClick={handleClick}
             >
                 <MessageCircle className="size-4 shrink-0" />
                 {label}
-            </a>
-        </Button>
+            </Button>
+
+            <WhatsAppMessageDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                phoneE164={phone}
+                celular={celular}
+                fone={fone}
+                candidatoNome={candidatoNome}
+                empresaNome={empresaNome}
+                defaultMessage={defaultMessage}
+            />
+        </>
     );
 }

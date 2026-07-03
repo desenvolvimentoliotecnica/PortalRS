@@ -147,7 +147,7 @@ export default function VagaRetornoNegativoModal({
                         <div className="font-medium">{d.candidatoNome}</div>
                         <div className="text-xs text-muted-foreground">{d.candidatoEmail ?? "Sem e-mail"}</div>
                       </div>
-                      <WhatsAppContactButton size="xs" celular={d.candidatoCelular} fone={d.candidatoFone} />
+                      <WhatsAppContactButton size="xs" celular={d.candidatoCelular} fone={d.candidatoFone} candidatoNome={d.candidatoNome} />
                     </li>
                   ))}
                 </ul>

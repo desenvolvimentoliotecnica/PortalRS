@@ -437,7 +437,7 @@ export default function ProcessoSeletivoScreen() {
                                 {c.candidatoNome}
                             </a>
                         ) : c.candidatoNome}
-                        <WhatsAppContactButton size="xs" celular={phone.celular} fone={phone.fone} />
+                        <WhatsAppContactButton size="xs" celular={phone.celular} fone={phone.fone} candidatoNome={c.candidatoNome} />
                     </div>
                 </TableCell>
                 <TableCell className="text-sm">
@@ -723,7 +723,7 @@ export default function ProcessoSeletivoScreen() {
                                                             {c.candidatoNome}
                                                             <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">Da Rodada Anterior</Badge>
                                                         </span>
-                                                        <WhatsAppContactButton size="xs" celular={getPhone(c.candidatoId).celular} fone={getPhone(c.candidatoId).fone} />
+                                                        <WhatsAppContactButton size="xs" celular={getPhone(c.candidatoId).celular} fone={getPhone(c.candidatoId).fone} candidatoNome={c.candidatoNome} />
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-sm">
@@ -812,7 +812,7 @@ export default function ProcessoSeletivoScreen() {
                                                                     <TableCell className="font-semibold whitespace-nowrap">
                                                                         <div className="space-y-1">
                                                                             {c.candidatoNome}
-                                                                            <WhatsAppContactButton size="xs" celular={getPhone(c.candidatoId).celular} fone={getPhone(c.candidatoId).fone} />
+                                                                            <WhatsAppContactButton size="xs" celular={getPhone(c.candidatoId).celular} fone={getPhone(c.candidatoId).fone} candidatoNome={c.candidatoNome} />
                                                                         </div>
                                                                     </TableCell>
                                                                     <TableCell className="text-sm">
