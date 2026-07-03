@@ -21,7 +21,7 @@ public sealed class CandidaturaServiceTests
 {
     private const string TenantTeste = "tenant-candidatura";
 
-    private static (AppDbContext Db, CandidaturaService Service) CriarServico(
+    private static (AppDbContext Db, CandidaturaService Service, Mock<ICandidaturaNotificacaoService> NotificacaoMock) CriarServico(
         Guid? userId = null,
         bool isAdmin = false,
         bool isOwner = false)
@@ -80,7 +80,7 @@ public sealed class CandidaturaServiceTests
             graphSyncMock.Object,
             corporateEmailMock.Object,
             NullLogger<CandidaturaService>.Instance);
-        return (db, service);
+        return (db, service, notificacaoMock);
     }
 
     private static Guid SeedVaga(AppDbContext db, string titulo = "Dev .NET", string? cidade = "SP", string? uf = "SP")
@@ -130,7 +130,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task GetOrCreate_PrimeiraVez_CriaCandidaturaERegistraHistoricoInicial()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
 
@@ -149,7 +149,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task GetOrCreate_MesmoCandidatoMesmaVaga_Reaproveita()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
 
@@ -164,7 +164,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task GetOrCreate_MesmoCandidatoVagasDiferentes_CriaDois()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var v1 = SeedVaga(db, "Dev .NET");
         var v2 = SeedVaga(db, "Dev React");
@@ -178,7 +178,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task Listar_OrdenaDaMaisRecenteParaMaisAntiga()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var v1 = SeedVaga(db, "Antiga");
         var v2 = SeedVaga(db, "Nova");
@@ -202,7 +202,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task Listar_PreencheCampoVaga()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db, "Dev Sênior", "Campinas", "SP");
 
@@ -218,7 +218,7 @@ public sealed class CandidaturaServiceTests
     public async Task ListarKanban_AnalistaRh_RetornaSomenteVagasAtribuidasAoUsuario()
     {
         var analystId = Guid.NewGuid();
-        var (db, svc) = CriarServico(userId: analystId);
+        var (db, svc, _) = CriarServico(userId: analystId);
         var candPermitido = SeedCandidato(db, "Permitido", "permitido@ex.com");
         var candOutro = SeedCandidato(db, "Outro", "outro@ex.com");
         var vagaPermitida = SeedVaga(db, "Vaga do analista");
@@ -241,7 +241,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task ListarKanban_Admin_RetornaTodasAsVagas()
     {
-        var (db, svc) = CriarServico(isAdmin: true);
+        var (db, svc, _) = CriarServico(isAdmin: true);
         var cand1 = SeedCandidato(db, "Um", "um@ex.com");
         var cand2 = SeedCandidato(db, "Dois", "dois@ex.com");
         var vaga1 = SeedVaga(db, "Vaga 1");
@@ -260,7 +260,7 @@ public sealed class CandidaturaServiceTests
     public async Task ListarVagasKanban_AnalistaRh_RetornaSomenteVagasVisiveisOuAtribuidas()
     {
         var analystId = Guid.NewGuid();
-        var (db, svc) = CriarServico(userId: analystId);
+        var (db, svc, _) = CriarServico(userId: analystId);
         var candPermitido = SeedCandidato(db, "Permitido", "permitido@ex.com");
         var candOutro = SeedCandidato(db, "Outro", "outro@ex.com");
         var vagaPermitida = SeedVaga(db, "Vaga com candidatura");
@@ -284,7 +284,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task AvancarEtapa_RegistraHistoricoEAtualizaEtapaAtual()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
         var c = await svc.GetOrCreateAsync(candId, vagaId, "Portal", null, default);
@@ -302,9 +302,28 @@ public sealed class CandidaturaServiceTests
     }
 
     [Fact]
+    public async Task AvancarEtapa_ComNotificarFalse_NaoChamaNotificacaoService()
+    {
+        var (db, svc, notificacaoMock) = CriarServico();
+        var candId = SeedCandidato(db);
+        var vagaId = SeedVaga(db);
+        var c = await svc.GetOrCreateAsync(candId, vagaId, "Portal", null, default);
+
+        await svc.AvancarEtapaAsync(c.Id, EtapaMacroCandidatura.EmTriagem, "sem notificar", null, false, default);
+
+        notificacaoMock.Verify(
+            x => x.NotificarMudancaEtapaAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<EtapaMacroCandidatura>(),
+                It.IsAny<EtapaMacroCandidatura>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task AvancarEtapa_MesmaEtapa_NaoDuplicaHistorico()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
         var c = await svc.GetOrCreateAsync(candId, vagaId, "Portal", null, default);
@@ -318,7 +337,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task AvancarEtapa_Contratado_FechaStatus()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
         var c = await svc.GetOrCreateAsync(candId, vagaId, "Portal", null, default);
@@ -331,7 +350,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task AvancarEtapa_AposEncerrada_LancaErro()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
         var c = await svc.GetOrCreateAsync(candId, vagaId, "Portal", null, default);
@@ -345,7 +364,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task AvancarEtapa_Inexistente_RetornaNull()
     {
-        var (_, svc) = CriarServico();
+        var (_, svc, _) = CriarServico();
         var r = await svc.AvancarEtapaAsync(Guid.NewGuid(), EtapaMacroCandidatura.Entrevista, null, default);
         Assert.Null(r);
     }
@@ -353,7 +372,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task Listar_IncluiHistoricoOrdenado()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
         var c = await svc.GetOrCreateAsync(candId, vagaId, "Portal", null, default);
@@ -377,7 +396,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task GetOrCreate_AtualizaCacheCandidatoVagaId()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
 
@@ -394,7 +413,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task GetOrCreate_DuasCandidaturas_CachePontaParaMaisRecente()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vaga1 = SeedVaga(db, "Dev Jr");
         var vaga2 = SeedVaga(db, "Dev Pl");
@@ -413,7 +432,7 @@ public sealed class CandidaturaServiceTests
     {
         // Quando a única candidatura é encerrada e não há outra ativa, o cache
         // preserva o último VagaId (não zera) pra manter a referência útil.
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
 
@@ -428,7 +447,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task AvancarEtapa_QuandoEncerraMasTemOutraAtiva_CacheMudaParaAtiva()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vaga1 = SeedVaga(db, "Dev A");
         var vaga2 = SeedVaga(db, "Dev B");
@@ -452,7 +471,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task RecalcularVagaPrincipal_CandidatoSemCandidatura_NaoAlteraCache()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaHardcoded = SeedVaga(db, "Vaga captação manual");
 
@@ -471,7 +490,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task RecalcularVagaPrincipal_CandidatoInexistente_NaoFalha()
     {
-        var (_, svc) = CriarServico();
+        var (_, svc, _) = CriarServico();
         // Não deve lançar.
         await svc.RecalcularVagaPrincipalAsync(Guid.NewGuid(), default);
     }
@@ -479,7 +498,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task RecalcularVagaPrincipal_Idempotente()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
 
@@ -498,7 +517,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task RecalcularVagaPrincipal_PreferenciaAtivaSobreEncerrada()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaAtiva = SeedVaga(db, "Ativa");
         var vagaEncerrada = SeedVaga(db, "Encerrada");
@@ -519,7 +538,7 @@ public sealed class CandidaturaServiceTests
     [Fact]
     public async Task AvancarEtapa_EntrevistaComParticipante_PersisteParticipantsJson()
     {
-        var (db, svc) = CriarServico();
+        var (db, svc, _) = CriarServico();
         var candId = SeedCandidato(db);
         var vagaId = SeedVaga(db);
         var funcionarioId = Guid.NewGuid();

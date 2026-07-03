@@ -29,7 +29,8 @@ public sealed record CandidaturaEtapaHistoricoItem(
 public sealed record AvancarEtapaRequest(
     EtapaMacroCandidatura NovaEtapa,
     string? Observacao,
-    AgendarEntrevistaCandidaturaRequest? Entrevista = null
+    AgendarEntrevistaCandidaturaRequest? Entrevista = null,
+    bool Notificar = true
 );
 
 public sealed record AvancarEtapaResponse(
