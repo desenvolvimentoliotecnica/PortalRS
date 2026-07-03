@@ -1136,10 +1136,12 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const hasDescricaoCargo = Boolean(
     pickOptional(vaga, "descricaoCargoId") || pickOptional(vaga, "descricaoCargo")
   );
+  const hasTipoVaga = Boolean(pickOptional(vaga, "eixoVagaId"));
 
   const publishBlockReason: string | null = (() => {
     if (headcountPendente > 0) return "Existe aumento de headcount pendente de aprovação — acompanhe em Aprovações antes de publicar";
     if (!hasDescricaoCargo) return "Vincule uma Descrição de Cargo (DNALIO) antes de publicar a vaga";
+    if (!hasTipoVaga) return "Selecione o Tipo de Vaga antes de publicar";
     if (status === "aberta") return "A vaga já está publicada";
     if (status === "preenchida") return "A vaga está preenchida";
     if (status === "cancelada") return "A vaga está cancelada";

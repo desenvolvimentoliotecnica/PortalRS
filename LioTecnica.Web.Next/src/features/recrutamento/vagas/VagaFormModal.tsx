@@ -79,6 +79,15 @@ type DescricaoCargoLookupItem = {
   isTemplate: boolean;
 };
 
+type TipoVagaLookupItem = {
+  id: string;
+  code: string;
+  name: string;
+  displayLabel: string;
+  slaDiasMetaFechamento?: number | null;
+  permanenciaDisplay: string;
+};
+
 type BeneficioItem = {
   tipo: string; valor: string; recorrencia: string; obrigatorio: boolean; obs: string;
 };
@@ -135,6 +144,8 @@ type VagaDraft = {
   weightsCompetencia: number; weightsExperiencia: number; weightsFormacao: number; weightsLocalidade: number;
   // Sessão 31.8 — DescricaoCargo + pesos extras + max distância
   descricaoCargoId: string; descricaoCargoCode: string; descricaoCargoTitle: string;
+  eixoVagaId: string; eixoVagaCode: string; eixoVagaName: string;
+  eixoVagaSlaDias: string; eixoVagaPermanenciaDisplay: string;
   weightsIdioma: number; weightsConhecimentoTecnico: number; weightsVivenciaEspecifica: number;
   localidadeMaxDistanciaKm: string;
   etapas: EtapaItem[];
@@ -186,6 +197,8 @@ function emptyDraft(): VagaDraft {
     matchingCnhCategoria: "", matchingHabilidades: "", matchingObs: "",
     weightsCompetencia: 40, weightsExperiencia: 30, weightsFormacao: 15, weightsLocalidade: 15,
     descricaoCargoId: "", descricaoCargoCode: "", descricaoCargoTitle: "",
+    eixoVagaId: "", eixoVagaCode: "", eixoVagaName: "",
+    eixoVagaSlaDias: "", eixoVagaPermanenciaDisplay: "",
     weightsIdioma: 0, weightsConhecimentoTecnico: 0, weightsVivenciaEspecifica: 0,
     localidadeMaxDistanciaKm: "",
     etapas: [],
@@ -555,6 +568,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     weights: { competencia: d.weightsCompetencia, experiencia: d.weightsExperiencia, formacao: d.weightsFormacao, localidade: d.weightsLocalidade },
     // Sessão 31.8 — DescricaoCargo + pesos extras + max distância (calibragem por vaga)
     descricaoCargoId: emptyToNull(d.descricaoCargoId) || null,
+    eixoVagaId: emptyToNull(d.eixoVagaId) || null,
     pesoCompetencia: d.weightsCompetencia,
     pesoExperiencia: d.weightsExperiencia,
     pesoFormacao: d.weightsFormacao,
@@ -623,7 +637,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     visibilidade: emptyToNull(d.visibilidade),
     dataInicio: emptyToNull(d.dataInicio) || null,
     dataEncerramento: emptyToNull(d.dataEncerramento) || null,
-    slaDiasMetaFechamento: d.slaDiasMetaFechamento ? Number(d.slaDiasMetaFechamento) || null : null,
+    slaDiasMetaFechamento: null,
     canalLinkedIn: d.canalLinkedIn,
     canalSiteCarreiras: d.canalSiteCarreiras,
     canalIndicacao: d.canalIndicacao,
@@ -958,6 +972,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [wizardMode, setWizardMode] = useState(false);
   const [descricaoCargoSearch, setDescricaoCargoSearch] = useState("");
   const [descricaoCargoOptions, setDescricaoCargoOptions] = useState<DescricaoCargoLookupItem[]>([]);
+  const [tipoVagaOptions, setTipoVagaOptions] = useState<TipoVagaLookupItem[]>([]);
   const [loadingDescricaoCargo, setLoadingDescricaoCargo] = useState(false);
   const [empresaOptions, setEmpresaOptions] = useState<LookupOption[]>([]);
   const [unitOptions, setUnitOptions] = useState<LookupOption[]>([]);
@@ -1097,6 +1112,38 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
     return () => window.clearTimeout(handle);
   }, [open, descricaoCargoSearch]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchJson<TipoVagaLookupItem[]>(`${BASE}/api/eixos-vaga/lookup`)
+      .then((items) => setTipoVagaOptions(Array.isArray(items) ? items : []))
+      .catch(() => {
+        setTipoVagaOptions([]);
+        toast.error("Falha ao carregar tipos de vaga.");
+      });
+  }, [open]);
+
+  const selectTipoVaga = useCallback((item: TipoVagaLookupItem | null) => {
+    if (!item) {
+      setDraft((d) => ({
+        ...d,
+        eixoVagaId: "",
+        eixoVagaCode: "",
+        eixoVagaName: "",
+        eixoVagaSlaDias: "",
+        eixoVagaPermanenciaDisplay: "",
+      }));
+      return;
+    }
+    setDraft((d) => ({
+      ...d,
+      eixoVagaId: item.id,
+      eixoVagaCode: item.code,
+      eixoVagaName: item.name,
+      eixoVagaSlaDias: item.slaDiasMetaFechamento != null ? String(item.slaDiasMetaFechamento) : "",
+      eixoVagaPermanenciaDisplay: item.permanenciaDisplay,
+    }));
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -1288,6 +1335,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         weightsFormacao: pickNum(w?.formacao, 15), weightsLocalidade: pickNum(w?.localidade, 15),
         // Sessão 31.8 — DescricaoCargo + pesos extras + max distância
         descricaoCargoId: pick(v.descricaoCargoId), descricaoCargoCode: pick(v.descricaoCargoCode), descricaoCargoTitle: pick(v.descricaoCargoTitle),
+        eixoVagaId: pick(v.eixoVagaId), eixoVagaCode: pick(v.eixoVagaCode), eixoVagaName: pick(v.eixoVagaName),
+        eixoVagaSlaDias: v.eixoVagaSlaDiasMetaFechamento != null ? String(v.eixoVagaSlaDiasMetaFechamento) : (v.slaEfetivoDias != null ? String(v.slaEfetivoDias) : ""),
+        eixoVagaPermanenciaDisplay: pick(v.eixoVagaPermanenciaDisplay),
         weightsIdioma: pickNum(v.pesoIdioma, 0),
         weightsConhecimentoTecnico: pickNum(v.pesoConhecimentoTecnico, 0),
         weightsVivenciaEspecifica: pickNum(v.pesoVivenciaEspecifica, 0),
@@ -1354,6 +1404,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       if (!draft.modalidade) campos.push("Modalidade");
       if (!draft.quantidadeVagas || draft.quantidadeVagas < 1) campos.push("Qtd. de Vagas");
       if (!draft.descricaoCargoId) campos.push("Descrição de Cargo (DNALIO)");
+      if (!draft.eixoVagaId) campos.push("Tipo de Vaga");
       const mod = draft.modalidade.toLowerCase();
       if ((mod === "presencial" || mod === "hibrido") && !draft.unitId.trim()) {
         toast.error("Selecione o local da vaga (estabelecimento) para vagas presenciais ou híbridas.");
@@ -1362,7 +1413,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       }
       if (campos.length > 0) {
         toast.error(`Preencha antes de publicar: ${campos.join(", ")}`);
-        setTab(!draft.descricaoCargoId ? "matching" : "dados");
+        setTab(!draft.descricaoCargoId ? "matching" : !draft.eixoVagaId ? "publicacao" : "dados");
         return;
       }
     }
@@ -1941,10 +1992,30 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {tab === "publicacao" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
               <SectionHeader title="Configurações de publicação" />
+              <Field label="Tipo de Vaga *" span="col-span-12 md:col-span-6">
+                <select
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value={draft.eixoVagaId}
+                  onChange={(e) => {
+                    const selected = tipoVagaOptions.find((t) => t.id === e.target.value) ?? null;
+                    selectTipoVaga(selected);
+                  }}
+                >
+                  <option value="">Selecionar tipo…</option>
+                  {tipoVagaOptions.map((t) => (
+                    <option key={t.id} value={t.id}>{t.displayLabel}</option>
+                  ))}
+                </select>
+              </Field>
+              {draft.eixoVagaId && (
+                <div className="col-span-12 md:col-span-6 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+                  <div><span className="text-muted-foreground">SLA:</span> <strong>{draft.eixoVagaSlaDias || "—"}</strong> dias úteis</div>
+                  <div><span className="text-muted-foreground">Permanência (turnover):</span> <strong>{draft.eixoVagaPermanenciaDisplay || "—"}</strong></div>
+                </div>
+              )}
               <Field label="Visibilidade" span="col-span-12 md:col-span-3"><EnumSelect value={draft.visibilidade} onChange={(v) => set("visibilidade", v)} options={enumOpts(enums, "vagaPublicacaoVisibilidade", "Selecionar")} /></Field>
               <Field label="Data de início" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="date" value={draft.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} /></Field>
               <Field label="Data de encerramento" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="date" value={draft.dataEncerramento} onChange={(e) => set("dataEncerramento", e.target.value)} /></Field>
-              <Field label="Meta SLA (dias)" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} placeholder="Ex.: 30" value={draft.slaDiasMetaFechamento} onChange={(e) => set("slaDiasMetaFechamento", e.target.value)} /></Field>
 
               <SectionHeader title="Canais de divulgação" />
               <div className="col-span-12 flex flex-wrap gap-4 rounded-md border border-border bg-muted/30 px-4 py-3">

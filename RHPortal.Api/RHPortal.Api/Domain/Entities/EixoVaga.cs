@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace RhPortal.Api.Domain.Entities;
 
 /// <summary>
-/// Eixo da vaga — categorização estratégica definida por tenant (ex.: "Tech", "Comercial",
-/// "Operacional"). Permite configurar SLA de fechamento por eixo, sobrepondo o SLA global.
+/// Tipo de vaga — categorização operacional do RH (ex.: ADM e Técnicos, Comercial, Operacional).
+/// Define SLA de fechamento em dias úteis e meta de permanência (turnover).
 /// </summary>
 public sealed class EixoVaga : ITenantEntity
 {
@@ -20,11 +20,23 @@ public sealed class EixoVaga : ITenantEntity
     [StringLength(400)]
     public string? Description { get; set; }
 
-    /// <summary>Dias alvo para fechamento (SLA). Quando null, usa config global do tenant.</summary>
+    /// <summary>Meta de fechamento em dias úteis (SLA de contratação).</summary>
     public int? SlaDiasMetaFechamento { get; set; }
+
+    /// <summary>Meta de permanência (turnover) em dias corridos. Mutuamente exclusivo com meses e N/A.</summary>
+    public int? PermanenciaTurnoverDias { get; set; }
+
+    /// <summary>Meta de permanência (turnover) em meses. Mutuamente exclusivo com dias e N/A.</summary>
+    public int? PermanenciaTurnoverMeses { get; set; }
+
+    /// <summary>Quando true, permanência não se aplica (ex.: Operacional).</summary>
+    public bool PermanenciaNaoAplica { get; set; }
 
     public bool IsActive { get; set; } = true;
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
+
+    public string PermanenciaDisplay => EixoVagaPermanencia.Formatar(
+        PermanenciaNaoAplica, PermanenciaTurnoverDias, PermanenciaTurnoverMeses);
 }

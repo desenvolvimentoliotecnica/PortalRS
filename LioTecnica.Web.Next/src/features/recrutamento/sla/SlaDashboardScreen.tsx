@@ -15,8 +15,12 @@ interface SlaVagaItem {
     titulo: string;
     status: string;
     prioridade: string;
+    tipoVagaNome?: string | null;
+    permanenciaDisplay?: string | null;
     diasAberto: number;
+    diasUteisAberto?: number;
     metaDias: number;
+    metaDiasUteis?: number;
     percentualConsumido: number;
     slaStatus: "no_prazo" | "critica" | "atrasada";
 }
@@ -192,15 +196,21 @@ export default function SlaDashboardScreen() {
                                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${sla.badge}`}>
                                                 {sla.label}
                                             </span>
+                                            {v.tipoVagaNome && (
+                                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">
+                                                    {v.tipoVagaNome}
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="text-xs text-muted-foreground mt-0.5">
-                                            {v.diasAberto} dias em aberto · Meta: {v.metaDias} dias · Status: {v.status}
+                                            {v.diasUteisAberto ?? v.diasAberto} dias úteis em aberto · Meta: {v.metaDiasUteis ?? v.metaDias} dias úteis
+                                            {v.permanenciaDisplay ? ` · Permanência: ${v.permanenciaDisplay}` : ""} · Status: {v.status}
                                         </div>
                                     </div>
                                     <div className="w-full sm:w-56 lg:w-72 xl:w-80 space-y-1 shrink-0">
                                         <div className="flex justify-between text-xs text-muted-foreground">
                                             <span>{pct.toFixed(0)}%</span>
-                                            <span>{v.diasAberto}/{v.metaDias}d</span>
+                                            <span>{v.diasUteisAberto ?? v.diasAberto}/{v.metaDiasUteis ?? v.metaDias}d úteis</span>
                                         </div>
                                         <div className="h-2 rounded-full bg-muted overflow-hidden">
                                             <div

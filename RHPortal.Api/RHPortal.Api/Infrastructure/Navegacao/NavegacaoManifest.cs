@@ -164,7 +164,7 @@ public static class NavegacaoManifest
         new("nav-unidades",                 "Estabelecimentos",       "/unidades",                       "map-pin",           "units.view",               Ordem: 80),
         new("nav-categorias-salariais",     "Categorias Salariais",   "/categorias-salariais",           "badge-dollar-sign", "categories.view",          Ordem: 100),
         new("nav-turnos",                   "Turnos",                 "/turnos",                         "clock",             "areas.view",               Ordem: 110),
-        new("nav-sla-vagas",                "SLA de Vagas",           "/sla-vagas",                      "timer",             "vagas.view",               GrupoUiOverride: "cadastros", Ordem: 115),
+        new("nav-sla-vagas",                "Tipos de Vaga",          "/sla-vagas",                      "timer",             "vagas.view",               GrupoUiOverride: "cadastros", Ordem: 115),
         new("nav-pessoas",                  "Pessoas",                "/pessoas",                        "user",              "funcionarios.view",        Ordem: 130),
         new("nav-funcionarios",             "Funcionários",           "/funcionarios",                   "users",             "funcionarios.view",        Ordem: 140),
 
