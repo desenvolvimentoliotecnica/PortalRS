@@ -251,12 +251,21 @@ export async function avancarEtapa(
   return res.json() as Promise<AvancarEtapaResponse>;
 }
 
+export type EntrevistaParticipanteRequest = {
+  funcionarioId?: string | null;
+  userId?: string | null;
+  nome: string;
+  email?: string | null;
+  origem?: "funcionario" | "usuario" | null;
+};
+
 export type AgendarEntrevistaCandidaturaRequest = {
   inicioUtc: string;
   duracaoMinutos: number;
   formato: "Presencial" | "Online";
   responsavel: string;
   participantesOpcionais?: string[] | null;
+  participantes?: EntrevistaParticipanteRequest[] | null;
   local?: string | null;
   observacao?: string | null;
 };
