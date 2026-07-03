@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-03T11:03:00-03:00",
-    "totalTarefas": 230
+    "atualizadoEm": "2026-07-03T12:23:00-03:00",
+    "totalTarefas": 231
   },
   "tarefas": [
     {
@@ -5903,6 +5903,32 @@
         "branch": "DEV",
         "prHml": "Merge PR #159",
         "prPrd": "Merge PR #160"
+      },
+      "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-231",
+      "nome": "[Portal RH] Tipos de Vaga com SLA dias úteis e permanência",
+      "descricaoAmigavel": "Cadastro de tipos de vaga (ADM, Comercial, etc.) com SLA em dias úteis e meta de turnover; obrigatório na publicação; dashboard SLA alinhado.",
+      "inicio": "2026-07-03",
+      "horarioInicio": "11:13",
+      "conclusao": "2026-07-03",
+      "horarioConclusao": "12:22",
+      "totalHoras": 1.15,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Automatizar classificação manual de tipos de vaga com SLA dias úteis e permanência turnover; obrigatório publicar; sem exceções.",
+      "entregavel": "Tipos de Vaga cadastráveis, campo obrigatório na vaga, SLA em dias úteis no dashboard, seed dos 5 tipos padrão.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "64331492"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #161",
+        "prPrd": "Merge PR #162"
       },
       "observacoes": "Promovido DEV→HML→PRD."
     }
