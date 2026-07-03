@@ -5837,14 +5837,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 90,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Em todos os pontos de Conversar com WhatsApp Web, abrir modal para escrever mensagem padrão antes de abrir o WhatsApp Web, com componente único reutilizável.",
       "entregavel": "WhatsAppMessageDialog reutilizável integrado ao WhatsAppContactButton em todas as telas de candidato, com saudação Olá [candidato], sou [usuário] do RH da [empresa].",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "49f6c832"
+        ],
         "branch": "DEV"
       },
       "observacoes": "Implementação frontend em LioTecnica.Web.Next; link wa.me montado no cliente."
