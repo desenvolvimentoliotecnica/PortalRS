@@ -441,6 +441,7 @@ public sealed class VagaService : IVagaService
         if (_currentUser.IsReadOnly)
             throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar vagas.");
         EnsureDescricaoCargoRequiredForPublication(request.Status, request.DescricaoCargoId);
+        EnsureTipoVagaRequiredForPublication(request.Status, request.EixoVagaId);
         // MatchingFiltrosRaw é opcional na criação (ex.: vaga auto-criada por solicitação aprovada)
         if (request.CentroCustoId.HasValue && request.CentroCustoId.Value != Guid.Empty)
             await EnsureCentroCustoAsync(request.CentroCustoId.Value, ct);
@@ -720,12 +721,19 @@ public sealed class VagaService : IVagaService
         throw new InvalidOperationException("Vincule uma Descrição de Cargo (DNALIO) antes de publicar a vaga.");
     }
 
+    private static void EnsureTipoVagaRequiredForPublication(VagaStatus status, Guid? eixoVagaId)
+    {
+        if (status != VagaStatus.Aberta || eixoVagaId.HasValue) return;
+        throw new InvalidOperationException("Selecione o Tipo de Vaga antes de publicar.");
+    }
+
     public async Task<VagaResponse?> ChangeStatusAsync(Guid id, VagaStatus newStatus, CancellationToken ct)
     {
         var entity = await _db.Vagas.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
         EnsureDescricaoCargoRequiredForPublication(newStatus, entity.DescricaoCargoId);
+        EnsureTipoVagaRequiredForPublication(newStatus, entity.EixoVagaId);
 
         // Rascunho/Preenchida → Aberta: exigir campos obrigatórios e decisão de headcount
         if (newStatus == VagaStatus.Aberta)
@@ -985,7 +993,16 @@ public sealed class VagaService : IVagaService
             v.EixoVaga?.Code,
             v.EixoVaga?.Name,
             v.EixoVaga?.SlaDiasMetaFechamento,
-            v.EixoVaga?.SlaDiasMetaFechamento ?? v.SlaDiasMetaFechamento,
+            v.EixoVaga?.PermanenciaTurnoverDias,
+            v.EixoVaga?.PermanenciaTurnoverMeses,
+            v.EixoVaga?.PermanenciaNaoAplica,
+            v.EixoVaga != null
+                ? EixoVagaPermanencia.Formatar(
+                    v.EixoVaga.PermanenciaNaoAplica,
+                    v.EixoVaga.PermanenciaTurnoverDias,
+                    v.EixoVaga.PermanenciaTurnoverMeses)
+                : null,
+            v.EixoVaga?.SlaDiasMetaFechamento,
             // Sessão 31.8 — DescricaoCargo + pesos calibrados
             v.DescricaoCargoId,
             v.DescricaoCargo?.Code,
@@ -1422,6 +1439,7 @@ public sealed class VagaService : IVagaService
             throw new InvalidOperationException(
                 "Existe aumento de headcount pendente de aprovação para esta vaga. Acompanhe em Aprovações antes de publicar.");
         EnsureDescricaoCargoRequiredForPublication(request.Status, request.DescricaoCargoId);
+        EnsureTipoVagaRequiredForPublication(request.Status, request.EixoVagaId);
 
         entity.Status = request.Status;
         if (request.Status == VagaStatus.Aberta && entity.DataAbertura == null)

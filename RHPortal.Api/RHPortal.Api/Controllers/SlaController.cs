@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Time;
 
 namespace RhPortal.Api.Controllers;
 
@@ -13,28 +17,20 @@ namespace RhPortal.Api.Controllers;
 public sealed class SlaController : ControllerBase
 {
     private readonly AppDbContext _db;
-    private readonly IConfiguration _config;
+    private readonly SlaVagaOptions _slaOptions;
 
-    public SlaController(AppDbContext db, IConfiguration config)
+    public SlaController(AppDbContext db, IOptions<SlaVagaOptions> slaOptions)
     {
         _db = db;
-        _config = config;
+        _slaOptions = slaOptions.Value;
     }
 
-    private int MetaDias(VagaPrioridade? prioridade) => prioridade switch
-    {
-        VagaPrioridade.Critica => _config.GetValue<int>("SlaVaga:DiasMetaPrioridadeCritica", 10),
-        VagaPrioridade.Alta => _config.GetValue<int>("SlaVaga:DiasMetaPrioridadeAlta", 20),
-        VagaPrioridade.Media => _config.GetValue<int>("SlaVaga:DiasMetaPrioridadeMedia", 30),
-        VagaPrioridade.Baixa => _config.GetValue<int>("SlaVaga:DiasMetaPrioridadeBaixa", 45),
-        _ => _config.GetValue<int>("SlaVaga:DiasMetaFechamento", 30),
-    };
-
-    /// <summary>SLA por vaga: dias em aberto, meta, % consumido, status semafórico.</summary>
+    /// <summary>SLA por vaga: dias úteis em aberto, meta, % consumido, status semafórico.</summary>
     [HttpGet("vagas")]
     public async Task<IActionResult> GetVagas(
         [FromQuery] VagaStatus? status,
         [FromQuery] VagaPrioridade? prioridade,
+        [FromQuery] Guid? tipoVagaId,
         CancellationToken ct)
     {
         var query = _db.Vagas
@@ -43,6 +39,7 @@ public sealed class SlaController : ControllerBase
 
         if (status.HasValue) query = query.Where(v => v.Status == status.Value);
         if (prioridade.HasValue) query = query.Where(v => v.Prioridade == prioridade.Value);
+        if (tipoVagaId.HasValue) query = query.Where(v => v.EixoVagaId == tipoVagaId.Value);
 
         var vagas = await query
             .Select(v => new
@@ -53,6 +50,15 @@ public sealed class SlaController : ControllerBase
                 v.Prioridade,
                 v.DataAbertura,
                 v.CreatedAtUtc,
+                v.EixoVagaId,
+                TipoNome = v.EixoVaga != null ? v.EixoVaga.Name : null,
+                TipoSlaDiasUteis = v.EixoVaga != null ? v.EixoVaga.SlaDiasMetaFechamento : null,
+                PermanenciaDisplay = v.EixoVaga != null
+                    ? EixoVagaPermanencia.Formatar(
+                        v.EixoVaga.PermanenciaNaoAplica,
+                        v.EixoVaga.PermanenciaTurnoverDias,
+                        v.EixoVaga.PermanenciaTurnoverMeses)
+                    : null,
             })
             .ToListAsync(ct);
 
@@ -60,9 +66,9 @@ public sealed class SlaController : ControllerBase
         var result = vagas.Select(v =>
         {
             var inicio = v.DataAbertura ?? v.CreatedAtUtc;
-            var diasAberto = (int)(now - inicio).TotalDays;
-            var meta = MetaDias(v.Prioridade);
-            var pct = meta > 0 ? Math.Round((double)diasAberto / meta * 100, 1) : 0;
+            var diasUteisAberto = DiasUteisBrasil.ContarDiasUteisDecorridos(inicio, now);
+            var meta = SlaVagaMetaResolver.GetDiasMetaUteisFromTipo(v.TipoSlaDiasUteis, _slaOptions);
+            var pct = meta > 0 ? Math.Round((double)diasUteisAberto / meta * 100, 1) : 0;
             var slaStatus = pct >= 100 ? "atrasada" : pct >= 80 ? "critica" : "no_prazo";
 
             return new
@@ -71,8 +77,13 @@ public sealed class SlaController : ControllerBase
                 v.Titulo,
                 Status = v.Status.ToString(),
                 Prioridade = v.Prioridade?.ToString() ?? "Indefinida",
-                DiasAberto = diasAberto,
+                TipoVagaId = v.EixoVagaId,
+                TipoVagaNome = v.TipoNome,
+                PermanenciaDisplay = v.PermanenciaDisplay,
+                DiasAberto = diasUteisAberto,
+                DiasUteisAberto = diasUteisAberto,
                 MetaDias = meta,
+                MetaDiasUteis = meta,
                 PercentualConsumido = pct,
                 SlaStatus = slaStatus,
             };

@@ -22,6 +22,10 @@ interface Item {
   name: string;
   description?: string | null;
   slaDiasMetaFechamento?: number | null;
+  permanenciaTurnoverDias?: number | null;
+  permanenciaTurnoverMeses?: number | null;
+  permanenciaNaoAplica: boolean;
+  permanenciaDisplay: string;
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
@@ -33,6 +37,9 @@ interface Draft {
   name: string;
   description: string;
   slaDiasMetaFechamento: string;
+  permanenciaDias: string;
+  permanenciaMeses: string;
+  permanenciaNaoAplica: boolean;
   isActive: boolean;
 }
 
@@ -54,7 +61,11 @@ function statusBadge(active: boolean) {
   );
 }
 
-const emptyDraft: Draft = { code: "", name: "", description: "", slaDiasMetaFechamento: "", isActive: true };
+const emptyDraft: Draft = {
+  code: "", name: "", description: "", slaDiasMetaFechamento: "",
+  permanenciaDias: "", permanenciaMeses: "", permanenciaNaoAplica: false,
+  isActive: true,
+};
 
 export default function EixoVagaCadastroScreen() {
   const [loading, setLoading] = useState(true);
@@ -131,14 +142,22 @@ export default function EixoVagaCadastroScreen() {
       return;
     }
     const slaRaw = draft.slaDiasMetaFechamento.trim();
-    let slaValue: number | null = null;
-    if (slaRaw) {
-      const parsed = Number(slaRaw);
-      if (!Number.isInteger(parsed) || parsed <= 0) {
-        toast.error("SLA deve ser um número inteiro positivo de dias");
+    if (!slaRaw) {
+      toast.error("SLA em dias úteis é obrigatório");
+      return;
+    }
+    const parsedSla = Number(slaRaw);
+    if (!Number.isInteger(parsedSla) || parsedSla <= 0) {
+      toast.error("SLA deve ser um número inteiro positivo de dias úteis");
+      return;
+    }
+    if (!draft.permanenciaNaoAplica) {
+      const temDias = draft.permanenciaDias.trim() !== "";
+      const temMeses = draft.permanenciaMeses.trim() !== "";
+      if (temDias === temMeses) {
+        toast.error("Informe permanência em dias OU em meses (ou marque N/A)");
         return;
       }
-      slaValue = parsed;
     }
     try {
       setSaving(true);
@@ -146,7 +165,10 @@ export default function EixoVagaCadastroScreen() {
         code: draft.code.trim(),
         name: draft.name.trim(),
         description: draft.description.trim() || null,
-        slaDiasMetaFechamento: slaValue,
+        slaDiasMetaFechamento: parsedSla,
+        permanenciaTurnoverDias: draft.permanenciaNaoAplica ? null : (draft.permanenciaDias.trim() ? Number(draft.permanenciaDias) : null),
+        permanenciaTurnoverMeses: draft.permanenciaNaoAplica ? null : (draft.permanenciaMeses.trim() ? Number(draft.permanenciaMeses) : null),
+        permanenciaNaoAplica: draft.permanenciaNaoAplica,
         isActive: draft.isActive,
       };
       if (draft.id) {
@@ -155,14 +177,14 @@ export default function EixoVagaCadastroScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        toast.success("Eixo atualizado");
+        toast.success("Tipo atualizado");
       } else {
         await fetchJson("/api/eixos-vaga", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        toast.success("Eixo criado");
+        toast.success("Tipo criado");
       }
       setEditOpen(false);
       await syncList();
@@ -191,15 +213,15 @@ export default function EixoVagaCadastroScreen() {
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-lg font-bold">SLA de Vagas</h4>
-          <div className="text-muted-foreground text-sm">Cadastre o SLA de contratação (dias para fechamento) por eixo de vaga. Categorize estrategicamente (ex.: Tech, Comercial, Operacional) e configure o prazo-meta que sobrepõe o SLA global.</div>
+          <h4 className="text-lg font-bold">Tipos de Vaga</h4>
+          <div className="text-muted-foreground text-sm">Configure SLA de contratação em dias úteis e meta de permanência (turnover) por tipo. Cada vaga deve ter um tipo antes de publicar.</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={syncList} disabled={loading}>
             <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
           <Button size="sm" onClick={() => { setDraft({ ...emptyDraft }); setEditOpen(true); }}>
-            <Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo SLA</span>
+            <Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo tipo</span>
           </Button>
         </div>
       </div>
@@ -221,8 +243,8 @@ export default function EixoVagaCadastroScreen() {
       <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="font-semibold">Lista de SLAs</div>
-            <div className="text-muted-foreground text-sm">Cada vaga aponta para um eixo e usa este SLA como prazo-meta de fechamento.</div>
+            <div className="font-semibold">Lista de tipos</div>
+            <div className="text-muted-foreground text-sm">SLA em dias úteis; permanência orienta expectativa de turnover do contratado.</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
@@ -243,14 +265,15 @@ export default function EixoVagaCadastroScreen() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("code")}>Código<SortIcon col="code" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>Nome<SortIcon col="name" /></TableHead>
               <TableHead>Descrição</TableHead>
-              <TableHead className="cursor-pointer select-none text-right" onClick={() => handleSort("sla")}>SLA (dias)<SortIcon col="sla" /></TableHead>
+              <TableHead className="cursor-pointer select-none text-right" onClick={() => handleSort("sla")}>SLA (dias úteis)<SortIcon col="sla" /></TableHead>
+              <TableHead>Permanência</TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>Status<SortIcon col="status" /></TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
             ) : paged.length ? paged.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
@@ -259,6 +282,7 @@ export default function EixoVagaCadastroScreen() {
                 <TableCell className="text-right font-mono text-sm">
                   {item.slaDiasMetaFechamento != null ? item.slaDiasMetaFechamento : <span className="italic text-muted-foreground">—</span>}
                 </TableCell>
+                <TableCell className="text-sm">{item.permanenciaDisplay}</TableCell>
                 <TableCell>{statusBadge(item.isActive)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -269,6 +293,9 @@ export default function EixoVagaCadastroScreen() {
                         name: item.name,
                         description: item.description ?? "",
                         slaDiasMetaFechamento: item.slaDiasMetaFechamento != null ? String(item.slaDiasMetaFechamento) : "",
+                        permanenciaDias: item.permanenciaTurnoverDias != null ? String(item.permanenciaTurnoverDias) : "",
+                        permanenciaMeses: item.permanenciaTurnoverMeses != null ? String(item.permanenciaTurnoverMeses) : "",
+                        permanenciaNaoAplica: item.permanenciaNaoAplica,
                         isActive: item.isActive,
                       });
                       setEditOpen(true);
@@ -282,7 +309,7 @@ export default function EixoVagaCadastroScreen() {
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum eixo encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Nenhum tipo encontrado.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -293,8 +320,8 @@ export default function EixoVagaCadastroScreen() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{draft.id ? "Editar SLA" : "Novo SLA de contratação"}</DialogTitle>
-            <DialogDescription>Cadastre o prazo-meta de fechamento de vagas por eixo estratégico. O SLA (dias) definido aqui sobrepõe o SLA global do tenant para as vagas deste eixo.</DialogDescription>
+            <DialogTitle>{draft.id ? "Editar tipo de vaga" : "Novo tipo de vaga"}</DialogTitle>
+            <DialogDescription>SLA em dias úteis para fechar a vaga e meta de permanência (turnover) do contratado.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -310,8 +337,20 @@ export default function EixoVagaCadastroScreen() {
               <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="..." value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} maxLength={400} rows={3} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">SLA (dias)</label>
-              <Input type="number" min={1} placeholder="Vazio = usa SLA global" value={draft.slaDiasMetaFechamento} onChange={(e) => setDraft((d) => ({ ...d, slaDiasMetaFechamento: e.target.value }))} />
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">SLA (dias úteis) *</label>
+              <Input type="number" min={1} placeholder="Ex: 30" value={draft.slaDiasMetaFechamento} onChange={(e) => setDraft((d) => ({ ...d, slaDiasMetaFechamento: e.target.value }))} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Permanência (dias)</label>
+              <Input type="number" min={1} placeholder="Ex: 180" disabled={draft.permanenciaNaoAplica} value={draft.permanenciaDias} onChange={(e) => setDraft((d) => ({ ...d, permanenciaDias: e.target.value, permanenciaMeses: "" }))} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Permanência (meses)</label>
+              <Input type="number" min={1} placeholder="Ex: 12" disabled={draft.permanenciaNaoAplica} value={draft.permanenciaMeses} onChange={(e) => setDraft((d) => ({ ...d, permanenciaMeses: e.target.value, permanenciaDias: "" }))} />
+            </div>
+            <div className="sm:col-span-2 flex items-center gap-2">
+              <input type="checkbox" id="perm-na" checked={draft.permanenciaNaoAplica} onChange={(e) => setDraft((d) => ({ ...d, permanenciaNaoAplica: e.target.checked, permanenciaDias: "", permanenciaMeses: "" }))} />
+              <label htmlFor="perm-na" className="text-sm">Permanência não se aplica (N/A)</label>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
