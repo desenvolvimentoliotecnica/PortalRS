@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-08T11:40:00-03:00",
-    "totalTarefas": 235
+    "atualizadoEm": "2026-07-08T12:37:00-03:00",
+    "totalTarefas": 236
   },
   "tarefas": [
     {
@@ -6032,6 +6032,30 @@
         "prPrd": "Merge PR #170"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-236",
+      "nome": "[Portal RH] Corrigir SQL do reset operacional (EixosVaga sem VagaId)",
+      "descricaoAmigavel": "Remove do reset operacional o DELETE incorreto na tabela EixosVaga (catálogo de tipos de vaga), que não possui coluna VagaId e deve ser preservado.",
+      "inicio": "2026-07-08",
+      "horarioInicio": "12:32",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": 0,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Erro 42703 column VagaId does not exist ao executar reset operacional.",
+      "entregavel": "Reset não tenta apagar EixosVaga por VagaId; catálogo de tipos de vaga permanece intacto.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": null
     }
   ]
 }
