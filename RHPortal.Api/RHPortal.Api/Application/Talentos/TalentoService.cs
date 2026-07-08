@@ -497,16 +497,24 @@ public sealed class TalentoService : ITalentoService
         return true;
     }
 
-    public async Task<int> DeleteAllForTenantAsync(CancellationToken ct)
+    public async Task<int> DeleteByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
     {
-        var ids = await _db.Talentos.AsNoTracking().Select(x => x.Id).ToListAsync(ct);
+        if (ids is null || ids.Count == 0)
+            return 0;
+
         var count = 0;
-        foreach (var id in ids)
+        foreach (var id in ids.Distinct())
         {
             if (await DeleteAsync(id, ct))
                 count++;
         }
         return count;
+    }
+
+    public async Task<int> DeleteAllForTenantAsync(CancellationToken ct)
+    {
+        var ids = await _db.Talentos.AsNoTracking().Select(x => x.Id).ToListAsync(ct);
+        return await DeleteByIdsAsync(ids, ct);
     }
 
     public async Task<TalentoImportPdfResponse> ImportPdfAsync(Guid? talentoId, Stream pdfStream, string fileName, bool enviarParaGpt, CancellationToken ct)

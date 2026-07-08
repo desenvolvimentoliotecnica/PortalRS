@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-03T15:13:00-03:00",
-    "totalTarefas": 232
+    "atualizadoEm": "2026-07-08T11:05:00-03:00",
+    "totalTarefas": 234
   },
   "tarefas": [
     {
@@ -5957,6 +5957,53 @@
         "prPrd": "Merge PR #164"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-233",
+      "nome": "[Portal RH] Apresentacao PowerPoint das novidades do periodo (negocio)",
+      "descricaoAmigavel": "Apresentacao corporativa em PowerPoint resumindo as entregas dos ultimos 10 dias do Portal RH, em linguagem de negocio para RH, gestores e stakeholders.",
+      "inicio": "2026-07-08",
+      "horarioInicio": "10:21",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": 0,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "gerar uma apresentacao em power point, com esse resumo, com imagens, etc.. bem profissional, corporativo, voltado a entrega de negocio",
+      "entregavel": "Arquivo docs/Apresentacao-Novidades-Portal-RH-27-06-a-03-07-2026.pptx com 12 slides corporativos (capa, agenda, KPIs, admissão, agenda M365, recrutamento/SLA, vagas, painel, personas, antes/depois, mensagem ao time, encerramento).",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Apresentacao gerada; aguardando feedback do usuario para commit."
+    },
+    {
+      "id": "TASK-2026-234",
+      "nome": "[Portal RH] Reset operacional preserva base de talentos permanente",
+      "descricaoAmigavel": "O reset operacional passa a limpar apenas talentos ligados a candidatos do recrutamento, preservando cadastros manuais e importações de PDF na base de talentos.",
+      "inicio": "2026-07-08",
+      "horarioInicio": "10:31",
+      "conclusao": "2026-07-08",
+      "horarioConclusao": "11:05",
+      "totalHoras": 0.57,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Na view de reset operacional, revisar limpeza da base de talentos: limpar apenas talentos criados por fluxos do portal (candidatos) e não talentos importados/cadastro permanente.",
+      "entregavel": "Prévia e execução do reset apagam só talentos com vínculo a candidato; textos da tela refletem o que será preservado.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": "Implementado: DeleteByIdsAsync + filtro CandidateLinkedTalentoIdsQuery no reset. Horário de conclusão/PRs serão ajustados após merge."
     }
   ]
 }
