@@ -68,7 +68,7 @@ const STEPS = [
   { stage: "vinculos", label: "Removendo propostas e participações" },
   { stage: "candidatos", label: "Removendo candidatos" },
   { stage: "talentos", label: "Removendo talentos" },
-  { stage: "sql", label: "Limpando admissões e vagas de teste" },
+  { stage: "sql", label: "Limpando admissões, vagas de teste e fluxo RM" },
   { stage: "done", label: "Finalizando" },
 ] as const;
 

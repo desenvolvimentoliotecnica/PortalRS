@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-08T13:21:00-03:00",
-    "totalTarefas": 237
+    "atualizadoEm": "2026-07-08T14:20:00-03:00",
+    "totalTarefas": 238
   },
   "tarefas": [
     {
@@ -6084,6 +6084,29 @@
         "prPrd": "Merge PR #178"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-238",
+      "nome": "[Portal RH] Reset operacional limpa fluxo de vagas RM e talentos do portal",
+      "descricaoAmigavel": "O reset operacional remove talentos de origem site/candidatura/e-mail/pasta e reverte status e rodadas publicadas nas vagas RM preservadas.",
+      "inicio": "2026-07-08",
+      "horarioInicio": "14:20",
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Após limpeza ainda aparecem vagas Preenchidas/Publicadas e talentos Mariana Costa (Candidatura/Site) — incluir na limpeza.",
+      "entregavel": "Reset remove talentos de origem portal e zera rodadas/status de fluxo em vagas RM; promover DEV→HML→PRD.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": null
     }
   ]
 }
