@@ -51,7 +51,7 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
             envName,
             counts.WillRemove,
             counts.WillPreserve,
-            BuildRemoveScope(counts.WillRemove),
+            BuildRemoveScope(counts.WillRemove, counts.DistribuicoesAnalista),
             BuildPreserveScope(counts.WillPreserve));
     }
 
@@ -124,7 +124,7 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         return tenantId;
     }
 
-    private async Task<(OperationalResetCountsDto WillRemove, OperationalResetCountsDto WillPreserve)> BuildCountsAsync(
+    private async Task<(OperationalResetCountsDto WillRemove, OperationalResetCountsDto WillPreserve, int DistribuicoesAnalista)> BuildCountsAsync(
         string tenantId,
         CancellationToken ct)
     {
@@ -137,6 +137,8 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         var talentosPreservados = Math.Max(0, talentosTotal - talentos);
         var candidaturas = await _db.Candidaturas.AsNoTracking().CountAsync(ct);
         var preAdmissoes = await _db.PreAdmissoes.AsNoTracking().CountAsync(ct);
+        var distribuicoesAnalista = await _db.SolicitacoesVaga.AsNoTracking()
+            .CountAsync(s => s.AnalistaRhResponsavelUserId != null, ct);
 
         var projetos = await _db.Set<ProjetoVaga>().AsNoTracking()
             .CountAsync(p => cleanupVagaIds.Contains(p.VagaId), ct);
@@ -165,7 +167,7 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
             vagasRm,
             solicitacoesRm);
 
-        return (willRemove, willPreserve);
+        return (willRemove, willPreserve, distribuicoesAnalista);
     }
 
     /// <summary>Talentos ligados a pelo menos um candidato do tenant (fluxo de recrutamento).</summary>
@@ -197,7 +199,9 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
                 )
             ));
 
-    private static IReadOnlyList<OperationalResetScopeItemDto> BuildRemoveScope(OperationalResetCountsDto c) =>
+    private static IReadOnlyList<OperationalResetScopeItemDto> BuildRemoveScope(
+        OperationalResetCountsDto c,
+        int distribuicoesAnalista) =>
     [
         new("Candidatos", "Todos os candidatos e currículos do tenant.", c.Candidatos),
         new("Talentos", "Talentos gerados por fluxos de candidatos/recrutamento.", c.Talentos),
@@ -205,6 +209,7 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         new("Pré-admissões", "Fluxos de admissão em andamento ou concluídos.", c.PreAdmissoes),
         new("Vagas de teste", "Vagas criadas manualmente no portal, sem vínculo RM.", c.VagasTeste),
         new("Solicitações de teste", "Requisições STUB ou criadas só para homologação.", c.SolicitacoesTeste),
+        new("Distribuições a analistas", "Atribuições de analistas de RH em requisições (inclui requisições RM preservadas).", distribuicoesAnalista),
     ];
 
     private static IReadOnlyList<OperationalResetScopeItemDto> BuildPreserveScope(OperationalResetCountsDto c) =>
@@ -224,6 +229,9 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         {
             await _db.Database.ExecuteSqlRawAsync(
                 """
+                UPDATE "SolicitacoesVaga" SET "AnalistaRhResponsavelUserId" = NULL WHERE "TenantId" = {0};
+                UPDATE "Vagas" SET "RecrutadorResponsavelUserId" = NULL, "RecrutadorResponsavel" = NULL WHERE "TenantId" = {0};
+
                 DELETE FROM "CandidaturaEtapaHistoricos" WHERE "TenantId" = {0};
                 DELETE FROM "NotificacoesCandidaturaLogs" WHERE "TenantId" = {0};
                 DELETE FROM "PropostasVaga" WHERE "TenantId" = {0};
