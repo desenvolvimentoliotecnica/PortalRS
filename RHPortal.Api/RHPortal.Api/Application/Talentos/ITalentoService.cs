@@ -11,6 +11,8 @@ public interface ITalentoService
     Task<CreateTalentoResult> CreateAsync(TalentoCreateRequest request, CancellationToken ct);
     Task<TalentoResponse?> UpdateAsync(Guid id, TalentoUpdateRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    /// <summary>Remove talentos pelos IDs informados (tenant atual). Retorna o número removido.</summary>
+    Task<int> DeleteByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
     /// <summary>Remove todos os talentos do tenant atual. Retorna o número removido.</summary>
     Task<int> DeleteAllForTenantAsync(CancellationToken ct);
     /// <summary>Gets or creates Talento for the given email (creates Pessoa + Talento if needed).</summary>

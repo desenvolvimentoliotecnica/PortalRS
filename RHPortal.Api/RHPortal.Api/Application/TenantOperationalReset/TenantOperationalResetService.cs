@@ -71,12 +71,15 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
 
         await ReportAsync(progress, "start", "Iniciando reset operacional…", 0, ct);
 
+        // Coletar antes de apagar candidatos — o vínculo TalentoId some com o candidato.
+        var talentoIdsVinculados = await CandidateLinkedTalentoIdsQuery().ToListAsync(ct);
+
         await ReportAsync(progress, "candidatos", "Removendo candidatos…", 10, ct);
         var candidatosRemovidos = await _candidatoService.DeleteAllForTenantAsync(ct);
         await ReportAsync(progress, "candidatos", $"{candidatosRemovidos} candidato(s) removido(s).", 25, ct);
 
-        await ReportAsync(progress, "talentos", "Removendo talentos e currículos…", 30, ct);
-        var talentosRemovidos = await _talentoService.DeleteAllForTenantAsync(ct);
+        await ReportAsync(progress, "talentos", "Removendo talentos vinculados a candidatos…", 30, ct);
+        var talentosRemovidos = await _talentoService.DeleteByIdsAsync(talentoIdsVinculados, ct);
         await ReportAsync(progress, "talentos", $"{talentosRemovidos} talento(s) removido(s).", 45, ct);
 
         await ReportAsync(progress, "sql", "Limpando admissões, vagas de teste e processos seletivos…", 50, ct);
@@ -119,7 +122,9 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         var cleanupSolicitacaoIds = await CleanupSolicitacoesQuery(tenantId, cleanupVagaIds).Select(s => s.Id).ToListAsync(ct);
 
         var candidatos = await _db.Candidatos.AsNoTracking().CountAsync(ct);
-        var talentos = await _db.Talentos.AsNoTracking().CountAsync(ct);
+        var talentosTotal = await _db.Talentos.AsNoTracking().CountAsync(ct);
+        var talentos = await CandidateLinkedTalentoIdsQuery().CountAsync(ct);
+        var talentosPreservados = Math.Max(0, talentosTotal - talentos);
         var candidaturas = await _db.Candidaturas.AsNoTracking().CountAsync(ct);
         var preAdmissoes = await _db.PreAdmissoes.AsNoTracking().CountAsync(ct);
 
@@ -146,12 +151,19 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
             solicitacoesRm);
 
         var willPreserve = new OperationalResetCountsDto(
-            0, 0, 0, 0, 0, 0, 0,
+            0, talentosPreservados, 0, 0, 0, 0, 0,
             vagasRm,
             solicitacoesRm);
 
         return (willRemove, willPreserve);
     }
+
+    /// <summary>Talentos ligados a pelo menos um candidato do tenant (fluxo de recrutamento).</summary>
+    private IQueryable<Guid> CandidateLinkedTalentoIdsQuery() =>
+        _db.Candidatos.AsNoTracking()
+            .Where(c => c.TalentoId != null)
+            .Select(c => c.TalentoId!.Value)
+            .Distinct();
 
     private IQueryable<Vaga> CleanupVagasQuery(string tenantId) =>
         _db.Vagas.AsNoTracking().Where(v =>
@@ -178,7 +190,7 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
     private static IReadOnlyList<OperationalResetScopeItemDto> BuildRemoveScope(OperationalResetCountsDto c) =>
     [
         new("Candidatos", "Todos os candidatos e currículos do tenant.", c.Candidatos),
-        new("Talentos", "Base de talentos vinculada ao recrutamento.", c.Talentos),
+        new("Talentos", "Talentos gerados por fluxos de candidatos/recrutamento.", c.Talentos),
         new("Candidaturas e processo seletivo", "Kanban, etapas, propostas e projetos de vaga.", c.ProcessoSeletivoRegistros),
         new("Pré-admissões", "Fluxos de admissão em andamento ou concluídos.", c.PreAdmissoes),
         new("Vagas de teste", "Vagas criadas manualmente no portal, sem vínculo RM.", c.VagasTeste),
@@ -190,6 +202,7 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         new("Configurações do tenant", "SLA, headcount, integrações, branding e demais parâmetros.", 0),
         new("Requisições RM", "Solicitações sincronizadas ou com vínculo real ao TOTVS.", c.SolicitacoesRm),
         new("Vagas RM", "Vagas importadas ou observadas pela integração RM.", c.VagasRm),
+        new("Base de talentos", "Cadastros manuais, importação de PDF e demais talentos sem vínculo a candidato.", c.Talentos),
         new("Cadastros base", "Usuários, cargos, centros de custo, funcionários e hierarquia.", 0),
         new("Integração TOTVS", "Checkpoints de sync e configuração de integração.", 0),
     ];
