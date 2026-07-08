@@ -334,7 +334,6 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
                 DELETE FROM "VagaRequisitos" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
                 DELETE FROM "VagaEtapas" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
                 DELETE FROM "VagaPerguntas" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
-                DELETE FROM "EixosVaga" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
                 DELETE FROM "Vagas" WHERE "TenantId" = {0} AND "Id" IN (SELECT "Id" FROM cleanup_vagas);
                 """,
                 tenantId);
