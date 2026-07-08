@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-08T11:05:00-03:00",
+    "atualizadoEm": "2026-07-08T11:04:00-03:00",
     "totalTarefas": 234
   },
   "tarefas": [
@@ -5988,8 +5988,8 @@
       "inicio": "2026-07-08",
       "horarioInicio": "10:31",
       "conclusao": "2026-07-08",
-      "horarioConclusao": "11:05",
-      "totalHoras": 0.57,
+      "horarioConclusao": "11:04",
+      "totalHoras": 0.55,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
@@ -5998,12 +5998,14 @@
       "entregavel": "Prévia e execução do reset apagam só talentos com vínculo a candidato; textos da tela refletem o que será preservado.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "20e0507f"
+        ],
         "branch": "DEV",
-        "prHml": null,
-        "prPrd": null
+        "prHml": "Merge PR #165",
+        "prPrd": "Merge PR #166"
       },
-      "observacoes": "Implementado: DeleteByIdsAsync + filtro CandidateLinkedTalentoIdsQuery no reset. Horário de conclusão/PRs serão ajustados após merge."
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
