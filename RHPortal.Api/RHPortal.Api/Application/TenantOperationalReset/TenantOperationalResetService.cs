@@ -74,15 +74,25 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         // Coletar antes de apagar candidatos — o vínculo TalentoId some com o candidato.
         var talentoIdsVinculados = await CandidateLinkedTalentoIdsQuery().ToListAsync(ct);
 
-        await ReportAsync(progress, "candidatos", "Removendo candidatos…", 10, ct);
+        // PropostaVaga e ProjetoCandidato usam Restrict no candidato — precisam sair antes do delete.
+        await ReportAsync(progress, "vinculos", "Removendo propostas e participações em seleção…", 5, ct);
+        var vinculosRemovidos = await ClearCandidateBlockingLinksAsync(tenantId, ct);
+        await ReportAsync(
+            progress,
+            "vinculos",
+            $"{vinculosRemovidos.Propostas} proposta(s) e {vinculosRemovidos.Participacoes} participação(ões) removida(s).",
+            10,
+            ct);
+
+        await ReportAsync(progress, "candidatos", "Removendo candidatos…", 15, ct);
         var candidatosRemovidos = await _candidatoService.DeleteAllForTenantAsync(ct);
-        await ReportAsync(progress, "candidatos", $"{candidatosRemovidos} candidato(s) removido(s).", 25, ct);
+        await ReportAsync(progress, "candidatos", $"{candidatosRemovidos} candidato(s) removido(s).", 30, ct);
 
-        await ReportAsync(progress, "talentos", "Removendo talentos vinculados a candidatos…", 30, ct);
+        await ReportAsync(progress, "talentos", "Removendo talentos vinculados a candidatos…", 35, ct);
         var talentosRemovidos = await _talentoService.DeleteByIdsAsync(talentoIdsVinculados, ct);
-        await ReportAsync(progress, "talentos", $"{talentosRemovidos} talento(s) removido(s).", 45, ct);
+        await ReportAsync(progress, "talentos", $"{talentosRemovidos} talento(s) removido(s).", 50, ct);
 
-        await ReportAsync(progress, "sql", "Limpando admissões, vagas de teste e processos seletivos…", 50, ct);
+        await ReportAsync(progress, "sql", "Limpando admissões, vagas de teste e processos seletivos…", 55, ct);
         await ExecuteSqlCleanupAsync(tenantId, ct);
         await ReportAsync(progress, "sql", "Limpeza de dados operacionais concluída.", 90, ct);
 
@@ -217,6 +227,7 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
                 DELETE FROM "CandidaturaEtapaHistoricos" WHERE "TenantId" = {0};
                 DELETE FROM "NotificacoesCandidaturaLogs" WHERE "TenantId" = {0};
                 DELETE FROM "PropostasVaga" WHERE "TenantId" = {0};
+                DELETE FROM "ProjetoCandidatos" WHERE "TenantId" = {0};
                 DELETE FROM "Candidaturas" WHERE "TenantId" = {0};
                 DELETE FROM "AgendaEvents" WHERE "TenantId" = {0};
 
@@ -304,6 +315,13 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
                 DELETE FROM "RespostasCampoPersonalizadoVaga" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
                 DELETE FROM "CamposPersonalizadosVaga" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
 
+                DELETE FROM "ProjetoCandidatos"
+                WHERE "TenantId" = {0}
+                  AND "ProjetoId" IN (
+                    SELECT "Id" FROM "ProjetosVaga"
+                    WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas)
+                  );
+
                 DELETE FROM "FasesProcesso"
                 WHERE "TenantId" = {0}
                   AND "ProjetoId" IN (
@@ -328,6 +346,22 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
             await tx.RollbackAsync(ct);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Remove vínculos Restrict que impedem a exclusão de candidatos (propostas e participações em projeto).
+    /// </summary>
+    private async Task<(int Propostas, int Participacoes)> ClearCandidateBlockingLinksAsync(
+        string tenantId,
+        CancellationToken ct)
+    {
+        var propostas = await _db.Database.ExecuteSqlRawAsync(
+            """DELETE FROM "PropostasVaga" WHERE "TenantId" = {0};""",
+            tenantId);
+        var participacoes = await _db.Database.ExecuteSqlRawAsync(
+            """DELETE FROM "ProjetoCandidatos" WHERE "TenantId" = {0};""",
+            tenantId);
+        return (propostas, participacoes);
     }
 
     private static Task ReportAsync(

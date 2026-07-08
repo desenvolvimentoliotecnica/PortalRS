@@ -65,6 +65,7 @@ interface ProgressMessage {
 
 const STEPS = [
   { stage: "start", label: "Iniciando" },
+  { stage: "vinculos", label: "Removendo propostas e participações" },
   { stage: "candidatos", label: "Removendo candidatos" },
   { stage: "talentos", label: "Removendo talentos" },
   { stage: "sql", label: "Limpando admissões e vagas de teste" },

@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-08T11:04:00-03:00",
-    "totalTarefas": 234
+    "atualizadoEm": "2026-07-08T11:38:00-03:00",
+    "totalTarefas": 235
   },
   "tarefas": [
     {
@@ -6006,6 +6006,30 @@
         "prPrd": "Merge PR #166"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-235",
+      "nome": "[Portal RH] Reset operacional limpa propostas e participações antes dos candidatos",
+      "descricaoAmigavel": "O reset operacional remove propostas de vaga e participações em projetos de seleção antes de apagar candidatos, evitando o bloqueio por vínculos.",
+      "inicio": "2026-07-08",
+      "horarioInicio": "11:26",
+      "conclusao": "2026-07-08",
+      "horarioConclusao": "11:38",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "No reset, erro ao excluir candidato por vínculos de propostas e participações em projeto de seleção — precisa limpar propostas e participações também.",
+      "entregavel": "Reset remove PropostasVaga e ProjetoCandidatos antes de deletar candidatos, permitindo a limpeza completa.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": "Horário de conclusão/PRs serão ajustados após merge."
     }
   ]
 }
