@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-08T11:38:00-03:00",
+    "atualizadoEm": "2026-07-08T11:40:00-03:00",
     "totalTarefas": 235
   },
   "tarefas": [
@@ -6014,7 +6014,7 @@
       "inicio": "2026-07-08",
       "horarioInicio": "11:26",
       "conclusao": "2026-07-08",
-      "horarioConclusao": "11:38",
+      "horarioConclusao": "11:40",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -6024,12 +6024,14 @@
       "entregavel": "Reset remove PropostasVaga e ProjetoCandidatos antes de deletar candidatos, permitindo a limpeza completa.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "70ac39b2"
+        ],
         "branch": "DEV",
-        "prHml": null,
-        "prPrd": null
+        "prHml": "Merge PR #169",
+        "prPrd": "Merge PR #170"
       },
-      "observacoes": "Horário de conclusão/PRs serão ajustados após merge."
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
