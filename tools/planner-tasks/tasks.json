@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-08T14:20:00-03:00",
+    "atualizadoEm": "2026-07-08T14:34:00-03:00",
     "totalTarefas": 238
   },
   "tarefas": [
@@ -6091,22 +6091,25 @@
       "descricaoAmigavel": "O reset operacional remove talentos de origem site/candidatura/e-mail/pasta e reverte status e rodadas publicadas nas vagas RM preservadas.",
       "inicio": "2026-07-08",
       "horarioInicio": "14:20",
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-08",
+      "horarioConclusao": "14:33",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Após limpeza ainda aparecem vagas Preenchidas/Publicadas e talentos Mariana Costa (Candidatura/Site) — incluir na limpeza.",
       "entregavel": "Reset remove talentos de origem portal e zera rodadas/status de fluxo em vagas RM; promover DEV→HML→PRD.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "42ce8b76"
+        ],
         "branch": "DEV",
-        "prHml": null,
-        "prPrd": null
+        "prHml": "Merge PR #181",
+        "prPrd": "Merge PR #182"
       },
-      "observacoes": null
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
