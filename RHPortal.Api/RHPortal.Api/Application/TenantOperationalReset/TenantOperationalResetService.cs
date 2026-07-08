@@ -51,7 +51,11 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
             envName,
             counts.WillRemove,
             counts.WillPreserve,
-            BuildRemoveScope(counts.WillRemove, counts.DistribuicoesAnalista),
+            BuildRemoveScope(
+                counts.WillRemove,
+                counts.DistribuicoesAnalista,
+                counts.VagasRmFluxoPortal,
+                counts.ProjetosRmVagas),
             BuildPreserveScope(counts.WillPreserve));
     }
 
@@ -71,8 +75,8 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
 
         await ReportAsync(progress, "start", "Iniciando reset operacional…", 0, ct);
 
-        // Coletar antes de apagar candidatos — o vínculo TalentoId some com o candidato.
-        var talentoIdsVinculados = await CandidateLinkedTalentoIdsQuery().ToListAsync(ct);
+        // Coletar antes de apagar candidatos — origem portal e vínculos somem com o fluxo.
+        var talentoIdsRemover = await OperationalResetTalentoIdsQuery().ToListAsync(ct);
 
         // PropostaVaga e ProjetoCandidato usam Restrict no candidato — precisam sair antes do delete.
         await ReportAsync(progress, "vinculos", "Removendo propostas e participações em seleção…", 5, ct);
@@ -88,8 +92,8 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         var candidatosRemovidos = await _candidatoService.DeleteAllForTenantAsync(ct);
         await ReportAsync(progress, "candidatos", $"{candidatosRemovidos} candidato(s) removido(s).", 30, ct);
 
-        await ReportAsync(progress, "talentos", "Removendo talentos vinculados a candidatos…", 35, ct);
-        var talentosRemovidos = await _talentoService.DeleteByIdsAsync(talentoIdsVinculados, ct);
+        await ReportAsync(progress, "talentos", "Removendo talentos de candidatura, site e demais origens do portal…", 35, ct);
+        var talentosRemovidos = await _talentoService.DeleteByIdsAsync(talentoIdsRemover, ct);
         await ReportAsync(progress, "talentos", $"{talentosRemovidos} talento(s) removido(s).", 50, ct);
 
         await ReportAsync(progress, "sql", "Limpando admissões, vagas de teste e processos seletivos…", 55, ct);
@@ -124,7 +128,12 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
         return tenantId;
     }
 
-    private async Task<(OperationalResetCountsDto WillRemove, OperationalResetCountsDto WillPreserve, int DistribuicoesAnalista)> BuildCountsAsync(
+    private async Task<(
+        OperationalResetCountsDto WillRemove,
+        OperationalResetCountsDto WillPreserve,
+        int DistribuicoesAnalista,
+        int VagasRmFluxoPortal,
+        int ProjetosRmVagas)> BuildCountsAsync(
         string tenantId,
         CancellationToken ct)
     {
@@ -133,15 +142,22 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
 
         var candidatos = await _db.Candidatos.AsNoTracking().CountAsync(ct);
         var talentosTotal = await _db.Talentos.AsNoTracking().CountAsync(ct);
-        var talentos = await CandidateLinkedTalentoIdsQuery().CountAsync(ct);
+        var talentos = await OperationalResetTalentoIdsQuery().CountAsync(ct);
         var talentosPreservados = Math.Max(0, talentosTotal - talentos);
         var candidaturas = await _db.Candidaturas.AsNoTracking().CountAsync(ct);
         var preAdmissoes = await _db.PreAdmissoes.AsNoTracking().CountAsync(ct);
         var distribuicoesAnalista = await _db.SolicitacoesVaga.AsNoTracking()
             .CountAsync(s => s.AnalistaRhResponsavelUserId != null, ct);
 
-        var projetos = await _db.Set<ProjetoVaga>().AsNoTracking()
-            .CountAsync(p => cleanupVagaIds.Contains(p.VagaId), ct);
+        var vagasRmFluxoPortal = await _db.Vagas.AsNoTracking()
+            .CountAsync(v =>
+                !cleanupVagaIds.Contains(v.Id) &&
+                (v.Status != VagaStatus.Rascunho && v.Status != VagaStatus.NaoInformado), ct);
+
+        var projetosRmVagas = await _db.Set<ProjetoVaga>().AsNoTracking()
+            .CountAsync(p => !cleanupVagaIds.Contains(p.VagaId), ct);
+
+        var projetos = await _db.Set<ProjetoVaga>().AsNoTracking().CountAsync(ct);
         var propostas = await _db.PropostasVaga.AsNoTracking()
             .CountAsync(p =>
                 cleanupVagaIds.Contains(p.VagaId) || p.CandidaturaId != null, ct);
@@ -167,15 +183,22 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
             vagasRm,
             solicitacoesRm);
 
-        return (willRemove, willPreserve, distribuicoesAnalista);
+        return (willRemove, willPreserve, distribuicoesAnalista, vagasRmFluxoPortal, projetosRmVagas);
     }
 
-    /// <summary>Talentos ligados a pelo menos um candidato do tenant (fluxo de recrutamento).</summary>
-    private IQueryable<Guid> CandidateLinkedTalentoIdsQuery() =>
-        _db.Candidatos.AsNoTracking()
-            .Where(c => c.TalentoId != null)
-            .Select(c => c.TalentoId!.Value)
-            .Distinct();
+    private static readonly OrigemTalento[] PortalTalentOrigins =
+    [
+        OrigemTalento.Email,
+        OrigemTalento.Site,
+        OrigemTalento.Candidatura,
+        OrigemTalento.Pasta,
+    ];
+
+    /// <summary>Talentos gerados por fluxos do portal (site, candidatura, e-mail, pasta).</summary>
+    private IQueryable<Guid> OperationalResetTalentoIdsQuery() =>
+        _db.Talentos.AsNoTracking()
+            .Where(t => PortalTalentOrigins.Contains(t.Origem))
+            .Select(t => t.Id);
 
     private IQueryable<Vaga> CleanupVagasQuery(string tenantId) =>
         _db.Vagas.AsNoTracking().Where(v =>
@@ -201,23 +224,26 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
 
     private static IReadOnlyList<OperationalResetScopeItemDto> BuildRemoveScope(
         OperationalResetCountsDto c,
-        int distribuicoesAnalista) =>
+        int distribuicoesAnalista,
+        int vagasRmFluxoPortal,
+        int projetosRmVagas) =>
     [
         new("Candidatos", "Todos os candidatos e currículos do tenant.", c.Candidatos),
-        new("Talentos", "Talentos gerados por fluxos de candidatos/recrutamento.", c.Talentos),
+        new("Talentos do portal", "Talentos de site, candidatura, e-mail ou pasta (preserva cadastros manuais/PDF).", c.Talentos),
         new("Candidaturas e processo seletivo", "Kanban, etapas, propostas e projetos de vaga.", c.ProcessoSeletivoRegistros),
         new("Pré-admissões", "Fluxos de admissão em andamento ou concluídos.", c.PreAdmissoes),
         new("Vagas de teste", "Vagas criadas manualmente no portal, sem vínculo RM.", c.VagasTeste),
         new("Solicitações de teste", "Requisições STUB ou criadas só para homologação.", c.SolicitacoesTeste),
         new("Distribuições a analistas", "Atribuições de analistas de RH em requisições (inclui requisições RM preservadas).", distribuicoesAnalista),
+        new("Fluxo em vagas RM", "Status de recrutamento e rodadas publicadas revertidos para rascunho nas vagas RM preservadas.", vagasRmFluxoPortal + projetosRmVagas),
     ];
 
     private static IReadOnlyList<OperationalResetScopeItemDto> BuildPreserveScope(OperationalResetCountsDto c) =>
     [
         new("Configurações do tenant", "SLA, headcount, integrações, branding e demais parâmetros.", 0),
         new("Requisições RM", "Solicitações sincronizadas ou com vínculo real ao TOTVS.", c.SolicitacoesRm),
-        new("Vagas RM", "Vagas importadas ou observadas pela integração RM.", c.VagasRm),
-        new("Base de talentos", "Cadastros manuais, importação de PDF e demais talentos sem vínculo a candidato.", c.Talentos),
+        new("Vagas RM", "Vagas importadas ou observadas pela integração RM (sem estado de fluxo do portal).", c.VagasRm),
+        new("Base de talentos", "Cadastros manuais e importação de PDF no banco de talentos.", c.Talentos),
         new("Cadastros base", "Usuários, cargos, centros de custo, funcionários e hierarquia.", 0),
         new("Integração TOTVS", "Checkpoints de sync e configuração de integração.", 0),
     ];
@@ -343,6 +369,27 @@ public sealed class TenantOperationalResetService : ITenantOperationalResetServi
                 DELETE FROM "VagaEtapas" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
                 DELETE FROM "VagaPerguntas" WHERE "TenantId" = {0} AND "VagaId" IN (SELECT "Id" FROM cleanup_vagas);
                 DELETE FROM "Vagas" WHERE "TenantId" = {0} AND "Id" IN (SELECT "Id" FROM cleanup_vagas);
+
+                DELETE FROM "FasesProcesso"
+                WHERE "TenantId" = {0}
+                  AND "ProjetoId" IN (
+                    SELECT p."Id" FROM "ProjetosVaga" p
+                    WHERE p."TenantId" = {0}
+                      AND p."VagaId" NOT IN (SELECT "Id" FROM cleanup_vagas)
+                  );
+
+                DELETE FROM "ProjetosVaga"
+                WHERE "TenantId" = {0}
+                  AND "VagaId" NOT IN (SELECT "Id" FROM cleanup_vagas);
+
+                UPDATE "Vagas"
+                SET "Status" = 1,
+                    "DataAbertura" = NULL,
+                    "DataEncerramento" = NULL,
+                    "AlertaVagaSemFillSnoozeAteUtc" = NULL
+                WHERE "TenantId" = {0}
+                  AND "Id" NOT IN (SELECT "Id" FROM cleanup_vagas)
+                  AND "Status" NOT IN (0, 1);
                 """,
                 tenantId);
 
