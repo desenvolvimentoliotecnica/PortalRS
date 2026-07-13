@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T09:39:00-03:00",
-    "totalTarefas": 242
+    "atualizadoEm": "2026-07-13T09:51:00-03:00",
+    "totalTarefas": 243
   },
   "tarefas": [
     {
@@ -6208,6 +6208,29 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "A view /app/recrutamento/sla não deve ser visível para o Gestor; não encontrei o item na view de acessos.",
       "entregavel": "SLA Dashboard fora do Gestor e visível no controle de acessos.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": null
+    },
+    {
+      "id": "TASK-2026-243",
+      "nome": "[Portal RH] Pareceres RM no Acompanhamento da solicitação",
+      "descricaoAmigavel": "Dor: o menu Acompanhamento mostrava só etapas do Portal e omitia o histórico de pareceres do RM.\nNecessidade: a mesma timeline de pareceres da aba Aprovações no Acompanhamento.\nSolução proposta: ao abrir Acompanhamento, priorizar rmPareceres do detalhe da solicitação.\nDefinição de pronto: Acompanhamento lista pareceres RM (nome, data, texto) quando existirem.\nQ/A - Como testar: em Solicitações, abrir Acompanhamento de uma requisição RM com pareceres e conferir a timeline.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "09:51",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "No Acompanhamento da Solicitação não traz a timeline de pareceres; arrumar, commit, push, PR e promover HML/PRD.",
+      "entregavel": "Modal Acompanhamento exibe pareceres RM quando disponíveis na API.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],

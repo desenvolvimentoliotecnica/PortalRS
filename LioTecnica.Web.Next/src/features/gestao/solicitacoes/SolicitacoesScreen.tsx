@@ -66,9 +66,11 @@ import NextStepBanner from "@/components/feedback/NextStepBanner";
 import {
     mapEtapasToSteps,
     mapTimelineEventosToSteps,
+    mapRmPareceresToSteps,
     normalizeEtapaStatus,
     type EtapaAprovacaoResponse,
     type SolicitacaoTimelineEventoResponse,
+    type RmParecerResponse,
 } from "@/features/gestao/shared/etapaUtils";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import {
@@ -207,6 +209,7 @@ interface SolicitacaoDetail {
     etapas?: EtapaAprovacaoResponse[];
     etapasFluxo?: { ordem: number; label: string; aprovadorNome: string | null; roleNome: string | null; status: number | string; dataUtc: string | null; observacao: string | null }[];
     timelineEventos?: SolicitacaoTimelineEventoResponse[];
+    rmPareceres?: RmParecerResponse[];
     rmCodStatus?: number | string | null;
     rmUltimaStatusDescricaoRm?: string | null;
     rmStatusSyncUltimaMensagem?: string | null;
@@ -689,6 +692,13 @@ function SolicitacoesVagaContent() {
         try {
             const d = await fetchJson<SolicitacaoDetail>(`${API}/${row.id}`);
             setTimelineStatus(d.status);
+
+            const rmPareceres = Array.isArray(d.rmPareceres) ? d.rmPareceres : [];
+            if (rmPareceres.length > 0) {
+                setTimelineSteps(mapRmPareceresToSteps(rmPareceres));
+                return;
+            }
+
             if (d.timelineEventos?.length) {
                 setTimelineSteps(mapTimelineEventosToSteps(d.timelineEventos));
                 return;
