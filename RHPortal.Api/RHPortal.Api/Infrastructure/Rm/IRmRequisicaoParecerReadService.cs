@@ -4,5 +4,12 @@ namespace RhPortal.Api.Infrastructure.Rm;
 
 public interface IRmRequisicaoParecerReadService
 {
-    Task<IReadOnlyList<RmRequisicaoParecerRowDto>> ListAsync(int codColRequisicao, int idReq, CancellationToken ct);
+    /// <summary>
+    /// Lista pareceres da requisição RM. Preferência: SQL (VREQ*PARECER); REST só como fallback.
+    /// </summary>
+    Task<IReadOnlyList<RmRequisicaoParecerRowDto>> ListAsync(
+        string tipoRequisicao,
+        int codColRequisicao,
+        int idReq,
+        CancellationToken ct);
 }

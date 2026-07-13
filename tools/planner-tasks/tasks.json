@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T09:07:00-03:00",
-    "totalTarefas": 241
+    "atualizadoEm": "2026-07-13T09:25:00-03:00",
+    "totalTarefas": 242
   },
   "tarefas": [
     {
@@ -6145,22 +6145,27 @@
       "descricaoAmigavel": "Dor: o Gestor não via cards no Kanban e, se visse, poderia alterar etapas.\nNecessidade: ver só candidaturas de vagas das solicitações que ele abriu, sem poder mover cards.\nSolução proposta: filtrar pelo solicitante e bloquear avanço/observação/bulk no perfil Gestor (API e tela).\nDefinição de pronto: Gestor vê cards das suas vagas; arrastar/avançar/bulk ficam bloqueados; API retorna Forbid.\nQ/A - Como testar: logar como Gestor com solicitações materializadas; conferir cards; tentar mover e falhar; Analista continua editando.",
       "inicio": "2026-07-13",
       "horarioInicio": "09:01",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 50,
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "09:22",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Escopo dos cards do Gestor e modo somente leitura do board; ver cards só de vagas relacionadas a solicitações feitas por ele.",
       "entregavel": "Kanban read-only para Gestor com escopo SolicitanteId e mutações bloqueadas.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "1cc7b69e",
+          "8b874608",
+          "18c82964"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #187",
+        "prPrd": "Merge PR #188"
       },
-      "observacoes": null
+      "observacoes": "Promovido DEV→HML→PRD."
     },
     {
       "id": "TASK-2026-241",
@@ -6184,6 +6189,29 @@
         "prHml": null
       },
       "observacoes": "Causa HMG: ParecerEndpointUrl vazio + REST :8051 fora; dados existem no SQL CORPORERM."
+    },
+    {
+      "id": "TASK-2026-242",
+      "nome": "[Portal RH] Remover SLA Dashboard do perfil Gestor e expor no controle de acessos",
+      "descricaoAmigavel": "Dor: o Gestor via o SLA Dashboard e não havia como desmarcar no controle de acessos.\nNecessidade: Gestor sem esse menu; item disponível em Acessos para outros perfis.\nSolução proposta: tirar sla.dashboard.view do manifesto do Gestor e cadastrar o menu SLA Dashboard.\nDefinição de pronto: Gestor não vê /recrutamento/sla; em Acessos aparece “SLA Dashboard”.\nQ/A - Como testar: relogar como Gestor e confirmar ausência do menu; em Acessos, marcar/desmarcar o item no Analista.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "09:25",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 50,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "A view /app/recrutamento/sla não deve ser visível para o Gestor; não encontrei o item na view de acessos.",
+      "entregavel": "SLA Dashboard fora do Gestor e visível no controle de acessos.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": null
     }
   ]
 }
