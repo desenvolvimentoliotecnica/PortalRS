@@ -6,10 +6,59 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T12:36:00-03:00",
-    "totalTarefas": 247
+    "atualizadoEm": "2026-07-13T17:16:00-03:00",
+    "totalTarefas": 249
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-249",
+      "nome": "[Portal RH] Listar RM em 36 meses e CODSTATUS 5 só para consulta",
+      "descricaoAmigavel": "Dor: Requisições RM em aprovação e/ou com mais de 3 meses não aparecem; se entrarem no portal, não podem ser distribuídas ainda.\nNecessidade: Ampliar consulta para 36 meses, incluir CODSTATUS 5 (em aprovação) na listagem/importação para consulta e bloquear distribuição dessas.\nSolução proposta: Ajustar Admin Requisições RM e importação; backend/front bloqueiam distribuição quando RmCodStatus=5.\nDefinição de pronto: Listagem padrão 36 meses com status 1/3/5; CODSTATUS 5 visível e importável para consulta; não distribuível.\nQ/A - Como testar: Abrir Admin RM no período padrão, filtrar Em aprovação, importar, abrir em Gestão e confirmar que não há opção de distribuir.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "17:07",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "17:16",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "aumentar o filtro para 36 meses, e trazer tb requisicoes com CODSTATUS 5, porem as com status 5, NAO PODEM SER DISTRIBUIDAS. so podem ser consultadas.",
+      "entregavel": "Consulta RM 36 meses + CODSTATUS 5 visível/importável só para consulta; distribuição bloqueada.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "88f5ec70"
+        ],
+        "branch": "DEV",
+        "prHml": null,
+        "plannerTaskId": "bni2V3GwkkiL2kKSK-SS9mUAPzUE"
+      },
+      "observacoes": "CODSTATUS 5 → PendenteAprovacao no portal; import sem criar vaga; AssignAnalistaRh bloqueado. Promoção HML/PRD na mesma sessão."
+    },
+    {
+      "id": "TASK-2026-248",
+      "nome": "[Infra] Ollama qwen2.5:14b no servidor 10.0.0.79",
+      "descricaoAmigavel": "Dor: o Portal precisa de LLM local gratuito para parse de CV e demais usos de IA.\nNecessidade: Ollama com qwen2.5:14b (e bge-m3) acessível em 10.0.0.79:11434.\nSolução proposta: instalar Ollama no Ubuntu, liberar a API na rede e baixar os modelos (CPU-only).\nDefinição de pronto: ollama list mostra qwen2.5:14b e bge-m3; curl em :11434/api/tags responde.\nQ/A - Como testar: curl http://10.0.0.79:11434/api/tags e ollama run qwen2.5:14b.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "13:18",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "13:30",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Preparar qwen2.5:14b no 10.0.0.79 via SSH (sem GPU).",
+      "entregavel": "Ollama instalado e modelos qwen2.5:14b + bge-m3 disponíveis em http://10.0.0.79:11434.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Servidor sem GPU; execução em CPU. Validado generate remoto retornando ok (~2 min cold start)."
+    },
     {
       "id": "TASK-2026-247",
       "nome": "[Portal RH] Não usar início previsto no cargo para esconder vaga no portal",

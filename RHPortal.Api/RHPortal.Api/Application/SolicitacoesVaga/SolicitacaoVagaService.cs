@@ -156,6 +156,22 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             or SolicitacaoStatus.ErroIntegracaoRm
             or SolicitacaoStatus.AguardandoReprocessamentoRm;
 
+    /// <summary>CODSTATUS 5 (em aprovação no RM) — só consulta, nunca distribuição para analista.</summary>
+    private static bool EhRequisicaoRmEmProcessoDeAprovacao(SolicitacaoVaga entity) =>
+        entity.RmCodStatus == 5
+        || (entity.Status == SolicitacaoStatus.PendenteAprovacao
+            && !string.IsNullOrWhiteSpace(entity.RmRequisicaoCodigo));
+
+    private static void EnsurePodeDistribuirSolicitacao(SolicitacaoVaga entity)
+    {
+        if (EhRequisicaoRmEmProcessoDeAprovacao(entity))
+            throw new InvalidOperationException(
+                "Requisições em processo de aprovação no RM só podem ser consultadas; não é possível distribuir para Analista de RH.");
+
+        if (!PermiteDistribuicaoAnalistaRh(entity.Status))
+            throw new InvalidOperationException("A distribuição para Analista de RH só é permitida após a aprovação do gestor requisitante.");
+    }
+
     private async Task<IReadOnlyList<string>> GetCurrentUserRoleNamesAsync(CancellationToken ct)
     {
         if (!_currentUser.UserId.HasValue)
@@ -2709,8 +2725,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        if (!PermiteDistribuicaoAnalistaRh(entity.Status))
-            throw new InvalidOperationException("A distribuição para Analista de RH só é permitida após a aprovação do gestor requisitante.");
+        EnsurePodeDistribuirSolicitacao(entity);
 
         entity.AnalistaRhResponsavelUserId = analistaRhResponsavelUserId;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -2739,6 +2754,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         if (entities.Count != ids.Count)
             throw new InvalidOperationException("Uma ou mais solicitações selecionadas não foram encontradas.");
+
+        if (entities.Any(EhRequisicaoRmEmProcessoDeAprovacao))
+            throw new InvalidOperationException(
+                "Há requisição(ões) em processo de aprovação no RM: só consulta — remova da seleção para distribuir.");
 
         if (entities.Any(x => !PermiteDistribuicaoAnalistaRh(x.Status)))
             throw new InvalidOperationException("Só é possível distribuir solicitações já aprovadas pelo gestor requisitante.");
