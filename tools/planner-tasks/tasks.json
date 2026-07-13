@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T17:42:00-03:00",
+    "atualizadoEm": "2026-07-13T20:43:11.407Z",
     "totalTarefas": 250
   },
   "tarefas": [
@@ -25,15 +25,16 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "a coluna status, nao esta ao lado da coluna titulo, como solicitado",
       "entregavel": "Coluna Status reposicionada ao lado de Título na grade de solicitações.",
-      "ambiente": "HML",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "bd832886"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #218",
+        "prPrd": "Merge PR #219"
       },
-      "observacoes": "Pedido da reunião RH (grid Gestão de Solicitações)."
+      "observacoes": "Promovido HML (PR #218) e PRD (PR #219) em 13/07/2026. Coluna Status reposicionada ao lado de Titulo."
     },
     {
       "id": "TASK-2026-249",
