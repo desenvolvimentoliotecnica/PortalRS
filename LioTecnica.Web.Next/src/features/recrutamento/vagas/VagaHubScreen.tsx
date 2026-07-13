@@ -1364,8 +1364,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-border/40 bg-slate-50/80 px-4 py-3 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Início: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataInicio", ""))}</strong></span>
-            <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Encerramento: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataEncerramento", ""))}</strong></span>
+            <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Início previsto no cargo: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataInicio", ""))}</strong></span>
+            <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Encerramento das candidaturas: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataEncerramento", ""))}</strong></span>
             <span className="inline-flex items-center gap-2"><Target className="size-4 text-[#105290]" /> Match mín: <strong className="font-semibold text-[#105290]">{matchMin}%</strong></span>
           </div>
 

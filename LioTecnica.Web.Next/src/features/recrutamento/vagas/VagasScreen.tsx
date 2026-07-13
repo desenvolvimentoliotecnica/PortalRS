@@ -1587,8 +1587,8 @@ export default function VagasScreen() {
 
                                 {/* ── Datas & Match ── */}
                                 <div className="flex flex-wrap gap-4 text-xs text-muted-foreground border-t border-border/30 pt-3">
-                                    <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" /> Início: {formatDate(pickString(currentVagaDetail?.dataInicio, "")) || "—"}</span>
-                                    <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> Encerramento: {formatDate(pickString(currentVagaDetail?.dataEncerramento, "")) || "—"}</span>
+                                    <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" /> Início previsto no cargo: {formatDate(pickString(currentVagaDetail?.dataInicio, "")) || "—"}</span>
+                                    <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> Encerramento das candidaturas: {formatDate(pickString(currentVagaDetail?.dataEncerramento, "")) || "—"}</span>
                                     <span className="inline-flex items-center gap-1"><ShieldCheck className="size-3.5" /> Match min: <strong className="text-foreground">{currentVagaMatch}%</strong></span>
                                     <span className="inline-flex items-center gap-1"><RefreshCw className="size-3.5" /> Atualizada: {formatDateTime(pickString(currentVagaDetail?.updatedAt, "")) || "—"}</span>
                                 </div>
