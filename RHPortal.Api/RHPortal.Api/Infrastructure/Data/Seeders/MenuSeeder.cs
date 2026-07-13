@@ -129,7 +129,64 @@ public static class MenuSeeder
         if (reparented)
             await db.SaveChangesAsync(ct);
 
+        // Perfis com candidatos.view customizado passam a ter também candidaturas.view
+        // (Kanban separado), para não perder o board após o desacoplamento.
+        await EnsureCandidaturasPermissionBackfillAsync(db, ct);
+
         // RoleMenus seeding removed — permissions are code-first via RolePermissionManifest.
+    }
+
+    /// <summary>
+    /// Garante RoleMenu de <c>candidaturas.view</c> para todo perfil que já tinha
+    /// <c>candidatos.view</c> (Analista RH etc.), sem forçar no Gestor que só quer o Kanban.
+    /// </summary>
+    private static async Task EnsureCandidaturasPermissionBackfillAsync(AppDbContext db, CancellationToken ct)
+    {
+        var candidaturasMenu = await db.Menus.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.PermissionKey == "candidaturas.view", ct);
+        if (candidaturasMenu is null)
+            return;
+
+        var roleIdsWithCandidatos = await db.RoleMenus.AsNoTracking()
+            .Where(x => x.PermissionKey == "candidatos.view")
+            .Select(x => x.RoleId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (roleIdsWithCandidatos.Count == 0)
+            return;
+
+        var existingCandidaturas = (await db.RoleMenus.AsNoTracking()
+            .Where(x => roleIdsWithCandidatos.Contains(x.RoleId) && x.PermissionKey == "candidaturas.view")
+            .Select(x => x.RoleId)
+            .ToListAsync(ct)).ToHashSet();
+
+        var roles = await db.Roles.AsNoTracking()
+            .Where(x => roleIdsWithCandidatos.Contains(x.Id))
+            .Select(x => new { x.Id, x.TenantId })
+            .ToListAsync(ct);
+
+        var now = DateTimeOffset.UtcNow;
+        var added = false;
+        foreach (var role in roles)
+        {
+            if (existingCandidaturas.Contains(role.Id))
+                continue;
+
+            db.RoleMenus.Add(new RoleMenu
+            {
+                Id = Guid.NewGuid(),
+                TenantId = role.TenantId,
+                RoleId = role.Id,
+                MenuId = candidaturasMenu.Id,
+                PermissionKey = "candidaturas.view",
+                CreatedAtUtc = now,
+            });
+            added = true;
+        }
+
+        if (added)
+            await db.SaveChangesAsync(ct);
     }
 
     /// <summary>
@@ -180,6 +237,7 @@ public static class MenuSeeder
         ("/Gestao/Desligamentos/Entrevista-Template", "clipboard-list", 26, "folha.entrevista-saida.manage", false, "Seed.Menu.EntrevistaSaidaTemplate", null),
         ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
         ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
+        ("/Recrutamento/Candidaturas", "bi-diagram-3", 4, "candidaturas.view", false, "Seed.Menu.KanbanCandidaturas", null),
         ("/Matching", "bi-stars", 5, "matching.view", true, "Seed.Menu.Matching", null),
         ("/Triagem", "bi-funnel", 6, "triagem.view", false, "Seed.Menu.Triagem", null),
         ("/Recrutamento/Propostas-Vaga", "bi-file-earmark-text", 6, "propostas-vaga.view", false, "Seed.Menu.PropostasVaga", null),

@@ -43,7 +43,8 @@ const NAV_MANIFEST: ReadonlyArray<{
     // ── Recrutamento & Seleção ─────────────────────────────────────────
     { id: "nav-vagas",                     label: "Vagas",                       href: "/vagas",                          icon: "briefcase",        permission: "vagas.view" },
     { id: "nav-candidatos",                label: "Candidatos",                  href: "/candidatos",                     icon: "users",            permission: "candidatos.view" },
-    { id: "nav-triagem",                   label: "Candidaturas",                href: "/recrutamento/candidaturas",      icon: "bi-funnel",        permission: "triagem.view" },
+    { id: "nav-candidaturas",              label: "Kanban de Candidaturas",      href: "/recrutamento/candidaturas",      icon: "gitbranch",        permission: "candidaturas.view" },
+    { id: "nav-triagem",                   label: "Triagem",                     href: "/triagem",                        icon: "bi-funnel",        permission: "triagem.view" },
     { id: "nav-propostas-vaga",            label: "Propostas",                   href: "/recrutamento/propostas-vaga",    icon: "file-text",        permission: "propostas-vaga.view" },
     { id: "nav-sla-dashboard",             label: "SLA Dashboard",               href: "/recrutamento/sla",               icon: "timer",            permission: "sla.dashboard.view" },
     { id: "nav-sla-etapas-config",         label: "SLA por Etapa",               href: "/recrutamento/sla-etapas",        icon: "listchecks",       permission: "sla.etapas.manage" },
