@@ -997,6 +997,7 @@ function SolicitacoesVagaContent() {
                             <TableHead className="cursor-pointer select-none" onClick={() => handleSort("titulo")}>
                                 Título<SortIcon col="titulo" />
                             </TableHead>
+                            <TableHead className="w-1 whitespace-nowrap text-center">Status</TableHead>
                             <TableHead className="cursor-pointer select-none" onClick={() => handleSort("secao")}>
                                 Seção<SortIcon col="secao" />
                             </TableHead>
@@ -1015,7 +1016,6 @@ function SolicitacoesVagaContent() {
                             <TableHead className="w-1 whitespace-nowrap text-left cursor-pointer select-none" onClick={() => handleSort("requisitante")}>
                                 Requisitante<SortIcon col="requisitante" />
                             </TableHead>
-                            <TableHead className="w-1 whitespace-nowrap text-center">Status</TableHead>
                             <TableHead className="w-12" />
                         </TableRow>
                     </TableHeader>
@@ -1065,6 +1065,9 @@ function SolicitacoesVagaContent() {
                                             </div>
                                         )}
                                     </TableCell>
+                                    <TableCell className="whitespace-nowrap text-center">
+                                        <SolicitacaoBacklogStatusBadgeEl raw={r.status} />
+                                    </TableCell>
                                     <TableCell>
                                         <div className="max-w-[220px] truncate text-xs text-muted-foreground" title={r.centroCustoNome ?? ""}>
                                             {r.centroCustoNome ?? "—"}
@@ -1086,9 +1089,6 @@ function SolicitacoesVagaContent() {
                                         <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.solicitanteNome ?? ""}>
                                             {r.solicitanteNome ?? "—"}
                                         </div>
-                                    </TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        <SolicitacaoBacklogStatusBadgeEl raw={r.status} />
                                     </TableCell>
                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                         <DropdownMenu>

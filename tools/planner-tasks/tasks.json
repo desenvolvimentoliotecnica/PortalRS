@@ -6,10 +6,35 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T17:17:00-03:00",
-    "totalTarefas": 249
+    "atualizadoEm": "2026-07-13T17:42:00-03:00",
+    "totalTarefas": 250
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-250",
+      "nome": "[Portal RH] Colocar Status ao lado de Título nas solicitações",
+      "descricaoAmigavel": "Dor: Na grade de Gestão de Solicitações o Status fica no fim da linha, longe do Título, dificultando a leitura rápida.\nNecessidade: Trazer a coluna Status para o lado da coluna Título.\nSolução proposta: Reordenar as colunas da grade (Título → Status → demais).\nDefinição de pronto: Na listagem, Status aparece imediatamente após Título.\nQ/A - Como testar: Abrir Gestão → Solicitações e conferir a ordem Título | Status.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "17:41",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "17:42",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "a coluna status, nao esta ao lado da coluna titulo, como solicitado",
+      "entregavel": "Coluna Status reposicionada ao lado de Título na grade de solicitações.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "bd832886"
+        ],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Pedido da reunião RH (grid Gestão de Solicitações)."
+    },
     {
       "id": "TASK-2026-249",
       "nome": "[Portal RH] Listar RM em 36 meses e CODSTATUS 5 só para consulta",
