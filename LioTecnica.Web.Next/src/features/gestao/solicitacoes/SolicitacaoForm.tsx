@@ -1818,7 +1818,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         {/* ══════════════ TAB 4 — Aprovações RM ══════════════ */}
                         <TabsContent value="aprovacao" className="mt-0">
                             {rmPareceres.length > 0 ? (
-                                <div className="mx-auto mb-4 max-w-2xl rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
+                                <div className="mb-4 w-full rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
                                     <div className="mb-4">
                                         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                                             Histórico RM
@@ -1864,7 +1864,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     </ol>
                                 </div>
                             ) : (
-                                <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-border/80 bg-muted/20 p-6 text-center">
+                                <div className="w-full rounded-2xl border border-dashed border-border/80 bg-muted/20 p-6 text-center">
                                     <p className="text-sm font-medium text-foreground">Nenhuma aprovação RM importada ainda.</p>
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         Reimporte as requisições aprovadas para carregar o histórico de pareceres do RM.

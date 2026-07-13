@@ -6200,7 +6200,7 @@
       "inicio": "2026-07-13",
       "horarioInicio": "09:25",
       "conclusao": "2026-07-13",
-      "horarioConclusao": "10:21",
+      "horarioConclusao": "10:22",
       "totalHoras": 1.0,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -6208,14 +6208,18 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "A view /app/recrutamento/sla não deve ser visível para o Gestor; não encontrei o item na view de acessos.",
       "entregavel": "SLA Dashboard fora do Gestor e visível no controle de acessos.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "de4d8197",
+          "086d3ca7",
+          "83ee6282"
+        ],
         "branch": "DEV",
-        "prHml": null,
-        "prPrd": null
+        "prHml": "Merge PR #199",
+        "prPrd": "Merge PR #200"
       },
-      "observacoes": null
+      "observacoes": "Promovido DEV→HML→PRD."
     },
     {
       "id": "TASK-2026-243",
