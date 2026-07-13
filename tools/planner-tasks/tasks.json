@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T22:44:34.496Z",
+    "atualizadoEm": "2026-07-13T22:45:11.672Z",
     "totalTarefas": 251
   },
   "tarefas": [
@@ -25,16 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "3 Remover Motivo de abertura da edição de vaga — Retirar o campo Motivo de abertura da tela de edição de vaga.",
       "entregavel": "Campo Motivo de abertura oculto na edição de vaga (VagaFormModal). Valor existente preservado no save.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "40d87c1f"
         ],
         "branch": "DEV",
-        "prHml": null,
-        "plannerTaskId": "zs3QCxB8SECT_JW8pyraTmUAPlNG"
+        "prHml": "Merge PR #222",
+        "plannerTaskId": "zs3QCxB8SECT_JW8pyraTmUAPlNG",
+        "prPrd": "Merge PR #223"
       },
-      "observacoes": "Aguardando promoção HML/PRD."
+      "observacoes": "Promovido HML (PR #222) e PRD (PR #223) em 13/07/2026."
     },
     {
       "id": "TASK-2026-250",
