@@ -2,6 +2,8 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Contracts.Rm;
@@ -10,9 +12,104 @@ namespace RhPortal.Api.Infrastructure.Rm;
 
 public sealed class RmRequisicaoParecerReadService(
     ITenantRmConfiguracaoService rmConfiguracaoService,
-    IHttpClientFactory httpClientFactory) : IRmRequisicaoParecerReadService
+    IHttpClientFactory httpClientFactory,
+    ILogger<RmRequisicaoParecerReadService> logger) : IRmRequisicaoParecerReadService
 {
-    public async Task<IReadOnlyList<RmRequisicaoParecerRowDto>> ListAsync(int codColRequisicao, int idReq, CancellationToken ct)
+    public async Task<IReadOnlyList<RmRequisicaoParecerRowDto>> ListAsync(
+        string tipoRequisicao,
+        int codColRequisicao,
+        int idReq,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tipoRequisicao) || codColRequisicao <= 0 || idReq <= 0)
+            return [];
+
+        var tipo = tipoRequisicao.Trim().ToUpperInvariant();
+        if (!RmRequisicaoTipos.IsImportavelComoSolicitacaoVaga(tipo))
+        {
+            logger.LogDebug(
+                "Pareceres RM ignorados: tipo {Tipo} sem tabela SQL de pareceres para vaga.",
+                tipo);
+            return [];
+        }
+
+        var connectionOptions = await rmConfiguracaoService.GetConnectionOptionsAsync(ct);
+        if (connectionOptions.IsConfigured)
+        {
+            try
+            {
+                return await ListFromSqlAsync(connectionOptions, tipo, codColRequisicao, idReq, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Falha ao ler pareceres RM via SQL {Tipo}/{CodCol}/{IdReq}. Tentando REST se configurado.",
+                    tipo, codColRequisicao, idReq);
+            }
+        }
+        else
+        {
+            logger.LogWarning(
+                "Conexão SQL RM não configurada; pareceres {Tipo}/{CodCol}/{IdReq} dependerão do endpoint REST.",
+                tipo, codColRequisicao, idReq);
+        }
+
+        return await ListFromRestAsync(tipo, codColRequisicao, idReq, ct);
+    }
+
+    private async Task<IReadOnlyList<RmRequisicaoParecerRowDto>> ListFromSqlAsync(
+        RmConnectionOptions connectionOptions,
+        string tipo,
+        int codColRequisicao,
+        int idReq,
+        CancellationToken ct)
+    {
+        var cs = connectionOptions.GetConnectionString();
+        await using var conn = new SqlConnection(cs);
+        await conn.OpenAsync(ct);
+
+        await using var cmd = new SqlCommand(RmRequisicoesQueries.SqlPareceresPorVinculo(tipo), conn);
+        cmd.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
+        cmd.Parameters.AddWithValue("@CodCol", codColRequisicao);
+        cmd.Parameters.AddWithValue("@IdReq", idReq);
+
+        var rows = new List<RmRequisicaoParecerRowDto>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var idParecer = SafeInt(reader, "IDPARECER") ?? 0;
+            if (idParecer <= 0)
+                continue;
+
+            var codStatus = SafeInt(reader, "CODSTATUS");
+            rows.Add(new RmRequisicaoParecerRowDto
+            {
+                CodColRequisicao = SafeInt(reader, "CODCOLREQUISICAO") ?? codColRequisicao,
+                IdReq = SafeInt(reader, "IDREQ") ?? idReq,
+                IdParecer = idParecer,
+                DataParecer = SafeDateOffset(reader, "DATAPARECER"),
+                CodStatus = codStatus,
+                Suspensao = SafeInt(reader, "SUSPENSAO"),
+                Solicitante = SafeString(reader, "SOLICITANTE"),
+                CodColSolicitante = SafeInt(reader, "CODCOLSOLICITANTE"),
+                ChapaSolicitante = SafeString(reader, "CHAPASOLICITANTE"),
+                Parecer = SafeString(reader, "PARECER"),
+                Status = FormatCodStatusLabel(codStatus),
+            });
+        }
+
+        return rows
+            .OrderBy(r => r.DataParecer ?? DateTimeOffset.MinValue)
+            .ThenBy(r => r.IdParecer)
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<RmRequisicaoParecerRowDto>> ListFromRestAsync(
+        string tipo,
+        int codColRequisicao,
+        int idReq,
+        CancellationToken ct)
     {
         var publicConfig = await rmConfiguracaoService.GetAsync(ct);
         var createOptions = await rmConfiguracaoService.GetCreateOptionsAsync(ct);
@@ -22,8 +119,14 @@ public sealed class RmRequisicaoParecerReadService(
             Username = createOptions.Username,
             Password = createOptions.Password,
         };
+
         if (string.IsNullOrWhiteSpace(config.ParecerEndpointUrl))
+        {
+            logger.LogWarning(
+                "ParecerEndpointUrl vazio e SQL indisponível/falhou — nenhum parecer para {Tipo}/{CodCol}/{IdReq}.",
+                tipo, codColRequisicao, idReq);
             return [];
+        }
 
         var endpoint = BuildConsultaUri(config.ParecerEndpointUrl, codColRequisicao, idReq);
         using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
@@ -57,7 +160,7 @@ public sealed class RmRequisicaoParecerReadService(
 
         return root.EnumerateArray()
             .Where(e => e.ValueKind == JsonValueKind.Object)
-            .Select(MapRow)
+            .Select(MapRestRow)
             .Where(r => r.CodColRequisicao == codColRequisicao && r.IdReq == idReq && r.IdParecer > 0)
             .OrderBy(r => r.DataParecer ?? DateTimeOffset.MinValue)
             .ThenBy(r => r.IdParecer)
@@ -90,7 +193,7 @@ public sealed class RmRequisicaoParecerReadService(
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(raw)));
     }
 
-    private static RmRequisicaoParecerRowDto MapRow(JsonElement item)
+    private static RmRequisicaoParecerRowDto MapRestRow(JsonElement item)
         => new()
         {
             CodColRequisicao = JsonInt(item, "CODCOLREQUISICAO") ?? 0,
@@ -104,8 +207,20 @@ public sealed class RmRequisicaoParecerReadService(
             CodColSolicitante = JsonInt(item, "CODCOLSOLICITANTE"),
             ChapaSolicitante = JsonString(item, "CHAPASOLICITANTE"),
             Parecer = JsonString(item, "PARECER"),
-            Status = JsonString(item, "STATUS"),
+            Status = JsonString(item, "STATUS") ?? FormatCodStatusLabel(JsonInt(item, "CODSTATUS")),
         };
+
+    private static string? FormatCodStatusLabel(int? codStatus) => codStatus switch
+    {
+        1 => "Em andamento",
+        2 => "Reprovada",
+        3 => "Aprovada",
+        4 => "Concluída",
+        5 => "Pendente aprovação",
+        6 => "Cancelada",
+        null => null,
+        _ => $"CODSTATUS {codStatus}",
+    };
 
     private static string? JsonString(JsonElement item, string property)
     {
@@ -134,5 +249,28 @@ public sealed class RmRequisicaoParecerReadService(
         return DateTimeOffset.TryParse(raw, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed)
             ? parsed.ToUniversalTime()
             : null;
+    }
+
+    private static string? SafeString(SqlDataReader r, string name)
+    {
+        var ord = r.GetOrdinal(name);
+        if (r.IsDBNull(ord)) return null;
+        var text = r.GetValue(ord)?.ToString()?.Trim();
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private static int? SafeInt(SqlDataReader r, string name)
+    {
+        var ord = r.GetOrdinal(name);
+        if (r.IsDBNull(ord)) return null;
+        return Convert.ToInt32(r.GetValue(ord), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static DateTimeOffset? SafeDateOffset(SqlDataReader r, string name)
+    {
+        var ord = r.GetOrdinal(name);
+        if (r.IsDBNull(ord)) return null;
+        var dt = r.GetDateTime(ord);
+        return new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Unspecified), TimeSpan.Zero);
     }
 }

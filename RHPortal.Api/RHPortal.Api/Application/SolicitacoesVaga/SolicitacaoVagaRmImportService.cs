@@ -109,6 +109,20 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             }
         }
 
+        var (pareceresRefreshOk, pareceresRefreshFail, pareceresRefreshMsgs) =
+            await RefreshPareceresSolicitacoesExistentesAsync(
+                Math.Clamp(request.PageSize < 1 ? 100 : request.PageSize, 1, 500),
+                ct);
+        mensagens.AddRange(pareceresRefreshMsgs);
+        if (pareceresRefreshFail > 0)
+            erros += pareceresRefreshFail;
+        if (pareceresRefreshOk > 0 || pareceresRefreshFail > 0)
+        {
+            mensagens.Insert(
+                0,
+                $"Refresh pareceres existentes: ok={pareceresRefreshOk}, falhas={pareceresRefreshFail}.");
+        }
+
         return new RmRequisicaoImportResponse(rmRows.Items.Count, criados, atualizados, vagasCriadas, ignorados, erros, mensagens);
     }
 
@@ -152,12 +166,24 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
 
         await _solicitacaoVagaService.GarantirVagaRascunhoParaSolicitacaoAprovadaAsync(entity.Id, ct);
         await SincronizarTituloVagaVinculadaAsync(entity, now, ct);
-        await ImportarPareceresAsync(entity, row, now, ct);
+        var parecerResult = await ImportarPareceresAsync(
+            entity,
+            row.TipoRequisicao!.Trim(),
+            row.Codcolrequisicao!.Value,
+            row.Idreq,
+            now,
+            ct);
         await _db.Entry(entity).ReloadAsync(ct);
 
         var vagaCriada = !vagaAntes.HasValue && entity.VagaId.HasValue;
         var status = created ? ImportLineStatus.Created : ImportLineStatus.Updated;
-        return new ImportLineResult(status, vagaCriada, $"{BuildHumanKey(row)}: {(created ? "importada" : "atualizada")} e vaga {(vagaCriada ? "criada" : "mantida")}.");
+        var parecerMsg = parecerResult.Ok
+            ? $"{parecerResult.Count} parecer(es)"
+            : $"pareceres falharam ({parecerResult.Error})";
+        return new ImportLineResult(
+            status,
+            vagaCriada,
+            $"{BuildHumanKey(row)}: {(created ? "importada" : "atualizada")} e vaga {(vagaCriada ? "criada" : "mantida")}; {parecerMsg}.");
     }
 
     private async Task<ImportLineResult> ImportarLinhaDesligamentoAsync(
@@ -240,26 +266,84 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         return true;
     }
 
-    private async Task ImportarPareceresAsync(SolicitacaoVaga entity, RmRequisicaoRowDto row, DateTimeOffset now, CancellationToken ct)
+    private async Task<(int Ok, int Fail, List<string> Messages)> RefreshPareceresSolicitacoesExistentesAsync(
+        int maxPerRun,
+        CancellationToken ct)
     {
-        if (!row.Codcolrequisicao.HasValue || row.Idreq <= 0 || string.IsNullOrWhiteSpace(row.TipoRequisicao))
-            return;
+        var limit = Math.Clamp(maxPerRun, 1, 500);
+        var existentes = await _db.SolicitacoesVaga
+            .Where(s => s.RmIdReq != null && s.RmIdReq > 0 && s.RmCodColRequisicao != null && s.RmCodColRequisicao > 0)
+            .OrderByDescending(s => s.UpdatedAtUtc)
+            .Take(limit)
+            .ToListAsync(ct);
 
+        var ok = 0;
+        var fail = 0;
+        var messages = new List<string>();
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var entity in existentes)
+        {
+            var tipo = ResolveTipoRequisicaoRm(entity);
+            if (string.IsNullOrWhiteSpace(tipo)
+                || !RmRequisicaoTipos.IsImportavelComoSolicitacaoVaga(tipo)
+                || !entity.RmCodColRequisicao.HasValue
+                || !entity.RmIdReq.HasValue)
+            {
+                continue;
+            }
+
+            var result = await ImportarPareceresAsync(
+                entity,
+                tipo,
+                entity.RmCodColRequisicao.Value,
+                entity.RmIdReq.Value,
+                now,
+                ct);
+
+            if (result.Ok)
+            {
+                ok++;
+                if (result.Count > 0)
+                    messages.Add($"{tipo}|{entity.RmCodColRequisicao}|{entity.RmIdReq}: refresh {result.Count} parecer(es).");
+            }
+            else
+            {
+                fail++;
+                messages.Add($"{tipo}|{entity.RmCodColRequisicao}|{entity.RmIdReq}: falha no refresh de pareceres ({result.Error}).");
+            }
+        }
+
+        return (ok, fail, messages);
+    }
+
+    private async Task<ParecerImportResult> ImportarPareceresAsync(
+        SolicitacaoVaga entity,
+        string tipoRequisicao,
+        int codColRequisicao,
+        int idReq,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        if (codColRequisicao <= 0 || idReq <= 0 || string.IsNullOrWhiteSpace(tipoRequisicao))
+            return ParecerImportResult.Skipped("vínculo RM incompleto");
+
+        var tipo = tipoRequisicao.Trim();
         IReadOnlyList<RmRequisicaoParecerRowDto> pareceres;
         try
         {
-            pareceres = await _parecerRead.ListAsync(row.Codcolrequisicao.Value, row.Idreq, ct);
+            pareceres = await _parecerRead.ListAsync(tipo, codColRequisicao, idReq, ct);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao importar pareceres RM {Tipo}/{CodCol}/{IdReq}", row.TipoRequisicao, row.Codcolrequisicao, row.Idreq);
-            return;
+            _logger.LogWarning(ex, "Falha ao importar pareceres RM {Tipo}/{CodCol}/{IdReq}", tipo, codColRequisicao, idReq);
+            return ParecerImportResult.Failed(ex.Message);
         }
 
         foreach (var parecer in pareceres)
         {
             var existing = await _db.RmRequisicaoPareceres.FirstOrDefaultAsync(x =>
-                x.TipoRequisicao == row.TipoRequisicao.Trim()
+                x.TipoRequisicao == tipo
                 && x.CodColRequisicao == (short)parecer.CodColRequisicao
                 && x.IdReq == parecer.IdReq
                 && x.IdParecer == parecer.IdParecer, ct);
@@ -270,7 +354,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
                 {
                     Id = Guid.NewGuid(),
                     TenantId = entity.TenantId,
-                    TipoRequisicao = row.TipoRequisicao.Trim(),
+                    TipoRequisicao = tipo,
                     CodColRequisicao = (short)parecer.CodColRequisicao,
                     IdReq = parecer.IdReq,
                     IdParecer = parecer.IdParecer,
@@ -293,6 +377,28 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         }
 
         await _db.SaveChangesAsync(ct);
+        return ParecerImportResult.Succeeded(pareceres.Count);
+    }
+
+    private static string? ResolveTipoRequisicaoRm(SolicitacaoVaga entity)
+    {
+        var fromCodigo = RmRequisicaoTipos.TryParseTipoFromVinculo(entity.RmRequisicaoCodigo);
+        if (!string.IsNullOrWhiteSpace(fromCodigo))
+            return fromCodigo;
+
+        return entity.TipoSolicitacao switch
+        {
+            TipoSolicitacaoVaga.Substituicao => RmRequisicaoTipos.Substituicao,
+            TipoSolicitacaoVaga.AumentoQuadro => RmRequisicaoTipos.AumentoQuadro,
+            _ => null,
+        };
+    }
+
+    private readonly record struct ParecerImportResult(bool Ok, int Count, string? Error)
+    {
+        public static ParecerImportResult Succeeded(int count) => new(true, count, null);
+        public static ParecerImportResult Failed(string error) => new(false, 0, error);
+        public static ParecerImportResult Skipped(string reason) => new(true, 0, reason);
     }
 
     private async Task MapRowAsync(SolicitacaoVaga entity, RmRequisicaoRowDto row, SolicitacaoStatus status, DateTimeOffset now, CancellationToken ct)
