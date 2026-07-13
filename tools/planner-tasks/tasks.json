@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T23:39:57.748Z",
+    "atualizadoEm": "2026-07-13T23:40:04.475Z",
     "totalTarefas": 252
   },
   "tarefas": [
@@ -27,7 +27,9 @@
       "entregavel": "Na edicao, Criterios espelham Dados/Local/Requisitos (readonly); vazios ocultos; exclusivos do raw editaveis; save recompõe matchingFiltrosRaw.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "b785a88e"
+        ],
         "branch": "DEV",
         "prHml": null,
         "plannerTaskId": "cqIEc1B3VkG_mGkA2JSF02UAGs3c"
