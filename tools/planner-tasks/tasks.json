@@ -6,10 +6,34 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T20:43:11.407Z",
-    "totalTarefas": 250
+    "atualizadoEm": "2026-07-13T22:44:22.730Z",
+    "totalTarefas": 251
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-251",
+      "nome": "[Portal RH] Remover Motivo de abertura da edição de vaga",
+      "descricaoAmigavel": "Dor: Na tela de edição de vaga, o campo Motivo de abertura aparece e não deveria estar visível, gerando confusão.\\nNecessidade: Remover o Motivo de abertura da tela de edição de vagas.\\nSolução proposta: Ajustar a edição de vaga para não exibir o Motivo de abertura.\\nDefinição de pronto: Ao abrir a edição de uma vaga, o Motivo de abertura não aparece mais.\\nQ/A - Como testar: Abrir Editar Vaga e confirmar que o campo Motivo de abertura não está visível.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "19:38",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "19:44",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "3 Remover Motivo de abertura da edição de vaga — Retirar o campo Motivo de abertura da tela de edição de vaga.",
+      "entregavel": "Campo Motivo de abertura oculto na edição de vaga (VagaFormModal). Valor existente preservado no save.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "plannerTaskId": "zs3QCxB8SECT_JW8pyraTmUAPlNG"
+      },
+      "observacoes": "Aguardando promoção HML/PRD."
+    },
     {
       "id": "TASK-2026-250",
       "nome": "[Portal RH] Colocar Status ao lado de Título nas solicitações",
@@ -17,7 +41,7 @@
       "inicio": "2026-07-13",
       "horarioInicio": "17:41",
       "conclusao": "2026-07-13",
-      "horarioConclusao": "17:42",
+      "horarioConclusao": "17:44",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -32,9 +56,10 @@
         ],
         "branch": "DEV",
         "prHml": "Merge PR #218",
-        "prPrd": "Merge PR #219"
+        "prPrd": "Merge PR #219",
+        "plannerTaskId": "lPfa9zqmoEOK_ld9ihxpFmUAEfeo"
       },
-      "observacoes": "Promovido HML (PR #218) e PRD (PR #219) em 13/07/2026. Coluna Status reposicionada ao lado de Titulo."
+      "observacoes": "Promovido HML (PR #218) e PRD (PR #219) em 13/07/2026. Coluna Status reposicionada ao lado de Titulo. Planner fechado 13/07/2026 17:44 (card grid/status)."
     },
     {
       "id": "TASK-2026-249",
@@ -43,7 +68,7 @@
       "inicio": "2026-07-13",
       "horarioInicio": "17:07",
       "conclusao": "2026-07-13",
-      "horarioConclusao": "17:17",
+      "horarioConclusao": "17:44",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -63,7 +88,7 @@
         "prPrd": "Merge PR #215",
         "plannerTaskId": "bni2V3GwkkiL2kKSK-SS9mUAPzUE"
       },
-      "observacoes": "CODSTATUS 5 → PendenteAprovacao no portal; import sem criar vaga; AssignAnalistaRh bloqueado. HML PR #214 (17:17); PRD PR #215."
+      "observacoes": "CODSTATUS 5 → PendenteAprovacao no portal; import sem criar vaga; AssignAnalistaRh bloqueado. HML PR #214 (17:17); PRD PR #215. Planner fechado 13/07/2026 17:44."
     },
     {
       "id": "TASK-2026-248",
