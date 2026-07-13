@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T22:44:22.730Z",
+    "atualizadoEm": "2026-07-13T22:44:34.496Z",
     "totalTarefas": 251
   },
   "tarefas": [
@@ -27,7 +27,9 @@
       "entregavel": "Campo Motivo de abertura oculto na edição de vaga (VagaFormModal). Valor existente preservado no save.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "40d87c1f"
+        ],
         "branch": "DEV",
         "prHml": null,
         "plannerTaskId": "zs3QCxB8SECT_JW8pyraTmUAPlNG"
