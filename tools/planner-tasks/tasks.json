@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T10:22:00-03:00",
+    "atualizadoEm": "2026-07-13T10:56:00-03:00",
     "totalTarefas": 244
   },
   "tarefas": [
@@ -6201,7 +6201,7 @@
       "horarioInicio": "09:25",
       "conclusao": "2026-07-13",
       "horarioConclusao": "10:22",
-      "totalHoras": 1.0,
+      "totalHoras": 1,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
@@ -6253,20 +6253,23 @@
       "descricaoAmigavel": "Dor: o card do histórico de pareceres ficava estreito no centro do modal.\nNecessidade: o card ocupar toda a largura útil do modal.\nSolução proposta: remover o limite max-w-2xl e centralização do card na aba Aprovações.\nDefinição de pronto: na aba Aprovações, o card do histórico usa a largura completa do modal.\nQ/A - Como testar: abrir Visualizar Requisição → Aprovações e conferir o card colado às bordas do conteúdo.",
       "inicio": "2026-07-13",
       "horarioInicio": "10:10",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "10:56",
+      "totalHoras": 0.75,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "No modal que mostra os pareceres, o card precisa ocupar toda a largura do modal.",
       "entregavel": "Card Histórico RM em largura total na aba Aprovações.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "5a935f52"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #201",
+        "prPrd": "Merge PR #202"
       },
       "observacoes": null
     }
