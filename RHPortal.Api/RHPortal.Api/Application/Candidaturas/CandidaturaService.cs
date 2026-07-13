@@ -234,6 +234,8 @@ public sealed class CandidaturaService : ICandidaturaService
 
     public async Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, bool notificar, CancellationToken ct)
     {
+        EnsureKanbanWritable();
+
         var cand = await _db.Candidaturas.FirstOrDefaultAsync(x => x.Id == candidaturaId, ct);
         if (cand is null) return null;
 
@@ -627,6 +629,8 @@ public sealed class CandidaturaService : ICandidaturaService
 
     public async Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct)
     {
+        EnsureKanbanWritable();
+
         var text = observacao.Trim();
         if (string.IsNullOrWhiteSpace(text))
             throw new InvalidOperationException("Informe uma observação.");
@@ -672,7 +676,7 @@ public sealed class CandidaturaService : ICandidaturaService
 
     public async Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct)
     {
-        var q = from c in _db.Candidaturas.AsNoTracking()
+        var q = from c in AplicarEscopoKanban(_db.Candidaturas.AsNoTracking())
                 join cand in _db.Candidatos.AsNoTracking() on c.CandidatoId equals cand.Id
                 join v in _db.Vagas.AsNoTracking() on c.VagaId equals v.Id into vj
                 from v in vj.DefaultIfEmpty()
@@ -707,21 +711,6 @@ public sealed class CandidaturaService : ICandidaturaService
                                 ? cand.LastMatchScore
                                 : null,
                 };
-
-        if (!_currentUser.IsAdmin && !_currentUser.IsInRole("Owner"))
-        {
-            if (!_currentUser.UserId.HasValue)
-            {
-                q = q.Where(_ => false);
-            }
-            else
-            {
-                var userId = _currentUser.UserId.Value;
-                q = q.Where(x => _db.SolicitacoesVaga
-                    .AsNoTracking()
-                    .Any(s => s.VagaId == x.VagaId && s.AnalistaRhResponsavelUserId == userId));
-            }
-        }
 
         var rows = await q.OrderByDescending(x => x.AplicadaEmUtc).ToListAsync(ct);
         var total = rows.Count;
@@ -784,15 +773,28 @@ public sealed class CandidaturaService : ICandidaturaService
 
         IQueryable<Guid> vagaIds = candidaturaVagaIds;
 
-        if (!_currentUser.IsAdmin && !_currentUser.IsInRole("Owner") && _currentUser.UserId.HasValue)
+        if (!_currentUser.IsAdmin && !_currentUser.IsInRole("Owner"))
         {
-            var userId = _currentUser.UserId.Value;
-            var vagasAtribuidas = _db.SolicitacoesVaga
-                .AsNoTracking()
-                .Where(s => s.VagaId.HasValue && s.AnalistaRhResponsavelUserId == userId)
-                .Select(s => s.VagaId!.Value);
+            if (_currentUser.IsInRole("Gestor") && _currentUser.FuncionarioId.HasValue)
+            {
+                var funcionarioId = _currentUser.FuncionarioId.Value;
+                var vagasDoSolicitante = _db.SolicitacoesVaga
+                    .AsNoTracking()
+                    .Where(s => s.VagaId.HasValue && s.SolicitanteId == funcionarioId)
+                    .Select(s => s.VagaId!.Value);
 
-            vagaIds = vagaIds.Union(vagasAtribuidas);
+                vagaIds = vagaIds.Union(vagasDoSolicitante);
+            }
+            else if (_currentUser.UserId.HasValue)
+            {
+                var userId = _currentUser.UserId.Value;
+                var vagasAtribuidas = _db.SolicitacoesVaga
+                    .AsNoTracking()
+                    .Where(s => s.VagaId.HasValue && s.AnalistaRhResponsavelUserId == userId)
+                    .Select(s => s.VagaId!.Value);
+
+                vagaIds = vagaIds.Union(vagasAtribuidas);
+            }
         }
 
         var ids = await vagaIds.Distinct().ToListAsync(ct);
@@ -829,6 +831,20 @@ public sealed class CandidaturaService : ICandidaturaService
             return query;
         }
 
+        // Gestor: só candidaturas de vagas ligadas a solicitações que ele abriu.
+        if (_currentUser.IsInRole("Gestor"))
+        {
+            if (!_currentUser.FuncionarioId.HasValue)
+            {
+                return query.Where(_ => false);
+            }
+
+            var funcionarioId = _currentUser.FuncionarioId.Value;
+            return query.Where(c => _db.SolicitacoesVaga
+                .AsNoTracking()
+                .Any(s => s.VagaId == c.VagaId && s.SolicitanteId == funcionarioId));
+        }
+
         if (!_currentUser.UserId.HasValue)
         {
             return query.Where(_ => false);
@@ -838,6 +854,18 @@ public sealed class CandidaturaService : ICandidaturaService
         return query.Where(c => _db.SolicitacoesVaga
             .AsNoTracking()
             .Any(s => s.VagaId == c.VagaId && s.AnalistaRhResponsavelUserId == userId));
+    }
+
+    /// <summary>
+    /// Gestor (e perfis read-only) consultam o Kanban, mas não alteram etapas/observações.
+    /// </summary>
+    private void EnsureKanbanWritable()
+    {
+        if (_currentUser.IsInRole("Gestor") || _currentUser.IsReadOnly)
+        {
+            throw new UnauthorizedAccessException(
+                "Seu perfil tem acesso somente leitura ao Kanban de candidaturas.");
+        }
     }
 
     private async Task<Dictionary<(Guid CandidatoId, Guid VagaId), int?>> CalcularScoresHybridKanbanAsync(
