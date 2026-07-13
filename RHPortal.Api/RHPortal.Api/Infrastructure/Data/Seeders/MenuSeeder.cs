@@ -238,6 +238,7 @@ public static class MenuSeeder
         ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
         ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
         ("/Recrutamento/Candidaturas", "bi-diagram-3", 4, "candidaturas.view", false, "Seed.Menu.KanbanCandidaturas", null),
+        ("/Recrutamento/Sla", "bi-stopwatch", 5, "sla.dashboard.view", false, "Seed.Menu.SlaDashboard", null),
         ("/Matching", "bi-stars", 5, "matching.view", true, "Seed.Menu.Matching", null),
         ("/Triagem", "bi-funnel", 6, "triagem.view", false, "Seed.Menu.Triagem", null),
         ("/Recrutamento/Propostas-Vaga", "bi-file-earmark-text", 6, "propostas-vaga.view", false, "Seed.Menu.PropostasVaga", null),
