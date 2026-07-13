@@ -222,7 +222,7 @@ public sealed class NavegacaoSidebarServiceTests
     public void Build_ItensDeRecrutamento_VaoParaBucketDoPacote()
     {
         var resp = NavegacaoSidebarService.Build(
-            permissions: new[] { "vagas.view", "candidatos.view", "admissao.view" },
+            permissions: new[] { "vagas.view", "candidatos.view", "candidaturas.view", "admissao.view" },
             enabledModuleKeys: TodosModulosHabilitados(),
             contextoEspecial: null);
 
@@ -230,7 +230,24 @@ public sealed class NavegacaoSidebarServiceTests
         Assert.NotNull(pacote);
         Assert.Contains(pacote!.Itens, i => i.Href == "/vagas");
         Assert.Contains(pacote.Itens, i => i.Href == "/candidatos");
+        Assert.Contains(pacote.Itens, i => i.Href == "/recrutamento/candidaturas");
         Assert.Contains(pacote.Itens, i => i.Href == "/admissao");
+    }
+
+    [Fact]
+    public void Build_SomenteCandidaturasView_MostraApenasKanbanNaoCandidatosPipelineNemTalentos()
+    {
+        var resp = NavegacaoSidebarService.Build(
+            permissions: new[] { "candidaturas.view" },
+            enabledModuleKeys: TodosModulosHabilitados(),
+            contextoEspecial: null);
+
+        var pacote = resp.Grupos.FirstOrDefault(g => g.Key == "recrutamento-selecao");
+        Assert.NotNull(pacote);
+        Assert.Contains(pacote!.Itens, i => i.Href == "/recrutamento/candidaturas");
+        Assert.DoesNotContain(pacote.Itens, i => i.Href == "/candidatos");
+        Assert.DoesNotContain(pacote.Itens, i => i.Href == "/gestao/pipeline");
+        Assert.DoesNotContain(pacote.Itens, i => i.Href == "/talentos");
     }
 
     [Fact]

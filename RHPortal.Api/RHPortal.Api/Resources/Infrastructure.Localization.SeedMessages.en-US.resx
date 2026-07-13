@@ -114,6 +114,9 @@
   <data name="Seed.Menu.Candidatos" xml:space="preserve">
     <value>Candidates</value>
   </data>
+  <data name="Seed.Menu.KanbanCandidaturas" xml:space="preserve">
+    <value>Applications Kanban</value>
+  </data>
   <data name="Seed.Menu.Talentos" xml:space="preserve">
     <value>Talents</value>
   </data>
