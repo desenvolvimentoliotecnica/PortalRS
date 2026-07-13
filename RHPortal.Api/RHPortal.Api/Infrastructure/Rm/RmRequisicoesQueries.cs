@@ -214,4 +214,38 @@ Base AS (
         var direction = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
         return $"{column} {direction}, IDREQ DESC";
     }
+
+    /// <summary>
+    /// Pareceres de aumento de quadro / substituição (tabelas VREQ*PARECER).
+    /// </summary>
+    internal static string SqlPareceresPorVinculo(string tipoRequisicao)
+    {
+        var table = tipoRequisicao.Trim().ToUpperInvariant() switch
+        {
+            RmRequisicaoTipos.AumentoQuadro => "VREQAUMENTOQUADROPARECER",
+            RmRequisicaoTipos.Substituicao => "VREQSUBSTITUICAOPARECER",
+            _ => throw new ArgumentOutOfRangeException(nameof(tipoRequisicao), tipoRequisicao, "Tipo sem tabela de pareceres SQL.")
+        };
+
+        return $"""
+            SELECT
+                P.CODCOLREQUISICAO,
+                P.IDREQ,
+                P.IDPARECER,
+                P.DATAPARECER,
+                P.CODSTATUS,
+                P.SUSPENSAO,
+                P.CODCOLSOLICITANTE,
+                P.CHAPASOLICITANTE,
+                CAST(P.PARECER AS NVARCHAR(MAX)) AS PARECER,
+                F.NOME AS SOLICITANTE
+            FROM {table} P
+            LEFT JOIN PFUNC F
+                ON F.CODCOLIGADA = P.CODCOLSOLICITANTE
+               AND F.CHAPA = P.CHAPASOLICITANTE
+            WHERE P.CODCOLREQUISICAO = @CodCol
+              AND P.IDREQ = @IdReq
+            ORDER BY P.DATAPARECER ASC, P.IDPARECER ASC
+            """;
+    }
 }

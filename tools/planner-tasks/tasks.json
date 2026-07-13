@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T09:23:00-03:00",
-    "totalTarefas": 241
+    "atualizadoEm": "2026-07-13T09:25:00-03:00",
+    "totalTarefas": 242
   },
   "tarefas": [
     {
@@ -6189,6 +6189,29 @@
         "prHml": null
       },
       "observacoes": "Causa HMG: ParecerEndpointUrl vazio + REST :8051 fora; dados existem no SQL CORPORERM."
+    },
+    {
+      "id": "TASK-2026-242",
+      "nome": "[Portal RH] Remover SLA Dashboard do perfil Gestor e expor no controle de acessos",
+      "descricaoAmigavel": "Dor: o Gestor via o SLA Dashboard e não havia como desmarcar no controle de acessos.\nNecessidade: Gestor sem esse menu; item disponível em Acessos para outros perfis.\nSolução proposta: tirar sla.dashboard.view do manifesto do Gestor e cadastrar o menu SLA Dashboard.\nDefinição de pronto: Gestor não vê /recrutamento/sla; em Acessos aparece “SLA Dashboard”.\nQ/A - Como testar: relogar como Gestor e confirmar ausência do menu; em Acessos, marcar/desmarcar o item no Analista.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "09:25",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 50,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "A view /app/recrutamento/sla não deve ser visível para o Gestor; não encontrei o item na view de acessos.",
+      "entregavel": "SLA Dashboard fora do Gestor e visível no controle de acessos.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": null
     }
   ]
 }
