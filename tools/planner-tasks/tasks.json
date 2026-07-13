@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T09:25:00-03:00",
+    "atualizadoEm": "2026-07-13T09:39:00-03:00",
     "totalTarefas": 242
   },
   "tarefas": [
@@ -6173,22 +6173,25 @@
       "descricaoAmigavel": "Dor: a aba Aprovações do detalhe da solicitação ficava vazia mesmo com pareceres no RM.\nNecessidade: ao importar ou no worker automático, gravar sempre o histórico de pareceres.\nSolução proposta: ler pareceres via SQL (VREQAUMENTOQUADROPARECER / VREQSUBSTITUICAOPARECER) e fazer refresh das solicitações já vinculadas ao RM.\nDefinição de pronto: após um ciclo de import/worker, RmRequisicaoPareceres populado e a aba Aprovações mostra a timeline.\nQ/A - Como testar: importar aprovadas ou aguardar o worker; abrir solicitação RM (ex. IDREQ 3747/3613) e conferir a aba Aprovações.",
       "inicio": "2026-07-13",
       "horarioInicio": "09:07",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "09:39",
+      "totalHoras": 0.53,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Descobrir por que não traz o histórico de aprovações no detalhe; quando importadas/worker, pareceres SEMPRE devem vir.",
       "entregavel": "Leitura SQL de pareceres RM no import e no worker, com backfill das solicitações existentes com vínculo RM.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "cb3610da"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #189",
+        "prPrd": "Merge PR #190"
       },
-      "observacoes": "Causa HMG: ParecerEndpointUrl vazio + REST :8051 fora; dados existem no SQL CORPORERM."
+      "observacoes": "Promovido DEV→HML→PRD. Causa HMG: ParecerEndpointUrl vazio + REST :8051 fora; dados no SQL CORPORERM."
     },
     {
       "id": "TASK-2026-242",
