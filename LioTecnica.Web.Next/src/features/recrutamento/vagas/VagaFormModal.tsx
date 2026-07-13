@@ -2014,8 +2014,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 </div>
               )}
               <Field label="Visibilidade" span="col-span-12 md:col-span-3"><EnumSelect value={draft.visibilidade} onChange={(v) => set("visibilidade", v)} options={enumOpts(enums, "vagaPublicacaoVisibilidade", "Selecionar")} /></Field>
-              <Field label="Data de início" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="date" value={draft.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} /></Field>
-              <Field label="Data de encerramento" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="date" value={draft.dataEncerramento} onChange={(e) => set("dataEncerramento", e.target.value)} /></Field>
+              <Field label="Início previsto no cargo" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="date" value={draft.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} title="Data em que o colaborador admitido deve iniciar no cargo" /></Field>
+              <Field label="Encerramento das candidaturas" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="date" value={draft.dataEncerramento} onChange={(e) => set("dataEncerramento", e.target.value)} title="Até quando a vaga permanece aberta a candidaturas no portal" /></Field>
 
               <SectionHeader title="Canais de divulgação" />
               <div className="col-span-12 flex flex-wrap gap-4 rounded-md border border-border bg-muted/30 px-4 py-3">

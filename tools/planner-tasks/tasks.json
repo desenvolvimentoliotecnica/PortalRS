@@ -6,10 +6,35 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T11:52:00-03:00",
-    "totalTarefas": 246
+    "atualizadoEm": "2026-07-13T12:15:00-03:00",
+    "totalTarefas": 247
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-247",
+      "nome": "[Portal RH] Não usar início previsto no cargo para esconder vaga no portal",
+      "descricaoAmigavel": "Dor: a data de início previsto do colaborador no cargo estava impedindo a vaga de aparecer no Portal de Vagas.\nNecessidade: essa data deve informar quando o admitido começa, sem controlar a publicação.\nSolução proposta: remover o filtro de DataInicio do catálogo público e dos matches do candidato; esclarecer os rótulos na tela da vaga.\nDefinição de pronto: vaga Aberta com início futuro aparece no portal (respeitando demais regras); labels deixam o significado claro.\nQ/A - Como testar: abrir vaga com início previsto futuro, status Aberta e visibilidade externa; conferir listagem em /api/public/vagas e no portal.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "11:58",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "12:15",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "A data de início seria informação para a data de início do futuro candidato no cargo, e não a data início/fim da vaga — essa data não deveria impedir a vaga de aparecer no portal.",
+      "entregavel": "Filtro de DataInicio removido do portal público e matches; labels ajustados para \"Início previsto no cargo\" e \"Encerramento das candidaturas\".",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "f203c9e6"
+        ],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Relacionada à TASK-2026-246 (diagnóstico). DataEncerramento continua filtrando o portal como prazo de candidaturas."
+    },
     {
       "id": "TASK-2026-246",
       "nome": "[Portal RH] Diagnosticar vaga Aberta sem Publicar e ausente no Portal de Vagas",
