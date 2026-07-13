@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Candidaturas;
 using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Infrastructure.Security;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -14,10 +15,12 @@ namespace RhPortal.Api.Controllers;
 public sealed class CandidaturasController : ControllerBase
 {
     private readonly ICandidaturaService _service;
+    private readonly ICurrentUserContext _userContext;
 
-    public CandidaturasController(ICandidaturaService service)
+    public CandidaturasController(ICandidaturaService service, ICurrentUserContext userContext)
     {
         _service = service;
+        _userContext = userContext;
     }
 
     /// <summary>
@@ -37,6 +40,7 @@ public sealed class CandidaturasController : ControllerBase
     /// <summary>
     /// Retorna somente vagas relevantes para o filtro do Kanban: vagas com candidaturas
     /// visíveis no Kanban e, para analista RH, vagas atribuídas a ele mesmo sem candidatura.
+    /// Gestor: vagas ligadas às solicitações que ele abriu.
     /// </summary>
     [HttpGet("kanban/vagas")]
     [ProducesResponseType(typeof(IReadOnlyList<KanbanVagaFiltroItem>), StatusCodes.Status200OK)]
@@ -60,6 +64,7 @@ public sealed class CandidaturasController : ControllerBase
     /// <summary>Avança (ou retrocede) a etapa de uma candidatura — registra histórico e dispara notificação.</summary>
     [HttpPost("{id:guid}/avancar-etapa")]
     [ProducesResponseType(typeof(AvancarEtapaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AvancarEtapaResponse>> AvancarEtapa(
@@ -67,11 +72,17 @@ public sealed class CandidaturasController : ControllerBase
         [FromBody] AvancarEtapaRequest request,
         CancellationToken ct)
     {
+        if (KanbanSomenteLeitura()) return Forbid();
+
         try
         {
             var resp = await _service.AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, request.Entrevista, request.Notificar, ct);
             if (resp is null) return NotFound();
             return Ok(resp);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {
@@ -83,17 +94,24 @@ public sealed class CandidaturasController : ControllerBase
     [HttpPost("{id:guid}/observacoes")]
     [ProducesResponseType(typeof(CandidaturaResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidaturaResponse>> RegistrarObservacao(
         Guid id,
         [FromBody] RegistrarObservacaoCandidaturaRequest request,
         CancellationToken ct)
     {
+        if (KanbanSomenteLeitura()) return Forbid();
+
         try
         {
             var resp = await _service.RegistrarObservacaoAsync(id, request.Observacao, ct);
             if (resp is null) return NotFound();
             return Ok(resp);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {
@@ -125,18 +143,28 @@ public sealed class CandidaturasController : ControllerBase
     [HttpPost("bulk-avancar-etapa")]
     [ProducesResponseType(typeof(BulkAvancarEtapaResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<BulkAvancarEtapaResponse>> BulkAvancarEtapa(
         [FromBody] BulkAvancarEtapaRequest request,
         CancellationToken ct)
     {
+        if (KanbanSomenteLeitura()) return Forbid();
+
         try
         {
             var resp = await _service.AvancarEtapaEmMassaAsync(request, ct);
             return Ok(resp);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    private bool KanbanSomenteLeitura() =>
+        _userContext.IsInRole("Gestor") || _userContext.IsReadOnly;
 }

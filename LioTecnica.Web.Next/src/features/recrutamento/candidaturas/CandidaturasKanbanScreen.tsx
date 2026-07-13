@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useIsGestor } from "@/hooks/useAuth";
 import {
   Dialog,
   DialogContent,
@@ -201,6 +201,8 @@ async function fetchParticipantesAgenda(q: string): Promise<ResponsavelEntrevist
 export default function CandidaturasKanbanScreen() {
   const router = useRouter();
   const { me } = useAuth();
+  const isGestor = useIsGestor();
+  const readOnly = isGestor;
   const [data, setData] = useState<KanbanCandidaturasResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [vagaId, setVagaId] = useState<string>("");
@@ -237,7 +239,7 @@ export default function CandidaturasKanbanScreen() {
   }
 
   async function runBulkAvancar() {
-    if (selectedIds.size === 0 || !bulkTargetEtapa) return;
+    if (readOnly || selectedIds.size === 0 || !bulkTargetEtapa) return;
     setBulkRunning(true);
     try {
       const result = await bulkAvancarEtapa(Array.from(selectedIds), bulkTargetEtapa as EtapaMacroCandidatura);
@@ -353,6 +355,7 @@ export default function CandidaturasKanbanScreen() {
   }, [columns]);
 
   const openMoveDialog = useCallback((item: KanbanCandidaturaItem, destino?: EtapaMacroCandidatura) => {
+    if (readOnly) return;
     const origem = resolveEtapa(item.etapaMacro);
     if (destino && origem === destino) return;
     setMoveDialog({
@@ -364,9 +367,14 @@ export default function CandidaturasKanbanScreen() {
       entrevista: defaultInterviewDraft(me?.displayName || me?.email || "Analista de RH"),
       saving: false,
     });
-  }, [me?.displayName, me?.email]);
+  }, [me?.displayName, me?.email, readOnly]);
 
   const onDropTo = (etapa: EtapaMacroCandidatura) => {
+    if (readOnly) {
+      setDragging(null);
+      setHoverEtapa(null);
+      return;
+    }
     setHoverEtapa(null);
     const item = dragging;
     setDragging(null);
@@ -377,7 +385,7 @@ export default function CandidaturasKanbanScreen() {
   };
 
   async function confirmMove() {
-    if (!moveDialog) return;
+    if (readOnly || !moveDialog) return;
     const { item, destino, observacao, entrevista, notificarEnvolvidos } = moveDialog;
     if (!destino) {
       toast.error("Selecione a etapa de destino.");
@@ -451,7 +459,9 @@ export default function CandidaturasKanbanScreen() {
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900">Kanban de candidaturas</h1>
           <p className="text-sm text-neutral-600">
-            Arraste os cards entre as colunas para avançar a etapa.
+            {readOnly
+              ? "Visualização das candidaturas nas vagas das suas solicitações (somente leitura)."
+              : "Arraste os cards entre as colunas para avançar a etapa."}
             {data ? ` ${data.total} candidatura${data.total === 1 ? "" : "s"}.` : ""}
           </p>
         </div>
@@ -478,7 +488,7 @@ export default function CandidaturasKanbanScreen() {
       </header>
 
       {/* Sessão 31.8 (FASE 3.B) — Barra contextual de bulk actions */}
-      {selectedIds.size > 0 && (
+      {!readOnly && selectedIds.size > 0 && (
         <div className="rounded-md border border-sky-300 bg-sky-50 px-4 py-3 flex items-center gap-3">
           <span className="text-sm font-medium text-sky-900">
             {selectedIds.size} candidatura(s) selecionada(s)
@@ -520,9 +530,9 @@ export default function CandidaturasKanbanScreen() {
               <div
                 key={etapa}
                 className={`flex min-h-full w-72 shrink-0 flex-col rounded-lg border bg-white ${style.accent} ${isHover ? "ring-2 ring-sky-400" : ""}`}
-                onDragOver={(e) => { e.preventDefault(); setHoverEtapa(etapa); }}
-                onDragLeave={() => { if (hoverEtapa === etapa) setHoverEtapa(null); }}
-                onDrop={(e) => { e.preventDefault(); void onDropTo(etapa); }}
+                onDragOver={readOnly ? undefined : (e) => { e.preventDefault(); setHoverEtapa(etapa); }}
+                onDragLeave={readOnly ? undefined : () => { if (hoverEtapa === etapa) setHoverEtapa(null); }}
+                onDrop={readOnly ? undefined : (e) => { e.preventDefault(); void onDropTo(etapa); }}
               >
                 <div className={`rounded-t-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide ${style.header}`}>
                   <div className="flex items-center justify-between">
@@ -554,14 +564,15 @@ export default function CandidaturasKanbanScreen() {
                       return (
                         <article
                           key={it.id}
-                          draggable
-                          onDragStart={() => setDragging(it)}
-                          onDragEnd={() => { setDragging(null); setHoverEtapa(null); }}
+                          draggable={!readOnly}
+                          onDragStart={readOnly ? undefined : () => setDragging(it)}
+                          onDragEnd={readOnly ? undefined : () => { setDragging(null); setHoverEtapa(null); }}
                           onClick={() => setDetailItem(it)}
-                          className={`cursor-grab rounded-md border border-l-4 ${slaBorder} ${isSelected ? "border-sky-400 ring-2 ring-sky-200" : "border-neutral-200"} bg-white p-3 text-sm shadow-sm hover:shadow-md active:cursor-grabbing`}
+                          className={`rounded-md border border-l-4 ${slaBorder} ${isSelected ? "border-sky-400 ring-2 ring-sky-200" : "border-neutral-200"} bg-white p-3 text-sm shadow-sm hover:shadow-md ${readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
                           title={slaTooltip}
                         >
                           <div className="flex items-start gap-2">
+                            {!readOnly && (
                             <input
                               type="checkbox"
                               className="mt-1 accent-sky-600 cursor-pointer"
@@ -570,6 +581,7 @@ export default function CandidaturasKanbanScreen() {
                               onClick={(e) => e.stopPropagation()}
                               title="Selecionar para ação em massa"
                             />
+                            )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-1">
                                 <div className="font-medium text-neutral-900 min-w-0">{it.candidatoNome}</div>
@@ -590,10 +602,12 @@ export default function CandidaturasKanbanScreen() {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48">
+                                      {!readOnly && (
                                       <DropdownMenuItem onClick={() => openMoveDialog(it)}>
                                         <Send className="mr-2 size-4" />
                                         Enviar para etapa
                                       </DropdownMenuItem>
+                                      )}
                                       <DropdownMenuItem onClick={() => setDetailItem(it)}>
                                         <Eye className="mr-2 size-4" />
                                         Ver detalhes
