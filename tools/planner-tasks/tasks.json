@@ -6311,15 +6311,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Trocar o envio do CV para ser a fonte de verdade inicial no Novo Candidato, com parse determinístico (sem IA), primeiro 1 a 1.",
       "entregavel": "Modal Novo Candidato com upload de CV que pré-preenche campos via parse determinístico e anexa o PDF ao salvar.",
-      "ambiente": "HML",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "3e42ac29"
+          "3e42ac29",
+          "b5708d6a"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #205",
+        "prPrd": "Merge PR #206"
       },
-      "observacoes": null
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
