@@ -2271,7 +2271,7 @@ public sealed class PortalCandidatesController : ControllerBase
                     || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.NaoInformado
                     || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.Externa
                     || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.InternaEExterna)
-                && (!v.DataInicio.HasValue || v.DataInicio.Value <= today)
+                // DataInicio = início previsto do colaborador no cargo (não janela de publicação).
                 && (!v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today)
             orderby (score != null ? score.Score : 0) descending, v.CreatedAtUtc descending
             select new PortalCandidateJobMatchItem(

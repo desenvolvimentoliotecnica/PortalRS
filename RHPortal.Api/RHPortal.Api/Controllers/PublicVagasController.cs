@@ -86,7 +86,7 @@ public sealed class PublicVagasController : ControllerBase
                 || v.Visibilidade == VagaPublicacaoVisibilidade.NaoInformado
                 || v.Visibilidade == VagaPublicacaoVisibilidade.Externa
                 || v.Visibilidade == VagaPublicacaoVisibilidade.InternaEExterna)
-            .Where(v => !v.DataInicio.HasValue || v.DataInicio.Value <= today)
+            // DataInicio = início previsto do colaborador no cargo (não janela de publicação).
             .Where(v => !v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today);
 
         if (!string.IsNullOrWhiteSpace(q))
@@ -212,7 +212,7 @@ public sealed class PublicVagasController : ControllerBase
                 || v.Visibilidade == VagaPublicacaoVisibilidade.NaoInformado
                 || v.Visibilidade == VagaPublicacaoVisibilidade.Externa
                 || v.Visibilidade == VagaPublicacaoVisibilidade.InternaEExterna)
-            .Where(v => !v.DataInicio.HasValue || v.DataInicio.Value <= today)
+            // DataInicio = início previsto do colaborador no cargo (não janela de publicação).
             .Where(v => !v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today)
             .Select(v => new PortalVagaCardResponse(
                 v.Id,

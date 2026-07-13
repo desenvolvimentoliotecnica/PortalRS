@@ -311,6 +311,7 @@ namespace RHPortal.Api.Domain.Entities
         // Publicação e SLA
         // --------------------
         public VagaPublicacaoVisibilidade? Visibilidade { get; set; } // vagaVisibilidade
+        /// <summary>Data prevista de início do colaborador no cargo (não controla publicação no portal).</summary>
         public DateOnly? DataInicio { get; set; }           // vagaDataInicio
         public DateOnly? DataEncerramento { get; set; }     // vagaDataFim
         /// <summary>Data/hora em que a vaga passou a status Aberta (início da contagem do SLA).</summary>
