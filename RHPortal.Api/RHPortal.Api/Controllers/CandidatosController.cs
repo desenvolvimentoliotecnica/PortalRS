@@ -635,6 +635,43 @@ public sealed class CandidatosController : ControllerBase
     }
 
     /// <summary>
+    /// Analisa um currículo (PDF/DOCX/TXT) de forma determinística, sem criar candidato nem persistir arquivo.
+    /// Usado pelo modal Novo Candidato para pré-preencher campos.
+    /// </summary>
+    [HttpPost("curriculo-parse")]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(CandidatoCurriculoParseResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CandidatoCurriculoParseResponse>> ParseCurriculo(
+        [FromForm] IFormFile arquivo,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
+            return Forbid();
+
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = "Arquivo de currículo é obrigatório." });
+
+        var ext = Path.GetExtension(arquivo.FileName)?.ToLowerInvariant() ?? string.Empty;
+        if (ext is not (".pdf" or ".docx" or ".txt"))
+            return BadRequest(new { message = "Apenas arquivos PDF, DOCX ou TXT são aceitos." });
+
+        try
+        {
+            var result = await service.ParseCurriculoAsync(arquivo, ct);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Atualiza um candidato existente.
     /// </summary>
     [HttpPut("{id:guid}")]
