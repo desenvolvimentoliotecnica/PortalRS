@@ -115,7 +115,10 @@ public sealed class RequestLogMiddleware : IMiddleware
         {
             context.Request.EnableBuffering();
             var bodyText = await ReadSnippetAsync(context.Request.Body, MaxSnippetBytes, context.RequestAborted);
-            requestLog.RequestBodySnippet = MaskingAndTruncation.MaskJson(bodyText);
+            // MaskJson pode expandir escapes; truncar sempre no limite da coluna varchar(4096).
+            requestLog.RequestBodySnippet = MaskingAndTruncation.Truncate(
+                MaskingAndTruncation.MaskJson(bodyText),
+                MaxSnippetBytes);
         }
 
         var logContext = new LogContext
@@ -137,16 +140,19 @@ public sealed class RequestLogMiddleware : IMiddleware
 
         using var scope = _accessor.BeginScope(logContext);
 
+        var requestLogPersisted = false;
         try
         {
             using var suppress = _accessor.BeginSuppress();
             using var auditSuppress = _auditAccessor.BeginSuppress();
             _db.RequestLogs.Add(requestLog);
             await _db.SaveChangesAsync(context.RequestAborted);
+            requestLogPersisted = true;
         }
         catch
         {
-            // best-effort
+            // best-effort: detach para não contaminar SaveChanges do request de negócio
+            DetachRequestLog(requestLog);
         }
 
         try
@@ -159,6 +165,9 @@ public sealed class RequestLogMiddleware : IMiddleware
             // Client cancelled the request: skip updating the request log.
             return;
         }
+
+        if (!requestLogPersisted)
+            return;
 
         sw.Stop();
         requestLog.EndedAt = startedAt.Add(sw.Elapsed);
@@ -182,8 +191,16 @@ public sealed class RequestLogMiddleware : IMiddleware
         }
         catch
         {
-            // best-effort
+            DetachRequestLog(requestLog);
         }
+    }
+
+    private void DetachRequestLog(RequestLog requestLog)
+    {
+        var tracked = _db.ChangeTracker.Entries<RequestLog>()
+            .FirstOrDefault(e => ReferenceEquals(e.Entity, requestLog) || e.Entity.Id == requestLog.Id);
+        if (tracked is not null)
+            tracked.State = EntityState.Detached;
     }
 
     private static bool ShouldCaptureBody(HttpRequest request)

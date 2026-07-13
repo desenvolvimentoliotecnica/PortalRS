@@ -63,7 +63,10 @@ public static class ExceptionLoggingHelper
         }
         catch
         {
-            // best-effort
+            var tracked = db.ChangeTracker.Entries<ExceptionLog>()
+                .FirstOrDefault(e => ReferenceEquals(e.Entity, entry) || e.Entity.Id == entry.Id);
+            if (tracked is not null)
+                tracked.State = Microsoft.EntityFrameworkCore.EntityState.Detached;
         }
     }
 }
