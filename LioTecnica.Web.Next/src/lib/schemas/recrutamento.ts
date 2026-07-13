@@ -84,6 +84,7 @@ export const CandidatoSchema = z
         nome: z.string().optional().nullable(),
         email: z.string().optional().nullable(),
         fone: z.string().optional().nullable(),
+        celular: z.string().optional().nullable(),
         cidade: z.string().optional().nullable(),
         uf: z.string().optional().nullable(),
         linkedinUrl: z.string().optional().nullable(),
