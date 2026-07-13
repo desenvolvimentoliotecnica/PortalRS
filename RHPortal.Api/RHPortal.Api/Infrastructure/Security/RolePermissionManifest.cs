@@ -108,11 +108,11 @@ public static class RolePermissionManifest
     private static readonly IReadOnlyList<string> GestorCompliancePermissions =
     [
         "dashboard.view",
-        "sla.dashboard.view",
         "solicitacoes-vaga.view",
         "gestao.dashboard",
         "agenda.view",
-        // Só o Kanban — não incluir candidatos.view (libera também Pipeline e Banco de Talentos).
+        // Só o Kanban — não incluir candidatos.view (libera também Pipeline e Banco de Talentos)
+        // nem sla.dashboard.view (painel operacional de RH).
         "candidaturas.view",
     ];
 

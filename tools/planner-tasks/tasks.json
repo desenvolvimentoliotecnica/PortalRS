@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T09:57:00-03:00",
-    "totalTarefas": 243
+    "atualizadoEm": "2026-07-13T10:22:00-03:00",
+    "totalTarefas": 244
   },
   "tarefas": [
     {
@@ -6199,11 +6199,11 @@
       "descricaoAmigavel": "Dor: o Gestor via o SLA Dashboard e não havia como desmarcar no controle de acessos.\nNecessidade: Gestor sem esse menu; item disponível em Acessos para outros perfis.\nSolução proposta: tirar sla.dashboard.view do manifesto do Gestor e cadastrar o menu SLA Dashboard.\nDefinição de pronto: Gestor não vê /recrutamento/sla; em Acessos aparece “SLA Dashboard”.\nQ/A - Como testar: relogar como Gestor e confirmar ausência do menu; em Acessos, marcar/desmarcar o item no Analista.",
       "inicio": "2026-07-13",
       "horarioInicio": "09:25",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 50,
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "10:21",
+      "totalHoras": 1.0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "A view /app/recrutamento/sla não deve ser visível para o Gestor; não encontrei o item na view de acessos.",
@@ -6212,7 +6212,8 @@
       "referencias": {
         "commits": [],
         "branch": "DEV",
-        "prHml": null
+        "prHml": null,
+        "prPrd": null
       },
       "observacoes": null
     },
@@ -6241,6 +6242,29 @@
         "prPrd": "Merge PR #194"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-244",
+      "nome": "[Portal RH] Card de pareceres RM em largura total no modal",
+      "descricaoAmigavel": "Dor: o card do histórico de pareceres ficava estreito no centro do modal.\nNecessidade: o card ocupar toda a largura útil do modal.\nSolução proposta: remover o limite max-w-2xl e centralização do card na aba Aprovações.\nDefinição de pronto: na aba Aprovações, o card do histórico usa a largura completa do modal.\nQ/A - Como testar: abrir Visualizar Requisição → Aprovações e conferir o card colado às bordas do conteúdo.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "10:10",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "No modal que mostra os pareceres, o card precisa ocupar toda a largura do modal.",
+      "entregavel": "Card Histórico RM em largura total na aba Aprovações.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": null
     }
   ]
 }
