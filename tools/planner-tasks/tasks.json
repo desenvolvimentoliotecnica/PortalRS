@@ -6,10 +6,34 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T22:45:11.672Z",
-    "totalTarefas": 251
+    "atualizadoEm": "2026-07-13T23:39:57.748Z",
+    "totalTarefas": 252
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-252",
+      "nome": "[Portal RH] Criterios do candidato ideal: espelhar outras abas na edicao",
+      "descricaoAmigavel": "Dor: Na edicao de vaga, Critérios do candidato ideal ficam Qualquer/vazios embora Modalidade, Cidade etc. ja existam em outras abas.\nNecessidade: Espelhar valores das abas Dados/Local/Requisitos e ocultar campos sem valor.\nSolucao proposta: Na edicao, derivar criterios das outras abas; exclusivos (sexo/PCD/idade/obs) so se raw tiver.\nDefinicao de pronto: Editar vaga mostra so criterios com valor, espelhados das outras abas.\nQ/A - Como testar: Abrir /vagas/editar com Dados/Local/Requisitos preenchidos e confirmar secao Matching.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "20:33",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "20:39",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Critérios do candidato ideal: pré-preencher ou ocultar na edição — espelhar outras abas",
+      "entregavel": "Na edicao, Criterios espelham Dados/Local/Requisitos (readonly); vazios ocultos; exclusivos do raw editaveis; save recompõe matchingFiltrosRaw.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "plannerTaskId": "cqIEc1B3VkG_mGkA2JSF02UAGs3c"
+      },
+      "observacoes": "Aguardando promocao HML/PRD."
+    },
     {
       "id": "TASK-2026-251",
       "nome": "[Portal RH] Remover Motivo de abertura da edição de vaga",
