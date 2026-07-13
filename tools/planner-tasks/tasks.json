@@ -27,7 +27,9 @@
       "entregavel": "Consulta RM 36 meses + CODSTATUS 5 visível/importável só para consulta; distribuição bloqueada.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "88f5ec70"
+        ],
         "branch": "DEV",
         "prHml": null,
         "plannerTaskId": "bni2V3GwkkiL2kKSK-SS9mUAPzUE"
