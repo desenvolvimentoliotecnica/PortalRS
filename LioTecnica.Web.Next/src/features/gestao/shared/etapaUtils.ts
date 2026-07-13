@@ -182,3 +182,63 @@ export function mapTimelineEventosToSteps(eventos: SolicitacaoTimelineEventoResp
         };
     });
 }
+
+/** Parecer RM (campo `rmPareceres` do GET solicitacoes-vaga). */
+export interface RmParecerResponse {
+    idParecer: number;
+    dataParecer: string | null;
+    codStatus: number | string | null;
+    status: string | null;
+    solicitante: string | null;
+    chapaSolicitante: string | null;
+    parecer: string | null;
+}
+
+export function formatRmCodStatusLabel(value: number | string | null | undefined): string | null {
+    if (value == null || value === "") return null;
+    const code = Number(value);
+    if (!Number.isFinite(code)) return String(value);
+    const labels: Record<number, string> = {
+        1: "Em andamento",
+        2: "Reprovada",
+        3: "Aprovada",
+        4: "Concluída",
+        5: "Pendente aprovação",
+        6: "Cancelada",
+    };
+    return labels[code] ?? `CODSTATUS ${code}`;
+}
+
+function rmCodStatusToStepStatus(codStatus: number | string | null | undefined): number {
+    const code = Number(codStatus);
+    if (code === 2) return 2; // reprovado
+    if (code === 6) return 3; // cancelado
+    return 1; // parecer registrado (aprovado / em andamento / concluído / etc.)
+}
+
+/**
+ * Mapeia pareceres RM para a timeline do Acompanhamento (mesma fonte da aba Aprovações).
+ * Mantém a ordem da API (mais recente primeiro).
+ */
+export function mapRmPareceresToSteps(pareceres: RmParecerResponse[]): AprovacaoStep[] {
+    return pareceres
+        .filter((p) => Number(p.idParecer) > 0)
+        .map((p) => {
+            const statusLabel =
+                (p.status?.trim() || null)
+                ?? formatRmCodStatusLabel(p.codStatus)
+                ?? `Parecer #${p.idParecer}`;
+            const nomeParts = [
+                p.solicitante?.trim() || null,
+                p.chapaSolicitante?.trim() || null,
+            ].filter(Boolean);
+            return {
+                label: `${statusLabel} · Parecer #${p.idParecer}`,
+                nome: nomeParts.length > 0 ? nomeParts.join(" · ") : "Solicitante RM",
+                status: rmCodStatusToStepStatus(p.codStatus),
+                habilitado: true,
+                date: p.dataParecer,
+                observacao: p.parecer?.trim() || null,
+            };
+        });
+}

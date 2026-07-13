@@ -40,9 +40,11 @@ import AcompanhamentoModal, { type AprovacaoStep } from "@/features/gestao/share
 import {
     mapEtapasToSteps,
     mapTimelineEventosToSteps,
+    mapRmPareceresToSteps,
     normalizeEtapaStatus,
     type EtapaAprovacaoResponse,
     type SolicitacaoTimelineEventoResponse,
+    type RmParecerResponse,
 } from "@/features/gestao/shared/etapaUtils";
 import {
     normalizeSolicitacaoStatusOrdinal,
@@ -324,6 +326,15 @@ export default function PainelSolicitacoesScreen() {
         try {
             const detail = await fetchJson<Record<string, unknown>>(row.detailApi);
             setTimelineStatus(detail.status as number | string ?? row.status);
+
+            const rmPareceres = Array.isArray(detail.rmPareceres)
+                ? (detail.rmPareceres as RmParecerResponse[])
+                : [];
+            if (rmPareceres.length > 0) {
+                setTimelineSteps(mapRmPareceresToSteps(rmPareceres));
+                return;
+            }
+
             const timelineEventos = detail.timelineEventos as SolicitacaoTimelineEventoResponse[] | undefined;
             if (timelineEventos?.length) {
                 setTimelineSteps(mapTimelineEventosToSteps(timelineEventos));
