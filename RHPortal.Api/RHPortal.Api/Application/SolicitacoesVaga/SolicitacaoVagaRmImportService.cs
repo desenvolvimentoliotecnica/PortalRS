@@ -11,7 +11,7 @@ namespace RhPortal.Api.Application.SolicitacoesVaga;
 
 public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportService
 {
-    private static readonly int[] CodStatusPadraoImportacao = [1, 3];
+    private static readonly int[] CodStatusPadraoImportacao = [1, 3, 5];
 
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
@@ -162,9 +162,15 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         }
 
         await MapRowAsync(entity, row, mappedStatus, now, ct);
+        var apenasConsulta = mappedStatus == SolicitacaoStatus.PendenteAprovacao;
+        if (apenasConsulta)
+            entity.AnalistaRhResponsavelUserId = null;
+
         await _db.SaveChangesAsync(ct);
 
-        await _solicitacaoVagaService.GarantirVagaRascunhoParaSolicitacaoAprovadaAsync(entity.Id, ct);
+        if (!apenasConsulta)
+            await _solicitacaoVagaService.GarantirVagaRascunhoParaSolicitacaoAprovadaAsync(entity.Id, ct);
+
         await SincronizarTituloVagaVinculadaAsync(entity, now, ct);
         var parecerResult = await ImportarPareceresAsync(
             entity,
@@ -180,10 +186,13 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         var parecerMsg = parecerResult.Ok
             ? $"{parecerResult.Count} parecer(es)"
             : $"pareceres falharam ({parecerResult.Error})";
+        var fluxoMsg = apenasConsulta
+            ? "somente consulta (em aprovação no RM — sem distribuição)"
+            : $"vaga {(vagaCriada ? "criada" : "mantida")}";
         return new ImportLineResult(
             status,
             vagaCriada,
-            $"{BuildHumanKey(row)}: {(created ? "importada" : "atualizada")} e vaga {(vagaCriada ? "criada" : "mantida")}; {parecerMsg}.");
+            $"{BuildHumanKey(row)}: {(created ? "importada" : "atualizada")}; {fluxoMsg}; {parecerMsg}.");
     }
 
     private async Task<ImportLineResult> ImportarLinhaDesligamentoAsync(
@@ -257,9 +266,12 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             return false;
         }
 
-        if (mappedStatus is not (SolicitacaoStatus.Aprovada or SolicitacaoStatus.Concluida))
+        if (mappedStatus is not (
+            SolicitacaoStatus.Aprovada
+            or SolicitacaoStatus.Concluida
+            or SolicitacaoStatus.PendenteAprovacao))
         {
-            error = ImportLineResult.Ignored($"{BuildHumanKey(row)}: status RM mapeado para {mappedStatus}, não aprovado.");
+            error = ImportLineResult.Ignored($"{BuildHumanKey(row)}: status RM mapeado para {mappedStatus}, não importável (aprovado/em aprovação).");
             return false;
         }
 
