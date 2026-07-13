@@ -475,33 +475,78 @@ function enumOpts(data: EnumData, key: string, placeholder?: string): EnumOption
   return placeholder ? [{ code: "", text: placeholder }, ...list] : list;
 }
 
-function buildMatchingFiltrosRaw(d: VagaDraft, enums: EnumData): string | null {
-  const parts: string[] = [];
-  const enumText = (key: string, code: string) => {
-    const opt = (enums[key] ?? []).find((o) => o.code === code);
-    return opt?.text ?? code;
+/** Mapeia anos de experiência mínima (aba Requisitos) para bucket do matching. */
+function mapAnosToExpBucket(anos: string): string {
+  const n = Number(String(anos).trim().replace(",", "."));
+  if (!String(anos).trim() || Number.isNaN(n)) return "";
+  if (n <= 0) return "0";
+  if (n <= 1) return "0-1";
+  if (n <= 3) return "1-3";
+  if (n <= 5) return "3-5";
+  return "5+";
+}
+
+function stackToHabilidades(tagsStack: string): string {
+  return tagsStack
+    .split(/[;]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+/** Critérios espelhados das abas Dados / Local / Requisitos (fonte da verdade na edição). */
+function criteriosFromVagaDraft(d: Pick<
+  VagaDraft,
+  "modalidade" | "senioridade" | "escolaridade" | "formacaoArea" | "cidade" | "uf" | "experienciaMinimaAnos" | "tagsStack"
+>) {
+  return {
+    matchingModalidade: (d.modalidade || "").trim(),
+    matchingSenioridade: (d.senioridade || "").trim(),
+    matchingEscolaridade: (d.escolaridade || "").trim(),
+    matchingFormacaoArea: (d.formacaoArea || "").trim(),
+    matchingCidade: (d.cidade || "").trim(),
+    matchingUF: (d.uf || "").trim().toUpperCase().slice(0, 2),
+    matchingExp: mapAnosToExpBucket(d.experienciaMinimaAnos || ""),
+    matchingHabilidades: stackToHabilidades(d.tagsStack || ""),
   };
-  if (d.matchingModalidade) parts.push("Modalidade: " + enumText("vagaModalidade", d.matchingModalidade));
-  if (d.matchingSenioridade) parts.push("Senioridade: " + enumText("vagaSenioridade", d.matchingSenioridade));
-  if (d.matchingEscolaridade) parts.push("Escolaridade: " + enumText("vagaEscolaridade", d.matchingEscolaridade));
-  if (d.matchingFormacaoArea) parts.push("Formacao: " + enumText("vagaFormacaoArea", d.matchingFormacaoArea));
-  if (d.matchingCidade.trim()) parts.push("Cidade: " + d.matchingCidade.trim());
-  if (d.matchingUF) parts.push("UF: " + d.matchingUF);
-  if (d.matchingExp) {
-    const label = EXP_OPTIONS.find((o) => o.code === d.matchingExp)?.text ?? d.matchingExp;
+}
+
+function applyMirroredCriteriosToDraft(d: VagaDraft): VagaDraft {
+  return { ...d, ...criteriosFromVagaDraft(d) };
+}
+
+function enumLabel(enums: EnumData, key: string, code: string): string {
+  if (!code) return "";
+  const opt = (enums[key] ?? []).find((o) => o.code === code);
+  return opt?.text ?? code;
+}
+
+function buildMatchingFiltrosRaw(d: VagaDraft, enums: EnumData): string | null {
+  // Na edição, os critérios sobrepostos vêm sempre das outras abas.
+  const src = d.id ? applyMirroredCriteriosToDraft(d) : d;
+  const parts: string[] = [];
+  const enumText = (key: string, code: string) => enumLabel(enums, key, code);
+  if (src.matchingModalidade) parts.push("Modalidade: " + enumText("vagaModalidade", src.matchingModalidade));
+  if (src.matchingSenioridade) parts.push("Senioridade: " + enumText("vagaSenioridade", src.matchingSenioridade));
+  if (src.matchingEscolaridade) parts.push("Escolaridade: " + enumText("vagaEscolaridade", src.matchingEscolaridade));
+  if (src.matchingFormacaoArea) parts.push("Formacao: " + enumText("vagaFormacaoArea", src.matchingFormacaoArea));
+  if (src.matchingCidade.trim()) parts.push("Cidade: " + src.matchingCidade.trim());
+  if (src.matchingUF) parts.push("UF: " + src.matchingUF);
+  if (src.matchingExp) {
+    const label = EXP_OPTIONS.find((o) => o.code === src.matchingExp)?.text ?? src.matchingExp;
     parts.push("TempoExperiencia: " + label);
   }
-  if (d.matchingSexo) {
-    const label = SEXO_OPTIONS.find((o) => o.code === d.matchingSexo)?.text ?? d.matchingSexo;
+  if (src.matchingSexo) {
+    const label = SEXO_OPTIONS.find((o) => o.code === src.matchingSexo)?.text ?? src.matchingSexo;
     parts.push("Sexo: " + label);
   }
-  if (d.matchingPcd) parts.push("PCD: " + (d.matchingPcd === "S" ? "Sim" : "Nao"));
-  if (d.matchingIdadeMin) parts.push("IdadeMin: " + d.matchingIdadeMin);
-  if (d.matchingIdadeMax) parts.push("IdadeMax: " + d.matchingIdadeMax);
-  if (d.matchingRequerCnh) parts.push("RequerCNH: Sim");
-  if (d.matchingRequerCnh && d.matchingCnhCategoria) parts.push("CategoriaCNH: " + d.matchingCnhCategoria);
-  if (d.matchingHabilidades.trim()) parts.push("Habilidades: " + d.matchingHabilidades.trim());
-  if (d.matchingObs.trim()) parts.push("Observacoes: " + d.matchingObs.trim());
+  if (src.matchingPcd) parts.push("PCD: " + (src.matchingPcd === "S" ? "Sim" : "Nao"));
+  if (src.matchingIdadeMin) parts.push("IdadeMin: " + src.matchingIdadeMin);
+  if (src.matchingIdadeMax) parts.push("IdadeMax: " + src.matchingIdadeMax);
+  if (src.matchingRequerCnh) parts.push("RequerCNH: Sim");
+  if (src.matchingRequerCnh && src.matchingCnhCategoria) parts.push("CategoriaCNH: " + src.matchingCnhCategoria);
+  if (src.matchingHabilidades.trim()) parts.push("Habilidades: " + src.matchingHabilidades.trim());
+  if (src.matchingObs.trim()) parts.push("Observacoes: " + src.matchingObs.trim());
   return parts.length ? parts.join(". ") : null;
 }
 
@@ -987,7 +1032,14 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     const s = new Map<TabKey, boolean>();
     s.set("dados", !!(draft.titulo.trim() && draft.centroCustoId && draft.status));
     s.set("requisitos", draft.requisitos.length > 0);
-    s.set("matching", !!(draft.matchingModalidade || draft.matchingSenioridade || draft.matchingEscolaridade || draft.matchingHabilidades || draft.matchingCidade));
+    const criterios = draft.id ? criteriosFromVagaDraft(draft) : {
+      matchingModalidade: draft.matchingModalidade,
+      matchingSenioridade: draft.matchingSenioridade,
+      matchingEscolaridade: draft.matchingEscolaridade,
+      matchingHabilidades: draft.matchingHabilidades,
+      matchingCidade: draft.matchingCidade,
+    };
+    s.set("matching", !!(criterios.matchingModalidade || criterios.matchingSenioridade || criterios.matchingEscolaridade || criterios.matchingHabilidades || criterios.matchingCidade));
     s.set("publicacao", ["Externa", "InternaEExterna"].includes(draft.visibilidade));
     s.set("campos", true);
     return s;
@@ -1325,12 +1377,30 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         tagsIdiomas: pick(v.tagsIdiomasRaw).replace(/;/g, "; "),
         diferenciais: pick(v.diferenciais),
         requisitos: reqRaw.map((r: any) => ({ nome: pick(r.nome), categoria: pickEnum(r.categoria, "competencia"), peso: pick(r.peso, "1"), obrigatorio: pickBool(r.obrigatorio), anosMinimos: r.anosMinimos != null ? String(r.anosMinimos) : "", nivel: pickEnum(r.nivel), avaliacao: pickEnum(r.avaliacao), sinonimos: Array.isArray(r.sinonimos) ? r.sinonimos.join(", ") : "", obs: pick(r.observacoes) })),
-        matchingModalidade: mf.modalidade, matchingSenioridade: mf.senioridade,
-        matchingEscolaridade: mf.escolaridade, matchingFormacaoArea: mf.formacaoArea,
-        matchingCidade: mf.cidade, matchingUF: mf.uf, matchingExp: mf.tempoExp,
-        matchingSexo: mf.sexo, matchingPcd: mf.pcd, matchingIdadeMin: mf.idadeMin,
-        matchingIdadeMax: mf.idadeMax, matchingRequerCnh: mf.requerCnh,
-        matchingCnhCategoria: mf.cnhCategoria, matchingHabilidades: mf.habilidades, matchingObs: mf.observacoes,
+        // Critérios sobrepostos: espelham Dados/Local/Requisitos (não o matchingFiltrosRaw).
+        // Exclusivos (sexo/PCD/idade/obs/CNH): vêm do raw.
+        ...(() => {
+          const mirrored = criteriosFromVagaDraft({
+            modalidade: pickEnum(v.modalidade, "presencial"),
+            senioridade: pickEnum(v.senioridade),
+            escolaridade: pickEnum(v.escolaridade),
+            formacaoArea: pickEnum(v.formacaoArea),
+            cidade: pick(v.cidade),
+            uf: pick(v.uf),
+            experienciaMinimaAnos: v.experienciaMinimaAnos != null ? String(v.experienciaMinimaAnos) : "",
+            tagsStack: pick(v.tagsStackRaw).replace(/;/g, "; "),
+          });
+          return {
+            ...mirrored,
+            matchingSexo: mf.sexo,
+            matchingPcd: mf.pcd,
+            matchingIdadeMin: mf.idadeMin,
+            matchingIdadeMax: mf.idadeMax,
+            matchingRequerCnh: mf.requerCnh,
+            matchingCnhCategoria: mf.cnhCategoria,
+            matchingObs: mf.observacoes,
+          };
+        })(),
         weightsCompetencia: pickNum(w?.competencia, 40), weightsExperiencia: pickNum(w?.experiencia, 30),
         weightsFormacao: pickNum(w?.formacao, 15), weightsLocalidade: pickNum(w?.localidade, 15),
         // Sessão 31.8 — DescricaoCargo + pesos extras + max distância
@@ -1835,27 +1905,116 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           )}
 
           {/* ── Filtros matching (IA) ────────────────────────────── */}
-          {tab === "matching" && (
+          {tab === "matching" && (() => {
+            const isEdit = !!vagaId;
+            const mirrored = criteriosFromVagaDraft(draft);
+            const readonlyClass = "w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground";
+            const ReadonlyValue = ({ value }: { value: string }) => (
+              <input className={readonlyClass} readOnly value={value} />
+            );
+            return (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
-              <SectionHeader title="Critérios do candidato ideal" description="Esses dados são usados como contexto para o matching por IA. Preencha apenas o que for relevante." />
-              <Field label="Modalidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingModalidade} onChange={(v) => set("matchingModalidade", v)} options={enumOpts(enums, "vagaModalidade", "Qualquer")} /></Field>
-              <Field label="Senioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingSenioridade} onChange={(v) => set("matchingSenioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Qualquer")} /></Field>
-              <Field label="Escolaridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingEscolaridade} onChange={(v) => set("matchingEscolaridade", v)} options={enumOpts(enums, "vagaEscolaridade", "Qualquer")} /></Field>
-              <Field label="Formação (área)" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingFormacaoArea} onChange={(v) => set("matchingFormacaoArea", v)} options={enumOpts(enums, "vagaFormacaoArea", "Qualquer")} /></Field>
-              <Field label="Cidade" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: São Paulo" value={draft.matchingCidade} onChange={(e) => set("matchingCidade", e.target.value)} /></Field>
-              <Field label="UF" span="col-span-6 md:col-span-3">
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={draft.matchingUF} onChange={(e) => set("matchingUF", e.target.value)}>
-                  <option value="">Qualquer</option>
-                  {UF_LIST.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </Field>
-              <Field label="Tempo de experiência" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingExp} onChange={(v) => set("matchingExp", v)} options={EXP_OPTIONS} /></Field>
-              <Field label="Sexo" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingSexo} onChange={(v) => set("matchingSexo", v)} options={SEXO_OPTIONS} /></Field>
-              <Field label="PCD" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingPcd} onChange={(v) => set("matchingPcd", v)} options={PCD_MATCH_OPTIONS} /></Field>
-              <Field label="Idade mín." span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMin} onChange={(e) => set("matchingIdadeMin", e.target.value)} /></Field>
-              <Field label="Idade máx." span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMax} onChange={(e) => set("matchingIdadeMax", e.target.value)} /></Field>
-              <Field label="Habilidades desejadas" span="col-span-12"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: .NET, SQL, APIs REST (separadas por vírgula)" value={draft.matchingHabilidades} onChange={(e) => set("matchingHabilidades", e.target.value)} /></Field>
-              <Field label="Observações adicionais (opcional)" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} placeholder="Outros critérios em texto livre" value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} /></Field>
+              <SectionHeader
+                title="Critérios do candidato ideal"
+                description={isEdit
+                  ? "Na edição, estes critérios refletem o que já está em Dados, Localização e Requisitos. Campos sem valor não são exibidos; altere na aba de origem."
+                  : "Esses dados são usados como contexto para o matching por IA. Preencha apenas o que for relevante."}
+              />
+              {isEdit ? (
+                <>
+                  {mirrored.matchingModalidade ? (
+                    <Field label="Modalidade" span="col-span-6 md:col-span-3">
+                      <ReadonlyValue value={enumLabel(enums, "vagaModalidade", mirrored.matchingModalidade)} />
+                    </Field>
+                  ) : null}
+                  {mirrored.matchingSenioridade ? (
+                    <Field label="Senioridade" span="col-span-6 md:col-span-3">
+                      <ReadonlyValue value={enumLabel(enums, "vagaSenioridade", mirrored.matchingSenioridade)} />
+                    </Field>
+                  ) : null}
+                  {mirrored.matchingEscolaridade ? (
+                    <Field label="Escolaridade" span="col-span-6 md:col-span-3">
+                      <ReadonlyValue value={enumLabel(enums, "vagaEscolaridade", mirrored.matchingEscolaridade)} />
+                    </Field>
+                  ) : null}
+                  {mirrored.matchingFormacaoArea ? (
+                    <Field label="Formação (área)" span="col-span-6 md:col-span-3">
+                      <ReadonlyValue value={enumLabel(enums, "vagaFormacaoArea", mirrored.matchingFormacaoArea)} />
+                    </Field>
+                  ) : null}
+                  {mirrored.matchingCidade ? (
+                    <Field label="Cidade" span="col-span-6 md:col-span-3">
+                      <ReadonlyValue value={mirrored.matchingCidade} />
+                    </Field>
+                  ) : null}
+                  {mirrored.matchingUF ? (
+                    <Field label="UF" span="col-span-6 md:col-span-3">
+                      <ReadonlyValue value={mirrored.matchingUF} />
+                    </Field>
+                  ) : null}
+                  {mirrored.matchingExp ? (
+                    <Field label="Tempo de experiência" span="col-span-6 md:col-span-3">
+                      <ReadonlyValue value={EXP_OPTIONS.find((o) => o.code === mirrored.matchingExp)?.text ?? mirrored.matchingExp} />
+                    </Field>
+                  ) : null}
+                  {mirrored.matchingHabilidades ? (
+                    <Field label="Habilidades desejadas" span="col-span-12">
+                      <ReadonlyValue value={mirrored.matchingHabilidades} />
+                    </Field>
+                  ) : null}
+                  {draft.matchingSexo ? (
+                    <Field label="Sexo" span="col-span-6 md:col-span-3">
+                      <EnumSelect value={draft.matchingSexo} onChange={(v) => set("matchingSexo", v)} options={SEXO_OPTIONS} />
+                    </Field>
+                  ) : null}
+                  {draft.matchingPcd ? (
+                    <Field label="PCD" span="col-span-6 md:col-span-3">
+                      <EnumSelect value={draft.matchingPcd} onChange={(v) => set("matchingPcd", v)} options={PCD_MATCH_OPTIONS} />
+                    </Field>
+                  ) : null}
+                  {draft.matchingIdadeMin ? (
+                    <Field label="Idade mín." span="col-span-6 md:col-span-2">
+                      <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} value={draft.matchingIdadeMin} onChange={(e) => set("matchingIdadeMin", e.target.value)} />
+                    </Field>
+                  ) : null}
+                  {draft.matchingIdadeMax ? (
+                    <Field label="Idade máx." span="col-span-6 md:col-span-2">
+                      <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} value={draft.matchingIdadeMax} onChange={(e) => set("matchingIdadeMax", e.target.value)} />
+                    </Field>
+                  ) : null}
+                  {draft.matchingObs.trim() ? (
+                    <Field label="Observações adicionais (opcional)" span="col-span-12">
+                      <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} />
+                    </Field>
+                  ) : null}
+                  {!mirrored.matchingModalidade && !mirrored.matchingSenioridade && !mirrored.matchingEscolaridade && !mirrored.matchingFormacaoArea && !mirrored.matchingCidade && !mirrored.matchingUF && !mirrored.matchingExp && !mirrored.matchingHabilidades && !draft.matchingSexo && !draft.matchingPcd && !draft.matchingIdadeMin && !draft.matchingIdadeMax && !draft.matchingObs.trim() ? (
+                    <p className="col-span-12 text-sm text-muted-foreground">
+                      Nenhum critério preenchido ainda. Defina Modalidade, Localização e Requisitos nas abas correspondentes.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <Field label="Modalidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingModalidade} onChange={(v) => set("matchingModalidade", v)} options={enumOpts(enums, "vagaModalidade", "Qualquer")} /></Field>
+                  <Field label="Senioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingSenioridade} onChange={(v) => set("matchingSenioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Qualquer")} /></Field>
+                  <Field label="Escolaridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingEscolaridade} onChange={(v) => set("matchingEscolaridade", v)} options={enumOpts(enums, "vagaEscolaridade", "Qualquer")} /></Field>
+                  <Field label="Formação (área)" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingFormacaoArea} onChange={(v) => set("matchingFormacaoArea", v)} options={enumOpts(enums, "vagaFormacaoArea", "Qualquer")} /></Field>
+                  <Field label="Cidade" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: São Paulo" value={draft.matchingCidade} onChange={(e) => set("matchingCidade", e.target.value)} /></Field>
+                  <Field label="UF" span="col-span-6 md:col-span-3">
+                    <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={draft.matchingUF} onChange={(e) => set("matchingUF", e.target.value)}>
+                      <option value="">Qualquer</option>
+                      {UF_LIST.map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Tempo de experiência" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingExp} onChange={(v) => set("matchingExp", v)} options={EXP_OPTIONS} /></Field>
+                  <Field label="Sexo" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingSexo} onChange={(v) => set("matchingSexo", v)} options={SEXO_OPTIONS} /></Field>
+                  <Field label="PCD" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingPcd} onChange={(v) => set("matchingPcd", v)} options={PCD_MATCH_OPTIONS} /></Field>
+                  <Field label="Idade mín." span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMin} onChange={(e) => set("matchingIdadeMin", e.target.value)} /></Field>
+                  <Field label="Idade máx." span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMax} onChange={(e) => set("matchingIdadeMax", e.target.value)} /></Field>
+                  <Field label="Habilidades desejadas" span="col-span-12"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: .NET, SQL, APIs REST (separadas por vírgula)" value={draft.matchingHabilidades} onChange={(e) => set("matchingHabilidades", e.target.value)} /></Field>
+                  <Field label="Observações adicionais (opcional)" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} placeholder="Outros critérios em texto livre" value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} /></Field>
+                </>
+              )}
 
               <SectionHeader title="Descrição de Cargo (template DNALIO)" description="Vincule uma descrição de cargo — o matching consome as seções estruturadas (Atividades, Competências, Vivências, Requisitos) para calcular score por categoria." />
               <Field label="Descrição de cargo" span="col-span-12">
@@ -1931,7 +2090,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 })()}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ── Processo seletivo ────────────────────────────────── */}
           {tab === "processo" && (
