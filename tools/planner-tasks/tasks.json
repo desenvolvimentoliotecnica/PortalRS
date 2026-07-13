@@ -6,10 +6,33 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T10:56:00-03:00",
-    "totalTarefas": 244
+    "atualizadoEm": "2026-07-13T11:52:00-03:00",
+    "totalTarefas": 246
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-246",
+      "nome": "[Portal RH] Diagnosticar vaga Aberta sem Publicar e ausente no Portal de Vagas",
+      "descricaoAmigavel": "Dor: vaga 1133 - DESENVOLVEDOR SR. está Aberta, mas o botão Publicar fica desabilitado e a vaga não aparece no Portal de Vagas.\nNecessidade: entender a causa real do bloqueio (status vs. regras de publicação pública).\nSolução proposta: cruzar hub da vaga, API autenticada e filtro do catálogo público.\nDefinição de pronto: causa raiz documentada com evidências e próximos passos claros para o RH.\nQ/A - Como testar: abrir a vaga no hub, conferir tooltip do Publicar e GET /api/public/vagas/{id}; validar campo Data de início e filtros de solicitação RM.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "11:44",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "11:52",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Investigar por que a vaga http://10.0.0.79:3000/app/vagas/hub?id=69ed94ea-a7ff-4804-92cb-ee271a1b781e não tem botão Publicar habilitado e não aparece no Portal de Vagas (http://10.0.0.79:3050/), mesmo com status Aberta.",
+      "entregavel": "Diagnóstico: Publicar desabilitado porque status Aberta já equivale a publicada no hub; portal público bloqueia pela Data de início 30/07/2026 (futura) e exige solicitação com RM + analista.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Vaga id=69ed94ea-a7ff-4804-92cb-ee271a1b781e. Evidências: status Aberta, dataInicio=2026-07-30, GET público 404, requisitos/etapas vazios, rodada ativa existe."
+    },
     {
       "id": "TASK-2025-001",
       "nome": "[Portal RH] Estrutura inicial do portal e layout MVC",
@@ -6270,6 +6293,31 @@
         "branch": "DEV",
         "prHml": "Merge PR #201",
         "prPrd": "Merge PR #202"
+      },
+      "observacoes": null
+    },
+    {
+      "id": "TASK-2026-245",
+      "nome": "[Portal RH] CV como fonte do cadastro de Novo Candidato",
+      "descricaoAmigavel": "Dor: o analista digita à mão nome, e-mail e telefone de cada CV no modal Novo Candidato.\nNecessidade: enviar o PDF e ver os campos principais preenchidos automaticamente, sem IA.\nSolução proposta: parse determinístico do CV (texto + regras) no modal, anexando o arquivo ao salvar.\nDefinição de pronto: subir 1 PDF no Novo Candidato preenche campos editáveis e, ao salvar, cria o candidato com o CV anexado.\nQ/A - Como testar: em Candidatos → Novo Candidato → anexar PDF → conferir nome/e-mail/celular → Salvar e verificar documento.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "11:31",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "11:55",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Trocar o envio do CV para ser a fonte de verdade inicial no Novo Candidato, com parse determinístico (sem IA), primeiro 1 a 1.",
+      "entregavel": "Modal Novo Candidato com upload de CV que pré-preenche campos via parse determinístico e anexa o PDF ao salvar.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "3e42ac29"
+        ],
+        "branch": "DEV",
+        "prHml": null
       },
       "observacoes": null
     }

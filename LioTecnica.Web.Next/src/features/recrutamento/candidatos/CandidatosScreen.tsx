@@ -289,6 +289,8 @@ export default function CandidatosScreen() {
   const [draftDocTipo, setDraftDocTipo] = useState<string>("curriculo");
   const [draftDocDescricao, setDraftDocDescricao] = useState<string>("");
   const [draftDocFile, setDraftDocFile] = useState<File | null>(null);
+  const [cvParseLoading, setCvParseLoading] = useState(false);
+  const [cvParseFileName, setCvParseFileName] = useState<string | null>(null);
 
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggested, setSuggested] = useState<Record<string, unknown> | null>(null);
@@ -518,17 +520,24 @@ export default function CandidatosScreen() {
     setPendingDocs([]);
     setDraftDocDescricao("");
     setDraftDocFile(null);
+    setCvParseLoading(false);
+    setCvParseFileName(null);
     setDraftDocTipo(enumOptions(enums, "candidatoDocumentoTipo")[0]?.code ?? "curriculo");
     setDraft({
       nome: "",
       email: "",
       fone: "",
+      celular: "",
       cidade: "",
       uf: "SP",
       fonte: defaultEnumCode("candidatoFonte", "email"),
       status: defaultEnumCode("candidatoStatus", "novo"),
       vagaId: firstVagaId,
       obs: "",
+      linkedinUrl: null,
+      pretensaoSalarial: null,
+      trabalhandoAtualmente: null,
+      cvText: null,
     });
     setEditOpen(true);
   }
@@ -538,12 +547,104 @@ export default function CandidatosScreen() {
       setPendingDocs([]);
       setDraftDocDescricao("");
       setDraftDocFile(null);
+      setCvParseLoading(false);
+      setCvParseFileName(null);
       setDraftDocTipo(enumOptions(enums, "candidatoDocumentoTipo")[0]?.code ?? "curriculo");
       const d = await fetchJson<Candidato>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`);
       setDraft({ ...d, status: resolveStatusEnumCode(d.status, enums) });
       setEditOpen(true);
     } catch {
       toast.error("Falha ao abrir edição.");
+    }
+  }
+
+  async function parseCurriculoForDraft(file: File) {
+    const ext = (file.name || "").toLowerCase();
+    if (!ext.endsWith(".pdf") && !ext.endsWith(".docx") && !ext.endsWith(".txt")) {
+      toast.error("Use PDF, DOCX ou TXT.");
+      return;
+    }
+
+    setCvParseLoading(true);
+    setCvParseFileName(file.name);
+    try {
+      const form = new FormData();
+      form.append("arquivo", file);
+      const parsed = await fetchJson<Record<string, unknown>>(`${BASE}/api/candidatos/curriculo-parse`, {
+        method: "POST",
+        body: form,
+      });
+
+      const nome = pickString(parsed.nome ?? parsed.Nome, "").trim();
+      const email = pickString(parsed.email ?? parsed.Email, "").trim();
+      const fone = pickString(parsed.fone ?? parsed.Fone, "").trim();
+      const celular = pickString(parsed.celular ?? parsed.Celular, "").trim();
+      const cidade = pickString(parsed.cidade ?? parsed.Cidade, "").trim();
+      const uf = pickString(parsed.uf ?? parsed.Uf, "").trim().toUpperCase().slice(0, 2);
+      const linkedinUrl = pickString(parsed.linkedinUrl ?? parsed.LinkedinUrl, "").trim();
+      const cvText = pickString(parsed.cvText ?? parsed.CvText, "").trim();
+      const pretRaw = parsed.pretensaoSalarial ?? parsed.PretensaoSalarial;
+      const pretensao =
+        typeof pretRaw === "number" && Number.isFinite(pretRaw)
+          ? pretRaw
+          : pretRaw != null && pretRaw !== "" && Number.isFinite(Number(pretRaw))
+            ? Number(pretRaw)
+            : null;
+
+      setDraft((prev) => {
+        const isNew = !pickString(prev.id, "").trim();
+        const empty = (v: unknown) => !pickString(v, "").trim();
+        const next: Partial<Candidato> & Record<string, unknown> = { ...prev };
+        // CV é fonte inicial: no novo cadastro aplica o que o parse trouxe; na edição só completa vazios.
+        if (nome && (isNew || empty(prev.nome))) next.nome = nome;
+        if (email && (isNew || empty(prev.email))) next.email = email;
+        if (fone && (isNew || empty(prev.fone))) next.fone = fone;
+        if (celular && (isNew || empty(prev.celular))) next.celular = celular;
+        else if (!celular && fone && (isNew || empty(prev.celular))) next.celular = fone;
+        if (cidade && (isNew || empty(prev.cidade))) next.cidade = cidade;
+        if (uf && (isNew || empty(prev.uf) || pickString(prev.uf, "") === "SP")) next.uf = uf;
+        if (linkedinUrl && (isNew || empty(prev.linkedinUrl))) next.linkedinUrl = linkedinUrl;
+        if (pretensao != null && (isNew || prev.pretensaoSalarial == null)) next.pretensaoSalarial = pretensao;
+        if (cvText) next.cvText = cvText;
+        return next;
+      });
+
+      setPendingDocs((prev) => {
+        const withoutSame = prev.filter((d) => d.tipo !== "curriculo" || d.nomeArquivo !== file.name);
+        return [
+          ...withoutSame,
+          {
+            tempId: createPendingId(),
+            tipo: "curriculo",
+            descricao: "Currículo (fonte do cadastro)",
+            file,
+            nomeArquivo: file.name,
+            tamanhoBytes: file.size,
+            status: "pending" as const,
+          },
+        ];
+      });
+
+      const found: string[] = [];
+      if (nome) found.push("nome");
+      if (email) found.push("e-mail");
+      if (celular || fone) found.push("telefone");
+      if (cidade || uf) found.push("cidade/UF");
+      if (linkedinUrl) found.push("LinkedIn");
+      if (pretensao != null) found.push("pretensão");
+
+      if (found.length === 0) {
+        toast.message("Currículo anexado, mas não encontramos campos para preencher. Complete manualmente.");
+      } else if (!nome || !email || !(celular || fone)) {
+        toast.success(`Campos preenchidos do CV: ${found.join(", ")}. Revise o que faltar.`);
+      } else {
+        toast.success(`Currículo analisado: ${found.join(", ")}.`);
+      }
+    } catch {
+      setCvParseFileName(null);
+      toast.error("Falha ao analisar o currículo.");
+    } finally {
+      setCvParseLoading(false);
     }
   }
 
@@ -1514,6 +1615,36 @@ export default function CandidatosScreen() {
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div className="space-y-4">
+                {!draft.id ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-emerald-800">
+                      Currículo (fonte do cadastro)
+                    </label>
+                    <p className="mb-2 text-xs text-emerald-900/80">
+                      Envie o PDF do candidato para preencher automaticamente nome, e-mail, telefone e outros dados encontrados.
+                    </p>
+                    <input
+                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-emerald-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-emerald-900"
+                      type="file"
+                      accept=".pdf,.docx,.txt,application/pdf"
+                      disabled={cvParseLoading}
+                      onChange={(e) => {
+                        const file = e.currentTarget.files?.[0] ?? null;
+                        e.currentTarget.value = "";
+                        if (file) void parseCurriculoForDraft(file);
+                      }}
+                    />
+                    {cvParseLoading ? (
+                      <div className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-900">
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Analisando currículo…
+                      </div>
+                    ) : cvParseFileName ? (
+                      <p className="mt-2 text-xs text-emerald-900/90">Arquivo: {cvParseFileName} (será anexado ao salvar)</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {(() => {
                   const draftApproved = isCandidatoAprovado(draft.status);
                   return (

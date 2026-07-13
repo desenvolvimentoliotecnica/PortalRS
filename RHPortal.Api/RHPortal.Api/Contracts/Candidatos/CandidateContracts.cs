@@ -111,6 +111,19 @@ public sealed record CandidatoCurriculoExtrairResponse(
     TalentoImportPdfSuggestedData? SuggestedData
 );
 
+/// <summary>Parse determinístico de currículo sem criar candidato nem persistir documento.</summary>
+public sealed record CandidatoCurriculoParseResponse(
+    string? CvText,
+    string? Nome,
+    string? Email,
+    string? Fone,
+    string? Celular,
+    string? Cidade,
+    string? Uf,
+    string? LinkedinUrl,
+    decimal? PretensaoSalarial
+);
+
 public sealed record CandidateMatchRequest(
     int? Score,
     bool? Pass,

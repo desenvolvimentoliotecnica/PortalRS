@@ -35,6 +35,8 @@ public interface ICandidatoService
     Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct, Guid? vagaId = null);
     /// <summary>Upload de currículo (PDF), extração de texto e opcionalmente dados sugeridos pela LLM para o usuário revisar na tela.</summary>
     Task<CandidatoCurriculoExtrairResponse?> UploadCurriculoEExtrairAsync(Guid candidatoId, IFormFile arquivo, bool enviarParaGpt, CancellationToken ct);
+    /// <summary>Extrai texto e campos heurísticos de um CV sem criar candidato nem persistir arquivo.</summary>
+    Task<CandidatoCurriculoParseResponse> ParseCurriculoAsync(IFormFile arquivo, CancellationToken ct);
     Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
 }
@@ -881,20 +883,83 @@ public sealed class CandidatoService : ICandidatoService
 
         var cvText = await TryExtractAndPersistCvTextAsync(candidatoId, filePath, CandidateDocumentType.Curriculo, ct);
         TalentoImportPdfSuggestedData? suggestedData = null;
-        if (enviarParaGpt && !string.IsNullOrWhiteSpace(cvText))
+        if (!string.IsNullOrWhiteSpace(cvText))
         {
-            try
+            if (enviarParaGpt)
             {
-                suggestedData = await _cvGptExtractor.ExtractSuggestedDataAsync(cvText, ct);
+                try
+                {
+                    suggestedData = await _cvGptExtractor.ExtractSuggestedDataAsync(cvText, ct);
+                }
+                catch
+                {
+                    /* best-effort */
+                }
             }
-            catch
+
+            if (suggestedData is null)
             {
-                /* best-effort */
+                var h = CvHeuristicExtractor.Extract(cvText, originalName);
+                suggestedData = new TalentoImportPdfSuggestedData(
+                    h.Nome,
+                    h.Email,
+                    h.Celular ?? h.Fone,
+                    h.Cidade,
+                    h.Uf,
+                    h.LinkedinUrl,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Array.Empty<TalentoCompetenciaItem>(),
+                    Array.Empty<TalentoExperienciaItem>(),
+                    Array.Empty<TalentoTreinamentoItem>(),
+                    Array.Empty<TalentoFormacaoItem>());
             }
         }
 
         var documentoResponse = MapDocumento(candidatoId, doc);
         return new CandidatoCurriculoExtrairResponse(documentoResponse, cvText, suggestedData);
+    }
+
+    public async Task<CandidatoCurriculoParseResponse> ParseCurriculoAsync(IFormFile arquivo, CancellationToken ct)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            throw new InvalidOperationException(_localizer["ServiceErrors.CandidatoFileInvalid"]);
+
+        var ext = Path.GetExtension(arquivo.FileName)?.ToLowerInvariant() ?? string.Empty;
+        if (ext is not (".pdf" or ".docx" or ".txt"))
+            throw new InvalidOperationException("Apenas arquivos PDF, DOCX ou TXT são aceitos para análise de currículo.");
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"cv-parse-{Guid.NewGuid():N}{ext}");
+        try
+        {
+            await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await arquivo.CopyToAsync(stream, ct);
+            }
+
+            var cvText = await ResumeTextExtractor.ExtractAsync(tempPath, ct);
+            var h = CvHeuristicExtractor.Extract(cvText, arquivo.FileName);
+            return new CandidatoCurriculoParseResponse(
+                string.IsNullOrWhiteSpace(cvText) ? null : cvText.Trim(),
+                h.Nome,
+                h.Email,
+                h.Fone,
+                h.Celular,
+                h.Cidade,
+                h.Uf,
+                h.LinkedinUrl,
+                h.PretensaoSalarial);
+        }
+        finally
+        {
+            TryDeleteFile(tempPath);
+        }
     }
 
     public async Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct)
