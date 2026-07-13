@@ -3716,8 +3716,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Controller).HasMaxLength(120);
             b.Property(x => x.Action).HasMaxLength(120);
             b.Property(x => x.RouteTemplate).HasMaxLength(512);
-            b.Property(x => x.RequestBodySnippet).HasMaxLength(4096);
-            b.Property(x => x.ResponseBodySnippet).HasMaxLength(4096);
+            b.Property(x => x.RequestBodySnippet).HasColumnType("text");
+            b.Property(x => x.ResponseBodySnippet).HasColumnType("text");
 
             b.HasIndex(x => new { x.TenantId, x.StartedAt });
             b.HasIndex(x => new { x.TenantId, x.TransactionId });
@@ -3776,12 +3776,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.DeviceAppVersion).HasMaxLength(120);
             b.Property(x => x.Locale).HasMaxLength(200);
             b.Property(x => x.ExceptionType).HasMaxLength(300).IsRequired();
-            b.Property(x => x.Message).HasMaxLength(4096).IsRequired();
+            b.Property(x => x.Message).HasColumnType("text").IsRequired();
             b.Property(x => x.StackTrace).HasMaxLength(16384);
             b.Property(x => x.InnerExceptionType).HasMaxLength(300);
-            b.Property(x => x.InnerMessage).HasMaxLength(4096);
-            b.Property(x => x.ProblemTitle).HasMaxLength(4096);
-            b.Property(x => x.ProblemDetail).HasMaxLength(4096);
+            b.Property(x => x.InnerMessage).HasColumnType("text");
+            b.Property(x => x.ProblemTitle).HasColumnType("text");
+            b.Property(x => x.ProblemDetail).HasColumnType("text");
             b.Property(x => x.ProblemType).HasMaxLength(200);
             b.Property(x => x.ValidationErrorsJson).HasColumnType("jsonb");
             b.Property(x => x.Tags).HasMaxLength(200);
