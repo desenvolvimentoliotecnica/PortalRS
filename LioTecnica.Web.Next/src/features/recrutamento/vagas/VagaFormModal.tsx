@@ -1633,7 +1633,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <SectionHeader title="Configurações da vaga" />
               <Field label="Modalidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.modalidade} onChange={(v) => set("modalidade", v)} options={enumOpts(enums, "vagaModalidade")} /></Field>
               <Field label="Senioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.senioridade} onChange={(v) => set("senioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Selecionar")} /></Field>
-              <Field label="Motivo de abertura" span="col-span-12 md:col-span-3"><EnumSelect value={draft.motivoAbertura} onChange={(v) => set("motivoAbertura", v)} options={enumOpts(enums, "vagaMotivoAbertura", "Selecionar")} /></Field>
+              {/* Motivo de abertura só na criação — na edição o campo não deve aparecer (TASK-2026-251). */}
+              {!vagaId && (
+                <Field label="Motivo de abertura" span="col-span-12 md:col-span-3"><EnumSelect value={draft.motivoAbertura} onChange={(v) => set("motivoAbertura", v)} options={enumOpts(enums, "vagaMotivoAbertura", "Selecionar")} /></Field>
+              )}
 
               {/* Seção: Descrição e conteúdo */}
               <SectionHeader title="Descrição e conteúdo" />
