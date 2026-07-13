@@ -27,7 +27,9 @@
       "entregavel": "Coluna Status reposicionada ao lado de Título na grade de solicitações.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "bd832886"
+        ],
         "branch": "DEV",
         "prHml": null
       },
