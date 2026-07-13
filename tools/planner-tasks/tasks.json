@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T08:51:00-03:00",
+    "atualizadoEm": "2026-07-13T09:00:00-03:00",
     "totalTarefas": 239
   },
   "tarefas": [
@@ -6117,22 +6117,27 @@
       "descricaoAmigavel": "Dor: ao liberar Candidatos no controle de acessos, o Gestor via também Pipeline e Banco de Talentos.\nNecessidade: opção isolada só para o Kanban de Candidaturas.\nSolução proposta: criar a permissão candidaturas.view, ligar só ao menu Kanban e incluir no perfil Gestor.\nDefinição de pronto: no controle de acessos existe “Kanban de Candidaturas”; Gestor com só essa opção vê apenas esse menu.\nQ/A - Como testar: em Acessos, marcar só Kanban no Gestor; relogar e confirmar que Candidatos, Pipeline e Talentos não aparecem.",
       "inicio": "2026-07-13",
       "horarioInicio": "08:50",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 60,
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "09:00",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Pro gestor preciso que apareça apenas o menu Kanban de Candidaturas; na view de controle de acessos não tem opção só para o Kanban.",
       "entregavel": "Permissão candidaturas.view separada de candidatos.view, visível no controle de acessos e no manifesto do Gestor.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "3564fc1c",
+          "76697ab1",
+          "e3799521"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #185",
+        "prPrd": "Merge PR #186"
       },
-      "observacoes": null
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
