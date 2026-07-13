@@ -105,6 +105,7 @@ public static class MenuRoleSeeder
                 "solicitacoes-vaga.view",
                 "vagas.view",
                 "candidatos.view",
+                "candidaturas.view",
                 "propostas-vaga.view",
                 "processo-seletivo.view",
                 "admissao.view",

@@ -26,6 +26,7 @@ public static class RolePermissionManifest
         "processo-seletivo.view",
         "admissao.view",
         "candidatos.view",
+        "candidaturas.view",
         "triagem.view",
         "propostas-vaga.view",
         "matching.view",
@@ -111,6 +112,8 @@ public static class RolePermissionManifest
         "solicitacoes-vaga.view",
         "gestao.dashboard",
         "agenda.view",
+        // Só o Kanban — não incluir candidatos.view (libera também Pipeline e Banco de Talentos).
+        "candidaturas.view",
     ];
 
     /// <summary>

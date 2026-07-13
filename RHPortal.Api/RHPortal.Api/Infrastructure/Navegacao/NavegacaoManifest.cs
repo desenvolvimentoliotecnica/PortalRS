@@ -103,7 +103,7 @@ public static class NavegacaoManifest
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
         new("nav-vagas",                    "Vagas",                  "/vagas",                          "briefcase",         "vagas.view",               Ordem: 10),
         new("nav-candidatos",               "Candidatos",             "/candidatos",                     "users",             "candidatos.view",          Ordem: 30),
-        new("nav-candidaturas",             "Kanban de Candidaturas", "/recrutamento/candidaturas",      "gitbranch",         "candidatos.view",          Ordem: 35),
+        new("nav-candidaturas",             "Kanban de Candidaturas", "/recrutamento/candidaturas",      "gitbranch",         "candidaturas.view",        Ordem: 35),
         new("nav-propostas-vaga",           "Propostas",              "/recrutamento/propostas-vaga",    "file-text",         "propostas-vaga.view",      Ordem: 38),
         new("nav-sla-dashboard",            "SLA Dashboard",          "/recrutamento/sla",               "timer",             "sla.dashboard.view",       Ordem: 36),
         new("nav-sla-etapas-config",        "SLA por Etapa",          "/recrutamento/sla-etapas",        "listchecks",        "sla.etapas.manage",        Ordem: 37),
