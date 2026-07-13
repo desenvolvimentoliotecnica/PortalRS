@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T23:40:04.475Z",
+    "atualizadoEm": "2026-07-13T23:42:01.768Z",
     "totalTarefas": 252
   },
   "tarefas": [
@@ -25,16 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Critérios do candidato ideal: pré-preencher ou ocultar na edição — espelhar outras abas",
       "entregavel": "Na edicao, Criterios espelham Dados/Local/Requisitos (readonly); vazios ocultos; exclusivos do raw editaveis; save recompõe matchingFiltrosRaw.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "b785a88e"
         ],
         "branch": "DEV",
-        "prHml": null,
-        "plannerTaskId": "cqIEc1B3VkG_mGkA2JSF02UAGs3c"
+        "prHml": "Merge PR #226",
+        "plannerTaskId": "cqIEc1B3VkG_mGkA2JSF02UAGs3c",
+        "prPrd": "Merge PR #227"
       },
-      "observacoes": "Aguardando promocao HML/PRD."
+      "observacoes": "Promovido HML (PR #226) e PRD (PR #227) em 13/07/2026."
     },
     {
       "id": "TASK-2026-251",
