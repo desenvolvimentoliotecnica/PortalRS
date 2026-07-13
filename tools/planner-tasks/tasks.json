@@ -6302,18 +6302,20 @@
       "descricaoAmigavel": "Dor: o analista digita à mão nome, e-mail e telefone de cada CV no modal Novo Candidato.\nNecessidade: enviar o PDF e ver os campos principais preenchidos automaticamente, sem IA.\nSolução proposta: parse determinístico do CV (texto + regras) no modal, anexando o arquivo ao salvar.\nDefinição de pronto: subir 1 PDF no Novo Candidato preenche campos editáveis e, ao salvar, cria o candidato com o CV anexado.\nQ/A - Como testar: em Candidatos → Novo Candidato → anexar PDF → conferir nome/e-mail/celular → Salvar e verificar documento.",
       "inicio": "2026-07-13",
       "horarioInicio": "11:31",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "11:55",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Trocar o envio do CV para ser a fonte de verdade inicial no Novo Candidato, com parse determinístico (sem IA), primeiro 1 a 1.",
       "entregavel": "Modal Novo Candidato com upload de CV que pré-preenche campos via parse determinístico e anexa o PDF ao salvar.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "3e42ac29"
+        ],
         "branch": "DEV",
         "prHml": null
       },
