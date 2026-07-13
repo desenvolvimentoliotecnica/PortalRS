@@ -50,9 +50,10 @@ const TIPO_OPTIONS = [
 
 const RM_TIPOS_IMPORTAVEIS = new Set(["AUMENTO_QUADRO", "SUBSTITUICAO", "DESLIGAMENTO"]);
 
-const CODSTATUS_VISIVEIS = [1, 3] as const;
+/** 1 Em andamento · 3 Aprovada · 5 Em processo de aprovação (só consulta, não distribuir). */
+const CODSTATUS_VISIVEIS = [1, 3, 5] as const;
 
-type StatusFilter = "all" | "1" | "3";
+type StatusFilter = "all" | "1" | "3" | "5";
 type ImportStage = "idle" | "running" | "refreshing" | "success" | "error";
 
 interface RmRequisicaoRow {
@@ -181,11 +182,16 @@ function formatIsoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Período padrão: últimos 3 meses — evita consulta RM sem filtro (muito lenta). */
+/** Período padrão: últimos 36 meses — cobre histórico recente sem consulta ilimitada no RM. */
 function defaultRmConsultaDataDe(): string {
   const d = new Date();
-  d.setMonth(d.getMonth() - 3);
+  d.setMonth(d.getMonth() - 36);
   return formatIsoDate(d);
+}
+
+function codStatusInParaImportacao(statusFilter: StatusFilter): number[] {
+  if (statusFilter === "all") return [...CODSTATUS_VISIVEIS];
+  return [Number(statusFilter)];
 }
 
 function defaultRmConsultaDataAte(): string {
@@ -341,7 +347,7 @@ export default function AdminRmRequisicoesScreen() {
               : null,
             dataAberturaDe: dataDe.trim() || null,
             dataAberturaAte: dataAte.trim() || null,
-            codStatusIn: statusFilter === "all" ? [...CODSTATUS_VISIVEIS] : [Number(statusFilter)],
+            codStatusIn: codStatusInParaImportacao(statusFilter),
           }),
         },
         90_000,
@@ -501,6 +507,7 @@ export default function AdminRmRequisicoesScreen() {
               <option value="all">Todas</option>
               <option value="1">Em Andamento</option>
               <option value="3">Aprovada</option>
+              <option value="5">Em aprovação</option>
             </select>
           </div>
           <div>
@@ -546,7 +553,7 @@ export default function AdminRmRequisicoesScreen() {
 
         <div className="text-muted-foreground mb-3 text-xs">
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
-          <span className="ml-2 opacity-80">Período padrão: últimos 3 meses (ajuste as datas se precisar de histórico maior).</span>
+          <span className="ml-2 opacity-80">Período padrão: últimos 36 meses. Status &quot;Em aprovação&quot; (CODSTATUS 5) aparece só para consulta — não pode ser distribuído.</span>
           {tipo === "DESLIGAMENTO" && (
             <span className="ml-2 text-emerald-700">
               Desligamentos importados aparecem na aba Desligamento em Gestão → Solicitações (filtro Aprovadas).
@@ -799,10 +806,12 @@ function ImportProgressDialog({
   const meta = importStageMeta(stage, result);
   const isFinished = stage === "success" || stage === "error";
   const statusLabel = filters.statusFilter === "all"
-    ? "Em andamento e aprovadas"
+    ? "Em andamento, aprovadas e em aprovação"
     : filters.statusFilter === "1"
       ? "Em andamento"
-      : "Aprovadas";
+      : filters.statusFilter === "5"
+        ? "Em aprovação (consulta)"
+        : "Aprovadas";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

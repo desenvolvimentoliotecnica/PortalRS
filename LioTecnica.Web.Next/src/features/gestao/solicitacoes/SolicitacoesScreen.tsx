@@ -108,13 +108,23 @@ interface SolicitacaoGridRow {
     rmIdReq?: number | null;
     rmRequisicaoCodigo?: string | null;
     rmTipoRequisicao?: string | null;
+    /** CODSTATUS RM — 5 = em aprovação (só consulta). */
+    rmCodStatus?: number | string | null;
 }
 
 interface TenantConfiguracaoDto {
     requisicoesVagaOrigemRm?: boolean;
 }
 
-function isStatusDistribuivelParaAnalistaRh(status: number | string): boolean {
+function isStatusDistribuivelParaAnalistaRh(
+    status: number | string,
+    rmCodStatus?: number | string | null,
+): boolean {
+    // CODSTATUS 5 (em aprovação no RM) — somente consulta
+    if (rmCodStatus === 5 || rmCodStatus === "5") return false;
+    // Portal PendenteAprovacao (= RM em aprovação) — somente consulta
+    if (status === 1 || status === "PendenteAprovacao") return false;
+
     const s = String(status);
     return (
         s === "PendenteAprovacaoRh"
@@ -161,6 +171,7 @@ function detailToGridRow(d: SolicitacaoDetail): SolicitacaoGridRow {
         etapaPendenteLabel: null,
         etapaPendenteCom: null,
         rmRequisicaoCodigo: d.rmRequisicaoCodigo ?? null,
+        rmCodStatus: d.rmCodStatus ?? null,
     };
 }
 
@@ -564,7 +575,7 @@ function SolicitacoesVagaContent() {
     }, [page, pageSize, sorted]);
 
     const filteredDistribuiveis = useMemo(
-        () => pagedRows.filter((r) => isStatusDistribuivelParaAnalistaRh(r.status)),
+        () => pagedRows.filter((r) => isStatusDistribuivelParaAnalistaRh(r.status, r.rmCodStatus)),
         [pagedRows],
     );
     const allDistribuiveisSelecionados = filteredDistribuiveis.length > 0
@@ -1028,7 +1039,7 @@ function SolicitacoesVagaContent() {
                                                 type="checkbox"
                                                 aria-label={`Selecionar ${r.titulo}`}
                                                 checked={selectedSolicitacaoIds.includes(r.id)}
-                                                disabled={!isStatusDistribuivelParaAnalistaRh(r.status)}
+                                                disabled={!isStatusDistribuivelParaAnalistaRh(r.status, r.rmCodStatus)}
                                                 onChange={(e) => toggleSolicitacaoSelection(r.id, e.target.checked)}
                                             />
                                         </TableCell>
@@ -1226,7 +1237,18 @@ function SolicitacoesVagaContent() {
                 footerExtra={
                     formOpen && viewId && viewMetaRow ? (
                         <>
-                            {canDistribuirParaAnalistaRh && isStatusDistribuivelParaAnalistaRh(viewMetaRow.status) && (
+                            {canDistribuirParaAnalistaRh
+                                && (viewMetaRow.rmCodStatus === 5
+                                    || viewMetaRow.rmCodStatus === "5"
+                                    || viewMetaRow.status === 1
+                                    || viewMetaRow.status === "PendenteAprovacao")
+                                && !!viewMetaRow.rmRequisicaoCodigo
+                                && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                                    Requisição em processo de aprovação no RM — somente consulta. Não é possível distribuir para Analista de RH enquanto o status for CODSTATUS 5.
+                                </div>
+                            )}
+                            {canDistribuirParaAnalistaRh && isStatusDistribuivelParaAnalistaRh(viewMetaRow.status, viewMetaRow.rmCodStatus) && (
                                 <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                                     <div className="flex items-start gap-3">
                                         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
