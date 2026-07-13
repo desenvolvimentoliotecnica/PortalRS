@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Auditing.Context;
 using RhPortal.Api.Logging.Context;
@@ -84,7 +85,11 @@ public sealed class ExceptionLoggingMiddleware : IMiddleware
         }
         catch
         {
-            // best-effort
+            // best-effort: detach para não contaminar SaveChanges do request de negócio
+            var tracked = _db.ChangeTracker.Entries<ExceptionLog>()
+                .FirstOrDefault(e => ReferenceEquals(e.Entity, entry) || e.Entity.Id == entry.Id);
+            if (tracked is not null)
+                tracked.State = EntityState.Detached;
         }
     }
 }

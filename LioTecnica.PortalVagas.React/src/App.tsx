@@ -376,6 +376,20 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
     privacyPolicy: 'Política de Privacidade',
     termsSuffix: 'da Liotécnica.',
     passwordsDontMatch: 'As senhas não conferem.',
+    docsSection: 'Documentação básica',
+    cpf: 'CPF',
+    cpfPlaceholder: '000.000.000-00',
+    rg: 'RG',
+    rgPlaceholder: 'Número do RG',
+    birthDate: 'Data de nascimento',
+    motherName: 'Nome da mãe',
+    fatherName: 'Nome do pai (opcional)',
+    passwordPolicy: 'Senha fora do padrão (mín. 8, 1 maiúscula, 1 número e 1 especial).',
+    cpfRequired: 'Informe o CPF.',
+    cpfInvalid: 'CPF inválido.',
+    rgRequired: 'Informe o RG.',
+    birthDateRequired: 'Informe a data de nascimento.',
+    motherNameRequired: 'Informe o nome da mãe.',
   },
   'en-US': {
     helpLink: 'Need help?',
@@ -437,6 +451,20 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
     privacyPolicy: 'Privacy Policy',
     termsSuffix: '',
     passwordsDontMatch: 'Passwords do not match.',
+    docsSection: 'Basic documentation',
+    cpf: 'CPF',
+    cpfPlaceholder: '000.000.000-00',
+    rg: 'ID document',
+    rgPlaceholder: 'Document number',
+    birthDate: 'Date of birth',
+    motherName: "Mother's name",
+    fatherName: "Father's name (optional)",
+    passwordPolicy: 'Password must have at least 8 chars, 1 uppercase, 1 number and 1 special.',
+    cpfRequired: 'Enter your CPF.',
+    cpfInvalid: 'Invalid CPF.',
+    rgRequired: 'Enter your ID document.',
+    birthDateRequired: 'Enter your date of birth.',
+    motherNameRequired: "Enter your mother's name.",
   },
   'es-ES': {
     helpLink: '¿Necesitas ayuda?',
@@ -498,6 +526,20 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
     privacyPolicy: 'Política de Privacidad',
     termsSuffix: 'de Liotécnica.',
     passwordsDontMatch: 'Las contraseñas no coinciden.',
+    docsSection: 'Documentación básica',
+    cpf: 'CPF',
+    cpfPlaceholder: '000.000.000-00',
+    rg: 'RG',
+    rgPlaceholder: 'Número del documento',
+    birthDate: 'Fecha de nacimiento',
+    motherName: 'Nombre de la madre',
+    fatherName: 'Nombre del padre (opcional)',
+    passwordPolicy: 'La contraseña debe tener mín. 8 caracteres, 1 mayúscula, 1 número y 1 especial.',
+    cpfRequired: 'Informe el CPF.',
+    cpfInvalid: 'CPF inválido.',
+    rgRequired: 'Informe el RG.',
+    birthDateRequired: 'Informe la fecha de nacimiento.',
+    motherNameRequired: 'Informe el nombre de la madre.',
   },
 }
 
@@ -695,6 +737,11 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
     fone: '',
     cidade: '',
     uf: '',
+    cpf: '',
+    rg: '',
+    dataNascimento: '',
+    nomeMae: '',
+    nomePai: '',
     password: '',
     confirmPassword: '',
   })
@@ -785,6 +832,12 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
     setRegisterError(null)
 
     try {
+      if (!register.cpf.trim()) throw new Error(text.cpfRequired)
+      if (!validateCpf(register.cpf)) throw new Error(text.cpfInvalid)
+      if (!register.rg.trim()) throw new Error(text.rgRequired)
+      if (!register.dataNascimento.trim()) throw new Error(text.birthDateRequired)
+      if (!register.nomeMae.trim()) throw new Error(text.motherNameRequired)
+      if (!PASSWORD_POLICY_REGEX.test(register.password)) throw new Error(text.passwordPolicy)
       if (register.password !== register.confirmPassword) {
         throw new Error(text.passwordsDontMatch)
       }
@@ -794,6 +847,11 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
         body: JSON.stringify({
           nome: register.nome.trim(),
           email: register.email.trim(),
+          cpf: register.cpf.trim(),
+          rg: register.rg.trim(),
+          dataNascimento: register.dataNascimento,
+          nomeMae: register.nomeMae.trim(),
+          nomePai: register.nomePai.trim() || null,
           fone: register.fone.trim(),
           cidade: register.cidade.trim(),
           uf: register.uf.trim().toUpperCase(),
@@ -945,14 +1003,66 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
                   ))}
                 </select>
               </label>
+              <div className="auth-docs-section">
+                <p className="auth-docs-title">{text.docsSection}</p>
+                <div className="grid two">
+                  <label className="auth-field">
+                    <span>{text.cpf}</span>
+                    <input
+                      inputMode="numeric"
+                      maxLength={14}
+                      value={register.cpf}
+                      onChange={(e) => setRegister((v) => ({ ...v, cpf: formatCpf(e.target.value) }))}
+                      placeholder={text.cpfPlaceholder}
+                      required
+                    />
+                  </label>
+                  <label className="auth-field">
+                    <span>{text.rg}</span>
+                    <input
+                      maxLength={20}
+                      value={register.rg}
+                      onChange={(e) => setRegister((v) => ({ ...v, rg: e.target.value }))}
+                      placeholder={text.rgPlaceholder}
+                      required
+                    />
+                  </label>
+                </div>
+                <label className="auth-field">
+                  <span>{text.birthDate}</span>
+                  <input
+                    type="date"
+                    value={register.dataNascimento}
+                    onChange={(e) => setRegister((v) => ({ ...v, dataNascimento: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="auth-field">
+                  <span>{text.motherName}</span>
+                  <input
+                    maxLength={160}
+                    value={register.nomeMae}
+                    onChange={(e) => setRegister((v) => ({ ...v, nomeMae: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="auth-field">
+                  <span>{text.fatherName}</span>
+                  <input
+                    maxLength={160}
+                    value={register.nomePai}
+                    onChange={(e) => setRegister((v) => ({ ...v, nomePai: e.target.value }))}
+                  />
+                </label>
+              </div>
               <div className="grid two">
                 <label className="auth-field">
                   <span>{text.password}</span>
-                  <input type="password" value={register.password} onChange={(e) => setRegister((v) => ({ ...v, password: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+                  <input type="password" value={register.password} onChange={(e) => setRegister((v) => ({ ...v, password: e.target.value }))} placeholder={text.passwordPlaceholder} required minLength={8} />
                 </label>
                 <label className="auth-field">
                   <span>{text.confirmPassword}</span>
-                  <input type="password" value={register.confirmPassword} onChange={(e) => setRegister((v) => ({ ...v, confirmPassword: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+                  <input type="password" value={register.confirmPassword} onChange={(e) => setRegister((v) => ({ ...v, confirmPassword: e.target.value }))} placeholder={text.passwordPlaceholder} required minLength={8} />
                 </label>
               </div>
               {registerError ?<div className="inline-alert error auth-inline-alert">{registerError}</div> : null}
@@ -6787,6 +6897,34 @@ function formatBrazilianPhone(value?: string | null) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
+const PASSWORD_POLICY_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
+
+function formatCpf(value?: string | null) {
+  const digits = (value || '').replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
+}
+
+function validateCpf(cpf: string | null | undefined): boolean {
+  if (!cpf) return false
+  const digits = cpf.replace(/\D/g, '')
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false
+
+  let sum = 0
+  for (let i = 0; i < 9; i++) sum += Number(digits[i]) * (10 - i)
+  let rem = sum % 11
+  const d1 = rem < 2 ? 0 : 11 - rem
+  if (Number(digits[9]) !== d1) return false
+
+  sum = 0
+  for (let i = 0; i < 10; i++) sum += Number(digits[i]) * (11 - i)
+  rem = sum % 11
+  const d2 = rem < 2 ? 0 : 11 - rem
+  return Number(digits[10]) === d2
+}
+
 function getInitials(name: string) {
   const parts = name.split(/\s+/).filter(Boolean)
   if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
@@ -6904,8 +7042,19 @@ async function resolveApiBaseUrl() {
 
 async function readApiMessage(response: Response) {
   try {
-    const data = (await response.json()) as { message?: string }
-    return data.message || `Falha HTTP ${response.status}`
+    const data = (await response.json()) as {
+      message?: string | { value?: string }
+      title?: string
+      errors?: Record<string, string[]>
+    }
+    if (typeof data.message === 'string' && data.message.trim()) return data.message
+    if (data.message && typeof data.message === 'object' && data.message.value) return data.message.value
+    if (data.errors) {
+      const first = Object.values(data.errors).flat().find((item) => typeof item === 'string' && item.trim())
+      if (first) return first
+    }
+    if (data.title) return data.title
+    return `Falha HTTP ${response.status}`
   } catch {
     return `Falha HTTP ${response.status}`
   }

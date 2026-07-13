@@ -87,7 +87,10 @@ public sealed class ProblemDetailsLoggingFilter : IAsyncResultFilter
         }
         catch
         {
-            // best-effort
+            var tracked = _db.ChangeTracker.Entries<ExceptionLog>()
+                .FirstOrDefault(e => ReferenceEquals(e.Entity, entry) || e.Entity.Id == entry.Id);
+            if (tracked is not null)
+                tracked.State = Microsoft.EntityFrameworkCore.EntityState.Detached;
         }
     }
 }
