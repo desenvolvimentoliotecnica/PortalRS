@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,27 +7,35 @@ using RhPortal.Api.Contracts.Emails;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
 
 /// <summary>
-/// Templates de e-mail: versões, ativação e manutenção.
+/// Templates de e-mail ao candidato: catálogo, rich-text, reset ao padrão e assets.
 /// </summary>
 [ApiController]
 [Authorize]
 [Route("api/email-templates")]
 public sealed class EmailTemplatesController : ControllerBase
 {
-    private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private const int MaxImageBytes = 512 * 1024;
+    private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
+    };
 
-    public EmailTemplatesController(IStringLocalizer<ControllerMessages> localizer)
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private readonly ICandidateEmailTemplateService _catalog;
+
+    public EmailTemplatesController(
+        IStringLocalizer<ControllerMessages> localizer,
+        ICandidateEmailTemplateService catalog)
     {
         _localizer = localizer;
+        _catalog = catalog;
     }
 
-    /// <summary>
-    /// Lista templates de e-mail (com opção de incluir inativos).
-    /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<EmailTemplateListItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<EmailTemplateListItem>>> List(
@@ -34,29 +43,46 @@ public sealed class EmailTemplatesController : ControllerBase
         [FromQuery] bool includeInactive = false,
         CancellationToken ct = default)
     {
+        await _catalog.EnsureCatalogSeededAsync(ct);
+
         var query = db.EmailTemplates.AsNoTracking();
         if (!includeInactive)
             query = query.Where(x => x.IsActive);
 
-        var items = await query
+        var entities = await query
             .OrderBy(x => x.Name)
             .ThenByDescending(x => x.Version)
-            .Select(x => new EmailTemplateListItem(
-                x.Id,
-                x.Name,
-                x.Version,
-                x.IsActive,
-                x.SubjectTemplate,
-                x.CreatedAtUtc,
-                x.UpdatedAtUtc))
             .ToListAsync(ct);
+
+        // Uma linha ativa (ou a mais recente) por Name do catálogo
+        var byName = entities
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(x => x.IsActive).ThenByDescending(x => x.Version).First())
+            .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+
+        var items = new List<EmailTemplateListItem>();
+        foreach (var def in CandidateEmailTemplateCatalog.All)
+        {
+            byName.TryGetValue(def.Code, out var entity);
+            var subject = entity?.SubjectTemplate ?? def.SubjectDefault;
+            var body = entity?.BodyHtml ?? def.BodyHtmlDefault;
+            items.Add(new EmailTemplateListItem(
+                entity?.Id ?? Guid.Empty,
+                def.Code,
+                def.DisplayName,
+                def.Description,
+                entity?.Version ?? 1,
+                entity?.IsActive ?? true,
+                !CandidateEmailTemplateCatalog.IsSameAsDefault(def.Code, subject, body),
+                subject,
+                def.Tags,
+                entity?.CreatedAtUtc ?? DateTimeOffset.UtcNow,
+                entity?.UpdatedAtUtc ?? DateTimeOffset.UtcNow));
+        }
 
         return Ok(items);
     }
 
-    /// <summary>
-    /// Obtém um template de e-mail por ID.
-    /// </summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -67,21 +93,47 @@ public sealed class EmailTemplatesController : ControllerBase
     {
         var entity = await db.EmailTemplates.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
-
-        return Ok(new EmailTemplateResponse(
-            entity.Id,
-            entity.Name,
-            entity.Version,
-            entity.IsActive,
-            entity.SubjectTemplate,
-            entity.BodyHtml,
-            entity.CreatedAtUtc,
-            entity.UpdatedAtUtc));
+        return Ok(ToResponse(entity));
     }
 
-    /// <summary>
-    /// Cria um template de e-mail (versão inicial).
-    /// </summary>
+    [HttpGet("by-code/{code}")]
+    [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EmailTemplateResponse>> GetByCode(
+        string code,
+        [FromServices] AppDbContext db,
+        CancellationToken ct = default)
+    {
+        await _catalog.EnsureCatalogSeededAsync(ct);
+        if (!CandidateEmailTemplateCatalog.TryGet(code, out var def))
+            return NotFound();
+
+        var entity = await db.EmailTemplates.AsNoTracking()
+            .Where(x => x.Name == def.Code && x.IsActive)
+            .OrderByDescending(x => x.Version)
+            .FirstOrDefaultAsync(ct);
+
+        if (entity is null)
+        {
+            return Ok(new EmailTemplateResponse(
+                Guid.Empty,
+                def.Code,
+                def.DisplayName,
+                def.Description,
+                1,
+                true,
+                false,
+                def.SubjectDefault,
+                def.BodyHtmlDefault,
+                def.SubjectDefault,
+                def.BodyHtmlDefault,
+                def.Tags,
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow));
+        }
+
+        return Ok(ToResponse(entity));
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -91,6 +143,9 @@ public sealed class EmailTemplatesController : ControllerBase
         CancellationToken ct = default)
     {
         var name = request.Name.Trim();
+        if (!CandidateEmailTemplateCatalog.TryGet(name, out _))
+            return BadRequest(new { message = "Use apenas códigos do catálogo de e-mails ao candidato." });
+
         var latestVersion = await db.EmailTemplates
             .Where(x => x.Name == name)
             .OrderByDescending(x => x.Version)
@@ -105,8 +160,8 @@ public sealed class EmailTemplatesController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Name = name,
-            SubjectTemplate = request.SubjectTemplate.Trim(),
-            BodyHtml = request.BodyHtml,
+            SubjectTemplate = SanitizeHtml(request.SubjectTemplate.Trim()),
+            BodyHtml = SanitizeHtml(request.BodyHtml),
             Version = 1,
             IsActive = true,
             CreatedAtUtc = now,
@@ -116,20 +171,9 @@ public sealed class EmailTemplatesController : ControllerBase
         db.EmailTemplates.Add(entity);
         await db.SaveChangesAsync(ct);
 
-        return CreatedAtAction(nameof(Get), new { id = entity.Id }, new EmailTemplateResponse(
-            entity.Id,
-            entity.Name,
-            entity.Version,
-            entity.IsActive,
-            entity.SubjectTemplate,
-            entity.BodyHtml,
-            entity.CreatedAtUtc,
-            entity.UpdatedAtUtc));
+        return CreatedAtAction(nameof(Get), new { id = entity.Id }, ToResponse(entity));
     }
 
-    /// <summary>
-    /// Atualiza um template criando uma nova versão ativa.
-    /// </summary>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -141,6 +185,8 @@ public sealed class EmailTemplatesController : ControllerBase
     {
         var current = await db.EmailTemplates.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (current is null) return NotFound();
+        if (!CandidateEmailTemplateCatalog.TryGet(current.Name, out _))
+            return BadRequest(new { message = "Template fora do catálogo." });
 
         var nextVersion = current.Version + 1;
         var now = DateTimeOffset.UtcNow;
@@ -153,7 +199,7 @@ public sealed class EmailTemplatesController : ControllerBase
             Id = Guid.NewGuid(),
             Name = current.Name,
             SubjectTemplate = request.SubjectTemplate.Trim(),
-            BodyHtml = request.BodyHtml,
+            BodyHtml = SanitizeHtml(request.BodyHtml),
             Version = nextVersion,
             IsActive = true,
             CreatedAtUtc = now,
@@ -162,21 +208,9 @@ public sealed class EmailTemplatesController : ControllerBase
 
         db.EmailTemplates.Add(entity);
         await db.SaveChangesAsync(ct);
-
-        return Ok(new EmailTemplateResponse(
-            entity.Id,
-            entity.Name,
-            entity.Version,
-            entity.IsActive,
-            entity.SubjectTemplate,
-            entity.BodyHtml,
-            entity.CreatedAtUtc,
-            entity.UpdatedAtUtc));
+        return Ok(ToResponse(entity));
     }
 
-    /// <summary>
-    /// Define um template como ativo (desativa versões irmãs).
-    /// </summary>
     [HttpPost("{id:guid}/set-active")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -197,8 +231,95 @@ public sealed class EmailTemplatesController : ControllerBase
 
         template.IsActive = true;
         template.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
         await db.SaveChangesAsync(ct);
         return Ok();
+    }
+
+    /// <summary>Restaura assunto e corpo ao padrão de fábrica.</summary>
+    [HttpPost("{id:guid}/reset")]
+    [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<EmailTemplateResponse>> Reset(Guid id, [FromServices] AppDbContext db, CancellationToken ct)
+    {
+        var current = await db.EmailTemplates.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (current is null) return NotFound();
+        var entity = await _catalog.ResetToFactoryAsync(current.Name, ct);
+        return Ok(ToResponse(entity));
+    }
+
+    [HttpPost("by-code/{code}/reset")]
+    [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EmailTemplateResponse>> ResetByCode(string code, CancellationToken ct)
+    {
+        if (!CandidateEmailTemplateCatalog.TryGet(code, out _))
+            return NotFound();
+        var entity = await _catalog.ResetToFactoryAsync(code, ct);
+        return Ok(ToResponse(entity));
+    }
+
+    /// <summary>
+    /// Upload de imagem para o corpo do template. Devolve data-URL estável embutível no HTML
+    /// (faz parte do layout do e-mail, inclusive logo de cabeçalho).
+    /// </summary>
+    [HttpPost("assets")]
+    [RequestSizeLimit(MaxImageBytes + 4096)]
+    [ProducesResponseType(typeof(EmailTemplateAssetUploadResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EmailTemplateAssetUploadResponse>> UploadAsset(
+        IFormFile file,
+        CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "Arquivo obrigatório." });
+        if (file.Length > MaxImageBytes)
+            return BadRequest(new { message = "Imagem deve ter no máximo 512 KB." });
+
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType;
+        if (!AllowedImageTypes.Contains(contentType))
+            return BadRequest(new { message = "Use PNG, JPEG, GIF ou WebP." });
+
+        await using var ms = new MemoryStream();
+        await file.CopyToAsync(ms, ct);
+        var bytes = ms.ToArray();
+        var b64 = Convert.ToBase64String(bytes);
+        var url = $"data:{contentType};base64,{b64}";
+        return Ok(new EmailTemplateAssetUploadResponse(url, contentType, bytes.LongLength));
+    }
+
+    private static EmailTemplateResponse ToResponse(EmailTemplate entity)
+    {
+        CandidateEmailTemplateCatalog.TryGet(entity.Name, out var def);
+        var display = def?.DisplayName ?? entity.Name;
+        var description = def?.Description ?? string.Empty;
+        var tags = def?.Tags ?? Array.Empty<string>();
+        var subjectDefault = def?.SubjectDefault ?? entity.SubjectTemplate;
+        var bodyDefault = def?.BodyHtmlDefault ?? entity.BodyHtml;
+        var customized = def is null
+            || !CandidateEmailTemplateCatalog.IsSameAsDefault(entity.Name, entity.SubjectTemplate, entity.BodyHtml);
+
+        return new EmailTemplateResponse(
+            entity.Id,
+            entity.Name,
+            display,
+            description,
+            entity.Version,
+            entity.IsActive,
+            customized,
+            entity.SubjectTemplate,
+            entity.BodyHtml,
+            subjectDefault,
+            bodyDefault,
+            tags,
+            entity.CreatedAtUtc,
+            entity.UpdatedAtUtc);
+    }
+
+    private static string SanitizeHtml(string html)
+    {
+        if (string.IsNullOrEmpty(html)) return string.Empty;
+        // Remove scripts / event handlers óbvios
+        var cleaned = Regex.Replace(html, @"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", string.Empty, RegexOptions.IgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"\son\w+\s*=\s*(""[^""]*""|'[^']*'|[^\s>]+)", string.Empty, RegexOptions.IgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"javascript:", string.Empty, RegexOptions.IgnoreCase);
+        return cleaned;
     }
 }
