@@ -625,6 +625,9 @@ export default function CandidatosScreen() {
         ];
       });
 
+      const fonte = pickString(parsed.fonte ?? parsed.Fonte, "heuristic").toLowerCase();
+      const viaIa = fonte === "ai";
+
       const found: string[] = [];
       if (nome) found.push("nome");
       if (email) found.push("e-mail");
@@ -636,9 +639,17 @@ export default function CandidatosScreen() {
       if (found.length === 0) {
         toast.message("Currículo anexado, mas não encontramos campos para preencher. Complete manualmente.");
       } else if (!nome || !email || !(celular || fone)) {
-        toast.success(`Campos preenchidos do CV: ${found.join(", ")}. Revise o que faltar.`);
+        toast.success(
+          viaIa
+            ? `IA preencheu: ${found.join(", ")}. Revise o que faltar.`
+            : `Campos preenchidos do CV: ${found.join(", ")}. Revise o que faltar.`,
+        );
       } else {
-        toast.success(`Currículo analisado: ${found.join(", ")}.`);
+        toast.success(
+          viaIa
+            ? `Currículo analisado por IA: ${found.join(", ")}.`
+            : `Campos preenchidos do CV: ${found.join(", ")}.`,
+        );
       }
     } catch {
       setCvParseFileName(null);
@@ -1621,7 +1632,7 @@ export default function CandidatosScreen() {
                       Currículo (fonte do cadastro)
                     </label>
                     <p className="mb-2 text-xs text-emerald-900/80">
-                      Envie o PDF do candidato para preencher automaticamente nome, e-mail, telefone e outros dados encontrados.
+                      Envie o PDF do candidato para preencher automaticamente (IA + leitura do texto) nome, e-mail, telefone e outros dados.
                     </p>
                     <input
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-emerald-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-emerald-900"
@@ -1637,7 +1648,7 @@ export default function CandidatosScreen() {
                     {cvParseLoading ? (
                       <div className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-900">
                         <Loader2 className="size-3.5 animate-spin" />
-                        Analisando currículo…
+                        Analisando currículo com IA…
                       </div>
                     ) : cvParseFileName ? (
                       <p className="mt-2 text-xs text-emerald-900/90">Arquivo: {cvParseFileName} (será anexado ao salvar)</p>
