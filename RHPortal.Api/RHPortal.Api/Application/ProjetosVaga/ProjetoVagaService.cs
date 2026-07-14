@@ -67,12 +67,18 @@ public sealed class ProjetoVagaService : IProjetoVagaService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly NotificationPublisher _notifications;
+    private readonly ICurrentUserContext _currentUser;
 
-    public ProjetoVagaService(AppDbContext db, ITenantContext tenantContext, NotificationPublisher notifications)
+    public ProjetoVagaService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        NotificationPublisher notifications,
+        ICurrentUserContext currentUser)
     {
         _db = db;
         _tenantContext = tenantContext;
         _notifications = notifications;
+        _currentUser = currentUser;
     }
 
     public async Task<IReadOnlyList<ProjetoVagaResponse>> ListProjetosAsync(Guid vagaId, CancellationToken ct)
@@ -226,7 +232,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
     /// </summary>
     public async Task<IReadOnlyList<ProjetoCandidatoResponse>> ListCandidatosAsync(Guid projetoId, CancellationToken ct)
     {
-        return await _db.Set<ProjetoCandidato>().AsNoTracking()
+        var items = await _db.Set<ProjetoCandidato>().AsNoTracking()
             .Include(pc => pc.Candidato)
             .Include(pc => pc.FaseAtual)
             .Where(pc => pc.ProjetoId == projetoId)
@@ -238,6 +244,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
                 pc.Status, pc.FaseAtualId, pc.FaseAtual != null ? pc.FaseAtual.Nome : null,
                 pc.Observacoes, pc.CreatedAtUtc))
             .ToListAsync(ct);
+        return RedactContato(items);
     }
 
     /// <summary>
@@ -258,7 +265,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
         if (projetosAnterioresIds.Count == 0) return Array.Empty<ProjetoCandidatoResponse>();
 
         // Candidatos reprovados em projetos anteriores (aba Disponíveis)
-        return await _db.Set<ProjetoCandidato>().AsNoTracking()
+        var items = await _db.Set<ProjetoCandidato>().AsNoTracking()
             .Include(pc => pc.Candidato)
             .Include(pc => pc.FaseAtual)
             .Where(pc => projetosAnterioresIds.Contains(pc.ProjetoId) && pc.Status == StatusCandidatoProjeto.Reprovado)
@@ -270,6 +277,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
                 pc.Status, pc.FaseAtualId, pc.FaseAtual != null ? pc.FaseAtual.Nome : null,
                 pc.Observacoes, pc.CreatedAtUtc))
             .ToListAsync(ct);
+        return RedactContato(items);
     }
 
     /// <summary>
@@ -314,12 +322,12 @@ public sealed class ProjetoVagaService : IProjetoVagaService
         _db.Set<ProjetoCandidato>().Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        return new ProjetoCandidatoResponse(
+        return RedactContato(new ProjetoCandidatoResponse(
             entity.Id, entity.ProjetoId, entity.CandidatoId,
             candidato.Nome, candidato.Email, candidato.Cidade, candidato.Uf,
             candidato.LinkedinUrl, candidato.TrabalhandoAtualmente, candidato.PretensaoSalarial,
             entity.Status, entity.FaseAtualId, null,
-            entity.Observacoes, entity.CreatedAtUtc);
+            entity.Observacoes, entity.CreatedAtUtc));
     }
 
     public async Task<ProjetoCandidatoResponse?> UpdateCandidatoAsync(Guid projetoId, Guid id, ProjetoCandidatoUpdateRequest request, CancellationToken ct)
@@ -335,12 +343,12 @@ public sealed class ProjetoVagaService : IProjetoVagaService
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        return new ProjetoCandidatoResponse(
+        return RedactContato(new ProjetoCandidatoResponse(
             entity.Id, entity.ProjetoId, entity.CandidatoId,
             entity.Candidato!.Nome, entity.Candidato.Email, entity.Candidato.Cidade, entity.Candidato.Uf,
             entity.Candidato.LinkedinUrl, entity.Candidato.TrabalhandoAtualmente, entity.Candidato.PretensaoSalarial,
             entity.Status, entity.FaseAtualId, entity.FaseAtual?.Nome,
-            entity.Observacoes, entity.CreatedAtUtc);
+            entity.Observacoes, entity.CreatedAtUtc));
     }
 
     /// <inheritdoc/>
@@ -394,5 +402,17 @@ public sealed class ProjetoVagaService : IProjetoVagaService
         rodada.DataEncerramento = DateOnly.FromDateTime(DateTime.UtcNow);
         rodada.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
+    }
+
+    private IReadOnlyList<ProjetoCandidatoResponse> RedactContato(IReadOnlyList<ProjetoCandidatoResponse> items)
+    {
+        if (_currentUser.CanViewCandidatoContato) return items;
+        return items.Select(RedactContato).ToList();
+    }
+
+    private ProjetoCandidatoResponse RedactContato(ProjetoCandidatoResponse item)
+    {
+        if (_currentUser.CanViewCandidatoContato) return item;
+        return item with { CandidatoEmail = null };
     }
 }

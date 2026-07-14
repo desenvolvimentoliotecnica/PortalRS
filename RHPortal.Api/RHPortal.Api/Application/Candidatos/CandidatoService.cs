@@ -232,6 +232,13 @@ public sealed class CandidatoService : ICandidatoService
             ))
             .ToListAsync(ct);
 
+        if (!_currentUser.CanViewCandidatoContato)
+        {
+            items = items
+                .Select(i => i with { Email = string.Empty, Fone = null, Celular = null })
+                .ToList();
+        }
+
         return new CandidatePagedResponse(items, totalCount, page, pageSize);
     }
 
@@ -286,9 +293,9 @@ public sealed class CandidatoService : ICandidatoService
         return new CandidateResponse(
             entity.Id,
             entity.Nome,
-            entity.Email,
-            entity.Fone,
-            entity.Celular,
+            _currentUser.CanViewCandidatoContato ? entity.Email : string.Empty,
+            _currentUser.CanViewCandidatoContato ? entity.Fone : null,
+            _currentUser.CanViewCandidatoContato ? entity.Celular : null,
             entity.Cidade,
             entity.Uf,
             entity.LinkedinUrl,
@@ -1013,12 +1020,13 @@ public sealed class CandidatoService : ICandidatoService
 
     private CandidateResponse MapToResponse(Candidato c)
     {
+        var exposeContato = _currentUser.CanViewCandidatoContato;
         return new CandidateResponse(
             c.Id,
             c.Nome,
-            c.Email,
-            c.Fone,
-            c.Celular,
+            exposeContato ? c.Email : string.Empty,
+            exposeContato ? c.Fone : null,
+            exposeContato ? c.Celular : null,
             c.Cidade,
             c.Uf,
             c.LinkedinUrl,

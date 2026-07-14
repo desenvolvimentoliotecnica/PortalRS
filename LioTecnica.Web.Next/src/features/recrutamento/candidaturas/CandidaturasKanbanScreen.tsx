@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
-import { useAuth, useIsGestor } from "@/hooks/useAuth";
+import { useAuth, useIsGestor, useCanViewCandidatoContato } from "@/hooks/useAuth";
 import {
   Dialog,
   DialogContent,
@@ -202,6 +202,7 @@ export default function CandidaturasKanbanScreen() {
   const router = useRouter();
   const { me } = useAuth();
   const isGestor = useIsGestor();
+  const canViewContato = useCanViewCandidatoContato();
   const readOnly = isGestor;
   const [data, setData] = useState<KanbanCandidaturasResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -616,9 +617,10 @@ export default function CandidaturasKanbanScreen() {
                                   </DropdownMenu>
                                 </div>
                               </div>
-                              {it.candidatoEmail && (
+                              {canViewContato && it.candidatoEmail && (
                                 <div className="truncate text-xs text-neutral-500">{it.candidatoEmail}</div>
                               )}
+                              {canViewContato && (
                               <div className="mt-1" onClick={(e) => e.stopPropagation()}>
                                 <WhatsAppContactButton
                                   size="xs"
@@ -627,6 +629,7 @@ export default function CandidaturasKanbanScreen() {
                                   candidatoNome={it.candidatoNome}
                                 />
                               </div>
+                              )}
                             </div>
                           </div>
                           <div className="mt-1 text-xs text-neutral-600">

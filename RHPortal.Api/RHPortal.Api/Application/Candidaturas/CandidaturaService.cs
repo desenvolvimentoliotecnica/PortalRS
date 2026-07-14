@@ -739,13 +739,14 @@ public sealed class CandidaturaService : ICandidaturaService
                     var matchScore = hybridScores.TryGetValue((r.CandidatoId, r.VagaId), out var hybridScore)
                         ? hybridScore
                         : r.MatchScore;
+                    var exposeContato = _currentUser.CanViewCandidatoContato;
                     return new KanbanCandidaturaItem(
                         r.Id,
                         r.CandidatoId,
                         r.CandidatoNome,
-                        r.CandidatoEmail,
-                        r.CandidatoFone,
-                        r.CandidatoCelular,
+                        exposeContato ? r.CandidatoEmail : null,
+                        exposeContato ? r.CandidatoFone : null,
+                        exposeContato ? r.CandidatoCelular : null,
                         r.CandidatoAvatar,
                         r.VagaId,
                         r.VagaCodigo,

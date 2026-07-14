@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WhatsAppMessageDialog } from "@/components/contact/WhatsAppMessageDialog";
 import { normalizeBrazilWhatsAppE164 } from "@/components/contact/whatsapp-utils";
+import { useCanViewCandidatoContato } from "@/hooks/useAuth";
 
 export { normalizeBrazilWhatsAppE164 } from "@/components/contact/whatsapp-utils";
 
@@ -37,9 +38,14 @@ export function WhatsAppContactButton({
     className,
     onClick,
 }: WhatsAppContactButtonProps) {
+    const canViewContato = useCanViewCandidatoContato();
     const phone = normalizeBrazilWhatsAppE164(celular, fone);
     const label = "Conversar com WhatsApp Web";
     const [dialogOpen, setDialogOpen] = useState(false);
+
+    if (!canViewContato) {
+        return null;
+    }
 
     if (!phone) {
         return (

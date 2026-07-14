@@ -28,6 +28,7 @@ public sealed class DocumentacaoPadraoHistoricoTests
         public bool IsInRole(string role) => false;
         public bool IsAdmin => false;
         public bool IsRH => false;
+        public bool CanViewCandidatoContato => true;
         public bool IsOwner => false;
         public Guid? FuncionarioId => null;
         // 31.2: Area foi absorvido por CentroCusto; o mesmo escopo organizacional que
