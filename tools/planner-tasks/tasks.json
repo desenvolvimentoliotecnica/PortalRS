@@ -6,10 +6,60 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T11:16:30.000Z",
-    "totalTarefas": 259
+    "atualizadoEm": "2026-07-14T09:14:00-03:00",
+    "totalTarefas": 261
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-261",
+      "nome": "[Infra] GUI Python para testar LiteLLM do servidor AI",
+      "descricaoAmigavel": "Dor: falta uma forma simples de validar o Mistral/bge-m3 do 10.0.30.30 sem plugar no Portal.\nNecessidade: um chat local com upload de arquivos e resposta da IA.\nSolução proposta: app Gradio apontando ao LiteLLM (chat + PDF/TXT/DOCX).\nDefinição de pronto: abrir a GUI, conversar e anexar um CV recebendo resposta.\nQ/A - Como testar: rodar o app, enviar mensagem e um PDF de currículo.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "09:14",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 50,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Criar GUI em Python para testar a IA do servidor com chat e envio de arquivos.",
+      "entregavel": "App Gradio em tools/ai-chat-tester com chat, upload e configuração do LiteLLM.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": null
+    },
+    {
+      "id": "TASK-2026-260",
+      "nome": "[Portal RH] Padronizar e-mails ao candidato com templates rich-text",
+      "descricaoAmigavel": "Dor: E-mails ao candidato estao espalhados (hardcode + dois sistemas) e sem editor rich-text.\nNecessidade: Templates configuraveis por tipo, rich-text com imagens, tags {{...}}, reset ao padrao, menu para Analista/Especialista.\nSolucao proposta: Unificar em EmailTemplates com CatalogCode, TipTap, upload de imagens, seed/defaults e permissao email-templates.manage.\nDefinicao de pronto: Catalogo completo editavel; Resetar funciona; Analista/Especialista veem o menu; envios usam templates (incl. OTP/proposta).\nQ/A - Como testar: Abrir Templates de E-mail, editar com logo, resetar, disparar etapa e OTP.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "08:50",
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "09:19",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "7 Padronizar e-mails ao candidato e criar templates configuráveis — rich-text, tags, reset, Analista/Especialista",
+      "entregavel": "Catalogo unificado de templates de e-mail ao candidato com editor rich-text, imagens, tags e reset ao padrao.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "0c64ecb4"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #258",
+        "plannerTaskId": "GgPBcNvAn06EnCOj4Vm_p2UAKhKq",
+        "prPrd": "Merge PR #259"
+      },
+      "observacoes": "Promovido HML (PR #258) e PRD (PR #259) em 14/07/2026. Planner Microsoft fechado."
+    },
     {
       "id": "TASK-2026-259",
       "nome": "[Portal RH] Ampliar layout full-width do espaco do candidato",
