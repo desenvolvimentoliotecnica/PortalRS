@@ -74,7 +74,7 @@ export function WhatsAppMessageDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="z-[60] sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Mensagem para WhatsApp</DialogTitle>
                     <DialogDescription>
