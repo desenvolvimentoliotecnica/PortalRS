@@ -36,8 +36,8 @@ public interface ICandidatoService
     Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct, Guid? vagaId = null);
     /// <summary>Upload de currículo (PDF), extração de texto e opcionalmente dados sugeridos pela LLM para o usuário revisar na tela.</summary>
     Task<CandidatoCurriculoExtrairResponse?> UploadCurriculoEExtrairAsync(Guid candidatoId, IFormFile arquivo, bool enviarParaGpt, CancellationToken ct);
-    /// <summary>Extrai texto e campos heurísticos de um CV sem criar candidato nem persistir arquivo.</summary>
-    Task<CandidatoCurriculoParseResponse> ParseCurriculoAsync(IFormFile arquivo, CancellationToken ct);
+    /// <summary>Extrai texto e campos via IA (sem heurística) para pré-preencher o Novo Candidato.</summary>
+    Task<CandidatoCurriculoParseResponse> ParseCurriculoAsync(IFormFile arquivo, Guid? vagaId, CancellationToken ct);
     Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
 }
@@ -937,7 +937,7 @@ public sealed class CandidatoService : ICandidatoService
         return new CandidatoCurriculoExtrairResponse(documentoResponse, cvText, suggestedData);
     }
 
-    public async Task<CandidatoCurriculoParseResponse> ParseCurriculoAsync(IFormFile arquivo, CancellationToken ct)
+    public async Task<CandidatoCurriculoParseResponse> ParseCurriculoAsync(IFormFile arquivo, Guid? vagaId, CancellationToken ct)
     {
         if (arquivo is null || arquivo.Length == 0)
             throw new InvalidOperationException(_localizer["ServiceErrors.CandidatoFileInvalid"]);
@@ -955,24 +955,64 @@ public sealed class CandidatoService : ICandidatoService
             }
 
             var cvText = await ResumeTextExtractor.ExtractAsync(tempPath, ct);
-            var heuristic = CvHeuristicExtractor.Extract(cvText, arquivo.FileName);
+            if (string.IsNullOrWhiteSpace(cvText))
+            {
+                return CvParseFieldMerger.FromAi(
+                    null, null, null, aiTentou: false,
+                    "Não foi possível extrair texto do arquivo (PDF pode ser imagem/scan). Preencha os dados manualmente.");
+            }
 
-            TalentoImportPdfSuggestedData? aiData = null;
             var tenantConfig = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
             var usarIa = tenantConfig?.UsarIaParseCurriculo ?? true;
-            if (usarIa && await _aiSettingsResolver.IsAiEnabledAsync(ct) && !string.IsNullOrWhiteSpace(cvText))
+            if (!usarIa)
             {
-                try
+                return CvParseFieldMerger.FromAi(
+                    cvText, null, null, aiTentou: false,
+                    "O preenchimento automático por IA está desligado nas configurações do tenant. Preencha os dados manualmente.");
+            }
+
+            if (!await _aiSettingsResolver.IsAiEnabledAsync(ct))
+            {
+                return CvParseFieldMerger.FromAi(
+                    cvText, null, null, aiTentou: false,
+                    "O módulo de IA está desabilitado para este tenant. Preencha os dados manualmente.");
+            }
+
+            string? vagaTitulo = null;
+            string? vagaContexto = null;
+            if (vagaId is Guid vid && vid != Guid.Empty)
+            {
+                var vaga = await _db.Vagas.AsNoTracking()
+                    .Include(v => v.Requisitos)
+                    .FirstOrDefaultAsync(v => v.Id == vid, ct);
+                if (vaga is not null)
                 {
-                    aiData = await _cvGptExtractor.ExtractSuggestedDataAsync(cvText, ct);
-                }
-                catch
-                {
-                    /* best-effort — cai na heurística */
+                    vagaTitulo = string.IsNullOrWhiteSpace(vaga.FuncaoNomeRm)
+                        ? vaga.Titulo
+                        : $"{vaga.Titulo} ({vaga.FuncaoNomeRm})";
+                    var reqLines = (vaga.Requisitos ?? [])
+                        .Where(r => !string.IsNullOrWhiteSpace(r.Nome))
+                        .Select(r => $"- {r.Nome}");
+                    vagaContexto = string.Join("\n", new[]
+                        {
+                            vaga.DescricaoInterna,
+                            vaga.DescricaoPublica,
+                            reqLines.Any() ? "Requisitos:\n" + string.Join("\n", reqLines) : null
+                        }.Where(s => !string.IsNullOrWhiteSpace(s)));
                 }
             }
 
-            return CvParseFieldMerger.Merge(cvText, aiData, heuristic);
+            try
+            {
+                var aiResult = await _cvGptExtractor.ExtractForNovoCandidatoAsync(cvText, vagaTitulo, vagaContexto, ct);
+                return CvParseFieldMerger.FromAi(cvText, aiResult.Data, aiResult.RawContent, aiTentou: true, aiResult.Error);
+            }
+            catch (Exception ex)
+            {
+                return CvParseFieldMerger.FromAi(
+                    cvText, null, null, aiTentou: true,
+                    $"Falha ao consultar a IA: {ex.Message}. Preencha os dados manualmente.");
+            }
         }
         finally
         {

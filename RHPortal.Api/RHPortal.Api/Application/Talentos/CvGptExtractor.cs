@@ -53,23 +53,201 @@ public sealed class CvGptExtractor : ICvGptExtractor
 
     public async Task<TalentoImportPdfSuggestedData?> ExtractSuggestedDataAsync(string cvText, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(cvText)) return null;
+        var result = await ExtractWithDiagnosticsAsync(cvText, ct);
+        return result.Data;
+    }
+
+    public async Task<CvGptExtractResult> ExtractWithDiagnosticsAsync(string cvText, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(cvText))
+            return new CvGptExtractResult(null, null, "CV sem texto extraível.");
 
         var tenantId = _tenantContext.TenantId;
-        if (string.IsNullOrWhiteSpace(tenantId)) return null;
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return new CvGptExtractResult(null, null, "Tenant não identificado.");
 
         var truncated = cvText.Length > MaxCvLength ? cvText.Substring(0, MaxCvLength) + "..." : cvText;
+        var userMessage =
+            "Extraia os dados do currículo abaixo. Responda APENAS com um único objeto JSON válido " +
+            "(sem markdown, sem título, sem explicação), no formato do system prompt.\n\n" +
+            "--- CURRÍCULO ---\n" +
+            truncated;
+
         var request = new AiInvokeRequest(
             Module: ModuleName,
             ActionDescription: "Extrair dados do currículo",
             RequestMessage: "Extrair dados estruturados do currículo (JSON).",
             ModelId: null,
-            Payload: new { prompt = SystemPrompt, cvText = truncated });
+            Payload: new { prompt = SystemPrompt, cvText = userMessage });
 
         var response = await _aiService.InvokeAsync(tenantId, null, null, request, ct);
-        if (response is null || string.IsNullOrWhiteSpace(response.Content)) return null;
+        if (response is null || string.IsNullOrWhiteSpace(response.Content))
+            return new CvGptExtractResult(null, response?.Content, "IA não retornou conteúdo.");
 
-        return ParseResponse(response.Content);
+        var raw = response.Content.Trim();
+        if (raw.StartsWith("AI_ERROR:", StringComparison.OrdinalIgnoreCase))
+            return new CvGptExtractResult(null, raw, raw);
+
+        var data = ParseResponse(raw);
+        if (data is null)
+            return new CvGptExtractResult(null, raw, "Não foi possível interpretar o JSON retornado pela IA.");
+
+        return new CvGptExtractResult(data, raw, null);
+    }
+
+    private static readonly string NovoCandidatoSystemPrompt = """
+        Você é um assistente de RH que extrai dados de currículos para pré-preencher o cadastro de candidato.
+        Responda APENAS com um único objeto JSON válido, sem markdown e sem texto fora do JSON, no formato:
+        {
+          "nome": "string ou null — nome completo da pessoa",
+          "email": "string ou null — apenas o e-mail, sem texto colado",
+          "fone": "string ou null — telefone fixo se houver",
+          "celular": "string ou null — celular/WhatsApp",
+          "cidade": "string ou null",
+          "uf": "string ou null — 2 letras (ex: SP)",
+          "linkedinUrl": "string ou null",
+          "pretensaoSalarial": "number ou null — valor numérico em reais sem R$",
+          "trabalhandoAtualmente": "boolean ou null",
+          "observacoes": "string — texto em português, linguagem natural, 2 a 4 parágrafos: (1) resumo do perfil, trajetória e experiências; (2) conhecimentos, hard-skills e soft-skills; (3) avaliação objetiva do fit do candidato para a vaga informada (ou orientação geral se não houver vaga)."
+        }
+        Regras:
+        - Extraia o máximo possível do texto do currículo.
+        - Em "email", nunca concatene palavras seguintes (ex.: após .com/.com.br).
+        - Em "observacoes", seja concreto e útil para o analista de RH; não invente fatos que não estejam no CV; se a vaga estiver descrita, compare exigências vs perfil.
+        - Use null quando o dado não existir no texto.
+        """;
+
+    public async Task<CvNovoCandidatoExtractResult> ExtractForNovoCandidatoAsync(
+        string cvText,
+        string? vagaTitulo,
+        string? vagaContexto,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(cvText))
+            return new CvNovoCandidatoExtractResult(null, null, "CV sem texto extraível.");
+
+        var tenantId = _tenantContext.TenantId;
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return new CvNovoCandidatoExtractResult(null, null, "Tenant não identificado.");
+
+        var truncated = cvText.Length > MaxCvLength ? cvText.Substring(0, MaxCvLength) + "..." : cvText;
+        var vagaBlock = string.IsNullOrWhiteSpace(vagaTitulo) && string.IsNullOrWhiteSpace(vagaContexto)
+            ? "Vaga: (não informada — faça avaliação de perfil genérica em observacoes)."
+            : $"Vaga alvo: {vagaTitulo ?? "(sem título)"}\nContexto da vaga:\n{(string.IsNullOrWhiteSpace(vagaContexto) ? "(sem descrição adicional)" : vagaContexto.Trim())}";
+
+        var userMessage =
+            "Preencha o JSON do cadastro Novo Candidato com base no currículo e na vaga abaixo.\n" +
+            "Responda APENAS com o JSON.\n\n" +
+            $"--- {vagaBlock} ---\n\n" +
+            "--- CURRÍCULO ---\n" +
+            truncated;
+
+        var request = new AiInvokeRequest(
+            Module: ModuleName,
+            ActionDescription: "Extrair dados do currículo (Novo Candidato)",
+            RequestMessage: "Extrair campos do cadastro e observações (JSON).",
+            ModelId: null,
+            Payload: new { prompt = NovoCandidatoSystemPrompt, cvText = userMessage });
+
+        var response = await _aiService.InvokeAsync(tenantId, null, null, request, ct);
+        if (response is null || string.IsNullOrWhiteSpace(response.Content))
+            return new CvNovoCandidatoExtractResult(null, response?.Content, "IA não retornou conteúdo.");
+
+        var raw = response.Content.Trim();
+        if (raw.StartsWith("AI_ERROR:", StringComparison.OrdinalIgnoreCase))
+            return new CvNovoCandidatoExtractResult(null, raw, raw);
+
+        var data = ParseNovoCandidatoResponse(raw);
+        if (data is null)
+            return new CvNovoCandidatoExtractResult(null, raw, "Não foi possível interpretar o JSON retornado pela IA.");
+
+        // Sucesso mínimo: contato ou observações utilizáveis
+        if (string.IsNullOrWhiteSpace(data.Nome)
+            && string.IsNullOrWhiteSpace(data.Email)
+            && string.IsNullOrWhiteSpace(data.Celular)
+            && string.IsNullOrWhiteSpace(data.Fone)
+            && string.IsNullOrWhiteSpace(data.Observacoes))
+        {
+            return new CvNovoCandidatoExtractResult(null, raw, "A IA não retornou dados utilizáveis do currículo.");
+        }
+
+        return new CvNovoCandidatoExtractResult(data, raw, null);
+    }
+
+    private static CvNovoCandidatoAiData? ParseNovoCandidatoResponse(string content)
+    {
+        try
+        {
+            var json = content.Trim();
+            json = StripMarkdownJsonBlock(json);
+            var start = json.IndexOf('{');
+            var end = json.LastIndexOf('}');
+            if (start >= 0 && end > start)
+                json = json.Substring(start, end - start + 1);
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            var email = Application.Candidatos.CvHeuristicExtractor.TrimEmailAtKnownTld(GetString(root, "email"));
+            var uf = GetString(root, "uf");
+            if (uf is { Length: > 2 })
+                uf = uf.Trim()[..2];
+
+            return new CvNovoCandidatoAiData(
+                Nome: TrimToNull(GetString(root, "nome")),
+                Email: email,
+                Fone: TrimToNull(GetString(root, "fone")),
+                Celular: TrimToNull(GetString(root, "celular")) ?? TrimToNull(GetString(root, "fone")),
+                Cidade: TrimToNull(GetString(root, "cidade")),
+                Uf: TrimToNull(uf)?.ToUpperInvariant(),
+                LinkedinUrl: TrimToNull(GetString(root, "linkedinUrl")),
+                PretensaoSalarial: GetDecimal(root, "pretensaoSalarial"),
+                TrabalhandoAtualmente: GetBool(root, "trabalhandoAtualmente"),
+                Observacoes: TrimToNull(GetString(root, "observacoes")));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static decimal? GetDecimal(JsonElement e, string name)
+    {
+        if (!TryGetPropertyIgnoreCase(e, name, out var p)) return null;
+        if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var d)) return d;
+        if (p.ValueKind == JsonValueKind.String
+            && decimal.TryParse(p.GetString()?.Replace("R$", "").Replace(".", "").Replace(",", ".").Trim(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var parsed))
+            return parsed;
+        return null;
+    }
+
+    private static bool? GetBool(JsonElement e, string name)
+    {
+        if (!TryGetPropertyIgnoreCase(e, name, out var p)) return null;
+        if (p.ValueKind is JsonValueKind.True) return true;
+        if (p.ValueKind is JsonValueKind.False) return false;
+        if (p.ValueKind == JsonValueKind.String
+            && bool.TryParse(p.GetString(), out var b))
+            return b;
+        return null;
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement e, string name, out JsonElement value)
+    {
+        if (e.TryGetProperty(name, out value)) return true;
+        foreach (var prop in e.EnumerateObject())
+        {
+            if (string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = prop.Value;
+                return true;
+            }
+        }
+        value = default;
+        return false;
     }
 
     private static TalentoImportPdfSuggestedData? ParseResponse(string content)
@@ -199,8 +377,20 @@ public sealed class CvGptExtractor : ICvGptExtractor
         return s;
     }
 
-    private static string? GetString(JsonElement e, string name) =>
-        e.TryGetProperty(name, out var p) ? (p.ValueKind == JsonValueKind.String ? p.GetString() : p.ToString()) : null;
+    private static string? GetString(JsonElement e, string name)
+    {
+        if (e.TryGetProperty(name, out var p))
+            return p.ValueKind == JsonValueKind.String ? p.GetString() : p.ToString();
+
+        // Alguns modelos devolvem PascalCase (Nome, Email…).
+        foreach (var prop in e.EnumerateObject())
+        {
+            if (string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
+                return prop.Value.ValueKind == JsonValueKind.String ? prop.Value.GetString() : prop.Value.ToString();
+        }
+
+        return null;
+    }
 
     private static string? TrimToNull(string? s) =>
         string.IsNullOrWhiteSpace(s) ? null : s.Trim();

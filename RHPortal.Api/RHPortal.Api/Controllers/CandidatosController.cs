@@ -645,6 +645,7 @@ public sealed class CandidatosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<CandidatoCurriculoParseResponse>> ParseCurriculo(
         [FromForm] IFormFile arquivo,
+        [FromForm] Guid? vagaId,
         [FromServices] ICandidatoService service,
         CancellationToken ct)
     {
@@ -660,7 +661,7 @@ public sealed class CandidatosController : ControllerBase
 
         try
         {
-            var result = await service.ParseCurriculoAsync(arquivo, ct);
+            var result = await service.ParseCurriculoAsync(arquivo, vagaId, ct);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
