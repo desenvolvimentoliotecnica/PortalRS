@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T10:48:00-03:00",
+    "atualizadoEm": "2026-07-14T10:50:00-03:00",
     "totalTarefas": 263
   },
   "tarefas": [
@@ -17,7 +17,7 @@
       "inicio": "2026-07-14",
       "horarioInicio": "10:22",
       "conclusao": "2026-07-14",
-      "horarioConclusao": "10:47",
+      "horarioConclusao": "10:49",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -28,12 +28,13 @@
       "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "b71ffc9a"
+          "ea7724fd"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #266",
+        "prPrd": "Merge PR #267"
       },
-      "observacoes": null
+      "observacoes": "Promovido HML (PR #266) e PRD (PR #267) em 14/07/2026."
     },
     {
       "id": "TASK-2026-262",
