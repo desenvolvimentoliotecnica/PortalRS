@@ -1,19 +1,24 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace RhPortal.Api.Application.Ai;
 
-/// <summary>Provider que chama a API OpenAI Chat Completions para extração de dados (ex.: currículo).</summary>
+/// <summary>Provider que chama a API OpenAI Chat Completions (ou proxy LiteLLM compatível).</summary>
 public sealed class OpenAiProvider : IAiProvider
 {
-    private const string ApiBase = "https://api.openai.com/v1";
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AiOptions _aiOptions;
     private readonly ILogger<OpenAiProvider> _logger;
 
-    public OpenAiProvider(IHttpClientFactory httpClientFactory, ILogger<OpenAiProvider> logger)
+    public OpenAiProvider(
+        IHttpClientFactory httpClientFactory,
+        IOptions<AiOptions> aiOptions,
+        ILogger<OpenAiProvider> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _aiOptions = aiOptions.Value;
         _logger = logger;
     }
 
@@ -40,7 +45,15 @@ public sealed class OpenAiProvider : IAiProvider
                 effectiveModel = "gpt-4o";
         }
 
+        var openAi = _aiOptions.OpenAI ?? new OpenAIOptions();
+        var apiBase = string.IsNullOrWhiteSpace(openAi.ApiBase)
+            ? "https://api.openai.com/v1"
+            : openAi.ApiBase.TrimEnd('/');
+        var maxTokens = openAi.MaxTokens > 0 ? openAi.MaxTokens : 8192;
+        var timeoutSeconds = openAi.TimeoutSeconds > 0 ? openAi.TimeoutSeconds : 120;
+
         var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", decryptedKey.Trim());
 
         var requestBody = new
@@ -51,18 +64,19 @@ public sealed class OpenAiProvider : IAiProvider
                 new { role = "system", content = systemPrompt ?? "Você é um assistente que extrai dados estruturados de currículos. Responda apenas com JSON válido." },
                 new { role = "user", content = userContent }
             },
-            temperature = 0.2
+            temperature = 0.2,
+            max_tokens = maxTokens
         };
 
         try
         {
-            var response = await client.PostAsJsonAsync($"{ApiBase}/chat/completions", requestBody, ct);
+            var response = await client.PostAsJsonAsync($"{apiBase}/chat/completions", requestBody, ct);
             if (!response.IsSuccessStatusCode)
             {
                 var errBody = await response.Content.ReadAsStringAsync(ct);
                 _logger.LogWarning(
-                    "OpenAI API request failed. StatusCode={StatusCode}, Model={Model}, ResponseBody={ResponseBody}",
-                    (int)response.StatusCode, effectiveModel,
+                    "OpenAI API request failed. StatusCode={StatusCode}, Model={Model}, ApiBase={ApiBase}, ResponseBody={ResponseBody}",
+                    (int)response.StatusCode, effectiveModel, apiBase,
                     errBody?.Length > 500 ? errBody[..500] + "..." : errBody);
 
                 // Extract human-readable message from OpenAI error body
@@ -86,7 +100,7 @@ public sealed class OpenAiProvider : IAiProvider
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "OpenAI API request threw an exception.");
+            _logger.LogWarning(ex, "OpenAI API request threw an exception. ApiBase={ApiBase}", apiBase);
             return ($"AI_ERROR:{ex.Message}", 0m);
         }
     }

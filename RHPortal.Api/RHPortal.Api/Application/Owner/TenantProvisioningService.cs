@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
@@ -447,6 +448,9 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await TipoVagaSeeder.EnsureAsync(db, tenantId, ct);
         await UnitEmpresaBackfillSeeder.EnsureAsync(db, tenantId, ct);
         await TenantRmIntegrationDefaultsSeeder.EnsureAsync(db, tenantId, ct);
+        var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var masterDb = scope.ServiceProvider.GetRequiredService<MasterDbContext>();
+        await TenantAiDefaultsSeeder.EnsureAsync(db, masterDb, tenantId, env, ct);
         await RmRequisicaoStatusMapSeeder.EnsureAsync(db, tenantId, ct);
         await DocumentacaoPadraoConfigSeeder.EnsureAsync(db, tenantId, ct);
         await ApiKeySeeder.EnsureAsync(db, _configuration, tenantId, ct);
@@ -472,6 +476,9 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await TipoVagaSeeder.EnsureAsync(db, tenantId, ct);
         await UnitEmpresaBackfillSeeder.EnsureAsync(db, tenantId, ct);
         await TenantRmIntegrationDefaultsSeeder.EnsureAsync(db, tenantId, ct);
+        var env = scopedProvider.GetRequiredService<IHostEnvironment>();
+        var masterDb = scopedProvider.GetRequiredService<MasterDbContext>();
+        await TenantAiDefaultsSeeder.EnsureAsync(db, masterDb, tenantId, env, ct);
         await RmRequisicaoStatusMapSeeder.EnsureAsync(db, tenantId, ct);
         await DocumentacaoPadraoConfigSeeder.EnsureAsync(db, tenantId, ct);
         await ApiKeySeeder.EnsureAsync(db, _configuration, tenantId, ct);

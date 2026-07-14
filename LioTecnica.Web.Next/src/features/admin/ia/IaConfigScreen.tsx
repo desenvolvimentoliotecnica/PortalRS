@@ -15,6 +15,7 @@ interface TenantAiConfigDto {
     llmModel: string | null;
     embeddingProvider: string | null;
     embeddingModel: string | null;
+    usarIaParseCurriculo: boolean;
     knownProviders: string[];
     availableProviders: string[];   // Fase 4: providers com chave cadastrada
     aiEnabled: boolean;             // Fase 4: módulo "ai" do tenant
@@ -40,7 +41,7 @@ function buildProviderOptions(available: string[]) {
 }
 
 const MODEL_PLACEHOLDERS: Record<string, string> = {
-    openai: "ex.: gpt-4o-mini, gpt-4o",
+    openai: "ex.: mistral-small-24b, gpt-4o-mini, gpt-4o",
     gemini: "ex.: gemini-2.5-flash, gemini-2.5-pro",
     anthropic: "ex.: claude-3-5-sonnet-20241022, claude-3-5-haiku",
     ollama: "ex.: qwen2.5:7b, llama3.1:8b",
@@ -63,6 +64,7 @@ export default function IaConfigScreen() {
     const [llmModel, setLlmModel] = useState<string>("");
     const [embeddingProvider, setEmbeddingProvider] = useState<string>("");
     const [embeddingModel, setEmbeddingModel] = useState<string>("");
+    const [usarIaParseCurriculo, setUsarIaParseCurriculo] = useState(true);
 
     const [effective, setEffective] = useState<{
         llmProvider: string;
@@ -84,6 +86,7 @@ export default function IaConfigScreen() {
             setLlmModel(dto.llmModel ?? "");
             setEmbeddingProvider(dto.embeddingProvider ?? "");
             setEmbeddingModel(dto.embeddingModel ?? "");
+            setUsarIaParseCurriculo(dto.usarIaParseCurriculo ?? true);
             setEffective({
                 llmProvider: dto.effectiveLlmProvider,
                 llmModel: dto.effectiveLlmModel,
@@ -114,10 +117,12 @@ export default function IaConfigScreen() {
                     llmModel: llmModel.trim() || null,
                     embeddingProvider: embeddingProvider.trim() || null,
                     embeddingModel: embeddingModel.trim() || null,
+                    usarIaParseCurriculo,
                 }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const dto = (await res.json()) as TenantAiConfigDto;
+            setUsarIaParseCurriculo(dto.usarIaParseCurriculo ?? true);
             setEffective({
                 llmProvider: dto.effectiveLlmProvider,
                 llmModel: dto.effectiveLlmModel,
@@ -221,6 +226,25 @@ export default function IaConfigScreen() {
                                     value={llmModel}
                                     onChange={(e) => setLlmModel(e.target.value)}
                                 />
+                            </div>
+                            <div className="space-y-2 pt-2 border-t border-border/40">
+                                <label className="flex items-start gap-3 text-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="mt-1 rounded border-input"
+                                        checked={usarIaParseCurriculo}
+                                        onChange={(e) => setUsarIaParseCurriculo(e.target.checked)}
+                                        disabled={!aiEnabled}
+                                    />
+                                    <span>
+                                        <span className="font-medium">Usar IA para preencher novo candidato a partir do CV</span>
+                                        <span className="block text-xs text-muted-foreground mt-0.5">
+                                            No cadastro manual (Novo Candidato), ao anexar o currículo a IA tenta extrair
+                                            nome, contato e demais campos. Se a IA falhar ou estiver desligada, o sistema
+                                            usa a leitura automática por regras.
+                                        </span>
+                                    </span>
+                                </label>
                             </div>
                         </div>
                     </div>
