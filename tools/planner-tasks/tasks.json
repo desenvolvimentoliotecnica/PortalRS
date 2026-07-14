@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T09:38:00-03:00",
+    "atualizadoEm": "2026-07-14T10:19:00-03:00",
     "totalTarefas": 262
   },
   "tarefas": [
@@ -16,23 +16,26 @@
       "descricaoAmigavel": "Dor: Falta modelos padronizados de retorno ao candidato e a analista nao escolhe o texto ao notificar.\nNecessidade: 6 textos da Julia no catalogo de e-mails e seletor de modelo no Kanban/envio/retorno negativo.\nSolucao proposta: Atualizar defaults do CandidateEmailTemplateCatalog; AvancarEtapa com templateCode; pickers na UI.\nDefinicao de pronto: Catalogo com textos Julia; ao mover etapa/enviar e-mail/retorno negativo a analista escolhe o modelo.\nQ/A - Como testar: Abrir Templates de E-mail; no Kanban marcar notificar candidato e escolher modelo; aba Enviar Email; retorno negativo.",
       "inicio": "2026-07-14",
       "horarioInicio": "09:38",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 60,
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "10:19",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Media",
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "9 Criar modelos de parecer — textos Julia no catalogo de email + analista escolhe modelo ao notificar; commit push HML PRD e encerrar",
       "entregavel": "Defaults Julia no catalogo de e-mails e seletor de modelo nas notificacoes ao candidato.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "6baff288"
+        ],
         "branch": "DEV",
-        "prHml": null,
-        "plannerTaskId": "dOKFouhC9k6DPvY93vPzuGUAPmks"
+        "prHml": "Merge PR #262",
+        "plannerTaskId": "dOKFouhC9k6DPvY93vPzuGUAPmks",
+        "prPrd": "Merge PR #263"
       },
-      "observacoes": null
+      "observacoes": "Promovido HML (PR #262) e PRD (PR #263) em 14/07/2026. Planner Microsoft fechado."
     },
     {
       "id": "TASK-2026-261",
