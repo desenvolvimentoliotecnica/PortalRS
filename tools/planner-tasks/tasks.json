@@ -6,10 +6,37 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T01:07:00.000Z",
-    "totalTarefas": 255
+    "atualizadoEm": "2026-07-14T01:35:00.000Z",
+    "totalTarefas": 256
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-256",
+      "nome": "[Portal RH] Exibir dados da vaga e melhorar layout no portal público de admissão",
+      "descricaoAmigavel": "Dor: Na pagina de boas-vindas do portal publico de admissao, os dados da vaga ficam incompletos e o layout aperta em celular.\\nNecessidade: Mostrar cargo, area, local, tipo de contratacao, salario e data de inicio com dados consistentes, e layout legivel em telas pequenas.\\nSolucao proposta: Completar os dados da vaga a partir da PreAdmissao e da Vaga vinculada; reorganizar a pagina de boas-vindas para mobile.\\nDefinicao de pronto: Candidato ve as informacoes da vaga preenchidas quando existirem; em celular a pagina cabe e o CTA permanece acessivel.\\nQ/A - Como testar: Abrir /DocumentoAdmissao com preAdmissao vinculada a vaga; conferir card Informacoes da vaga no desktop e no celular (~360px).",
+      "inicio": "2026-07-13",
+      "horarioInicio": "22:27",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "22:34",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "14 Exibir dados da vaga e melhorar layout no portal público de admissão — Mostrar cargo, área, local, tipo de contratação, salário, data de início etc. na página do processo e ajustar layout em telas pequenas.",
+      "entregavel": "Card de informacoes da vaga enriquecido (API + UI) e layout mobile aprimorado na boas-vindas do portal publico.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "c0f160be"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #242",
+        "plannerTaskId": "Bv8_nZdcAEaKw6mGGXm3pWUAEjwk",
+        "prPrd": "Merge PR #243"
+      },
+      "observacoes": "Promovido HML (PR #242) e PRD (PR #243) em 13/07/2026."
+    },
     {
       "id": "TASK-2026-255",
       "nome": "[Portal RH] Restringir dados pessoais, contato e WhatsApp para o gestor",
