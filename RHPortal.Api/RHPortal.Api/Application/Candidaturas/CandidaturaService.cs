@@ -18,7 +18,16 @@ public interface ICandidaturaService
     Task<IReadOnlyList<CandidaturaResponse>> ListarDoCandidatoAsync(Guid candidatoId, CancellationToken ct);
     Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct);
     Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct);
-    Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, bool notificar, CancellationToken ct);
+    Task<AvancarEtapaResponse?> AvancarEtapaAsync(
+        Guid candidaturaId,
+        EtapaMacroCandidatura novaEtapa,
+        string? observacao,
+        AgendarEntrevistaCandidaturaRequest? entrevista,
+        bool notificar,
+        CancellationToken ct,
+        string? emailTemplateCode = null,
+        string? emailSubjectOverride = null,
+        string? emailBodyHtmlOverride = null);
     Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct);
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
     Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct);
@@ -232,7 +241,16 @@ public sealed class CandidaturaService : ICandidaturaService
     public Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct)
         => AvancarEtapaAsync(candidaturaId, novaEtapa, observacao, entrevista, true, ct);
 
-    public async Task<AvancarEtapaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, bool notificar, CancellationToken ct)
+    public async Task<AvancarEtapaResponse?> AvancarEtapaAsync(
+        Guid candidaturaId,
+        EtapaMacroCandidatura novaEtapa,
+        string? observacao,
+        AgendarEntrevistaCandidaturaRequest? entrevista,
+        bool notificar,
+        CancellationToken ct,
+        string? emailTemplateCode = null,
+        string? emailSubjectOverride = null,
+        string? emailBodyHtmlOverride = null)
     {
         EnsureKanbanWritable();
 
@@ -310,7 +328,14 @@ public sealed class CandidaturaService : ICandidaturaService
         {
             try
             {
-                await _notificacaoService.NotificarMudancaEtapaAsync(cand.Id, etapaAnterior, novaEtapa, ct);
+                await _notificacaoService.NotificarMudancaEtapaAsync(
+                    cand.Id,
+                    etapaAnterior,
+                    novaEtapa,
+                    ct,
+                    emailTemplateCode,
+                    emailSubjectOverride,
+                    emailBodyHtmlOverride);
             }
             catch (Exception ex)
             {

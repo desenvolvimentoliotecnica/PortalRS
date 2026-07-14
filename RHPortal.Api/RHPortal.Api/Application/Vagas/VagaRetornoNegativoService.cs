@@ -4,12 +4,13 @@ using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.Vagas;
 
 public interface IVagaRetornoNegativoService
 {
-    Task<VagaRetornoNegativoPreviewResponse?> PreviewAsync(Guid vagaId, CancellationToken ct);
+    Task<VagaRetornoNegativoPreviewResponse?> PreviewAsync(Guid vagaId, CancellationToken ct, string? emailTemplateCode = null);
     Task<VagaRetornoNegativoEnviarResponse> EnviarAsync(Guid vagaId, VagaRetornoNegativoEnviarRequest request, CancellationToken ct);
 }
 
@@ -26,32 +27,52 @@ public sealed class VagaRetornoNegativoService : IVagaRetornoNegativoService
 
     private readonly AppDbContext _db;
     private readonly ICandidaturaService _candidaturaService;
-    private readonly INotificacaoTemplateService _templateService;
+    private readonly ICandidateEmailTemplateService _candidateEmailTemplates;
 
     public VagaRetornoNegativoService(
         AppDbContext db,
         ICandidaturaService candidaturaService,
-        INotificacaoTemplateService templateService)
+        ICandidateEmailTemplateService candidateEmailTemplates)
     {
         _db = db;
         _candidaturaService = candidaturaService;
-        _templateService = templateService;
+        _candidateEmailTemplates = candidateEmailTemplates;
     }
 
-    public async Task<VagaRetornoNegativoPreviewResponse?> PreviewAsync(Guid vagaId, CancellationToken ct)
+    public async Task<VagaRetornoNegativoPreviewResponse?> PreviewAsync(
+        Guid vagaId,
+        CancellationToken ct,
+        string? emailTemplateCode = null)
     {
         var vaga = await _db.Vagas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vagaId, ct);
         if (vaga is null) return null;
 
         var destinatarios = await ListarElegiveisAsync(vagaId, ct);
-        var tpl = await _templateService.GetEfetivoAsync(EtapaMacroCandidatura.Recusado, CanalNotificacao.Email, ct);
+        var code = string.IsNullOrWhiteSpace(emailTemplateCode)
+            ? CandidateEmailTemplateCodes.EtapaRecusado
+            : emailTemplateCode.Trim();
+        if (!CandidateEmailTemplateCatalog.TryGet(code, out _))
+            code = CandidateEmailTemplateCodes.EtapaRecusado;
+
+        var empresaNome = await _db.TenantBrandings
+            .AsNoTracking()
+            .Select(x => x.NomePortal)
+            .FirstOrDefaultAsync(ct) ?? "Portal de RH";
+
+        var tokens = new Dictionary<string, string?>
+        {
+            ["CandidatoNome"] = "[Nome do candidato]",
+            ["VagaTitulo"] = vaga.Titulo,
+            ["EmpresaNome"] = empresaNome,
+        };
+        var rendered = await _candidateEmailTemplates.ResolveRenderedAsync(code, tokens, ct);
 
         return new VagaRetornoNegativoPreviewResponse(
             vagaId,
             vaga.Titulo,
             destinatarios,
-            tpl.Assunto,
-            tpl.Corpo);
+            rendered.Subject,
+            EmailTemplateRenderer.StripHtmlToText(rendered.BodyHtml));
     }
 
     public async Task<VagaRetornoNegativoEnviarResponse> EnviarAsync(
@@ -64,6 +85,11 @@ public sealed class VagaRetornoNegativoService : IVagaRetornoNegativoService
 
         var elegiveis = await ListarElegiveisAsync(vagaId, ct);
         var elegivelSet = elegiveis.Select(d => d.CandidaturaId).ToHashSet();
+        var templateCode = string.IsNullOrWhiteSpace(request.EmailTemplateCode)
+            ? CandidateEmailTemplateCodes.EtapaRecusado
+            : request.EmailTemplateCode.Trim();
+        if (!CandidateEmailTemplateCatalog.TryGet(templateCode, out _))
+            templateCode = CandidateEmailTemplateCodes.EtapaRecusado;
 
         var resultados = new List<VagaRetornoNegativoEnviarItemResult>();
         var enviados = 0;
@@ -84,7 +110,10 @@ public sealed class VagaRetornoNegativoService : IVagaRetornoNegativoService
                     candidaturaId,
                     EtapaMacroCandidatura.Recusado,
                     "Retorno automático — vaga encerrada.",
-                    ct);
+                    entrevista: null,
+                    notificar: true,
+                    ct,
+                    emailTemplateCode: templateCode);
                 if (res is null)
                 {
                     falhas++;

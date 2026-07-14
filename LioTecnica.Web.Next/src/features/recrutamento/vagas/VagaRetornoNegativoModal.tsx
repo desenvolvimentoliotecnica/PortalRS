@@ -16,6 +16,10 @@ import {
   type VagaRetornoNegativoPreviewResponse,
 } from "./vagaRetornoNegativoApi";
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
+import {
+  listEmailTemplates,
+  type EmailTemplateListItem,
+} from "@/features/recrutamento/candidaturas/emailTemplatesClient";
 
 type Props = {
   open: boolean;
@@ -25,6 +29,8 @@ type Props = {
   onClose: () => void;
   onConfirm: (enviarIds: string[] | null) => Promise<void>;
 };
+
+const DEFAULT_RETORNO_CODE = "EtapaRecusado";
 
 export default function VagaRetornoNegativoModal({
   open,
@@ -38,17 +44,35 @@ export default function VagaRetornoNegativoModal({
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState<VagaRetornoNegativoPreviewResponse | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplateListItem[]>([]);
+  const [emailTemplateCode, setEmailTemplateCode] = useState(DEFAULT_RETORNO_CODE);
+  const [selectionReady, setSelectionReady] = useState(false);
 
   useEffect(() => {
-    if (!open || !vagaId) return;
+    if (!open) {
+      setSelected(new Set());
+      setEmailTemplateCode(DEFAULT_RETORNO_CODE);
+      setPreview(null);
+      setSelectionReady(false);
+      return;
+    }
+    if (!vagaId) return;
+
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const data = await previewRetornoNegativo(vagaId);
+        const [data, templates] = await Promise.all([
+          previewRetornoNegativo(vagaId, emailTemplateCode),
+          listEmailTemplates().catch(() => [] as EmailTemplateListItem[]),
+        ]);
         if (cancelled) return;
         setPreview(data);
-        setSelected(new Set((data?.destinatarios ?? []).map((d) => d.candidaturaId)));
+        setEmailTemplates(templates.filter((t) => t.isActive !== false));
+        if (!selectionReady) {
+          setSelected(new Set((data?.destinatarios ?? []).map((d) => d.candidaturaId)));
+          setSelectionReady(true);
+        }
       } catch {
         if (!cancelled) setPreview(null);
       } finally {
@@ -56,7 +80,7 @@ export default function VagaRetornoNegativoModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [open, vagaId]);
+  }, [open, vagaId, emailTemplateCode, selectionReady]);
 
   const destinatarios = preview?.destinatarios ?? [];
   const allSelected = destinatarios.length > 0 && destinatarios.every((d) => selected.has(d.candidaturaId));
@@ -84,7 +108,7 @@ export default function VagaRetornoNegativoModal({
     setSubmitting(true);
     try {
       if (selectedIds.length > 0) {
-        const res = await enviarRetornoNegativo(vagaId, selectedIds);
+        const res = await enviarRetornoNegativo(vagaId, selectedIds, emailTemplateCode);
         if (res.falhas > 0 && res.enviados === 0) {
           throw new Error("Não foi possível enviar o retorno negativo.");
         }
@@ -119,7 +143,7 @@ export default function VagaRetornoNegativoModal({
             Você pode enviar e-mail de retorno negativo aos candidatos ainda ativos (exceto contratado).
           </p>
 
-          {loading ? (
+          {loading && !preview ? (
             <p className="text-muted-foreground">Carregando candidatos elegíveis…</p>
           ) : destinatarios.length === 0 ? (
             <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-muted-foreground">
@@ -127,6 +151,21 @@ export default function VagaRetornoNegativoModal({
             </p>
           ) : (
             <>
+              <label className="block text-xs font-medium text-foreground">
+                Modelo de e-mail
+                <select
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  value={emailTemplateCode}
+                  disabled={submitting}
+                  onChange={(e) => setEmailTemplateCode(e.target.value)}
+                >
+                  {(emailTemplates.length > 0 ? emailTemplates : [
+                    { name: DEFAULT_RETORNO_CODE, displayName: "Retorno negativo do processo seletivo" } as EmailTemplateListItem,
+                  ]).map((t) => (
+                    <option key={t.name} value={t.name}>{t.displayName}</option>
+                  ))}
+                </select>
+              </label>
               <div className="flex items-center justify-between">
                 <span className="font-medium">{destinatarios.length} candidato(s) elegível(is)</span>
                 <button type="button" className="text-xs text-primary underline" onClick={toggleAll}>

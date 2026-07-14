@@ -30,7 +30,10 @@ public sealed record AvancarEtapaRequest(
     EtapaMacroCandidatura NovaEtapa,
     string? Observacao,
     AgendarEntrevistaCandidaturaRequest? Entrevista = null,
-    bool Notificar = true
+    bool Notificar = true,
+    string? EmailTemplateCode = null,
+    string? EmailSubjectOverride = null,
+    string? EmailBodyHtmlOverride = null
 );
 
 public sealed record AvancarEtapaResponse(
