@@ -239,9 +239,9 @@ export default function IaConfigScreen() {
                                     <span>
                                         <span className="font-medium">Usar IA para preencher novo candidato a partir do CV</span>
                                         <span className="block text-xs text-muted-foreground mt-0.5">
-                                            No cadastro manual (Novo Candidato), ao anexar o currículo a IA tenta extrair
-                                            nome, contato e demais campos. Se a IA falhar ou estiver desligada, o sistema
-                                            usa a leitura automática por regras.
+                                            No cadastro manual (Novo Candidato), ao anexar o currículo a IA preenche
+                                            os campos e as observações (resumo e fit da vaga). Se a IA falhar ou
+                                            estiver desligada, o analista preenche os dados manualmente.
                                         </span>
                                     </span>
                                 </label>

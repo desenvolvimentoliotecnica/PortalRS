@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, Eye, Loader2, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2 } from "lucide-react";
+import Swal from "sweetalert2";
+import { Brain, Download, Eye, Loader2, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2 } from "lucide-react";
 import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 
@@ -55,6 +56,34 @@ function pickString(v: unknown, fallback = "") {
 function pickNumber(v: unknown, fallback: number) {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** Máscara BRL ao digitar (centavos → 10.000,00). */
+function formatMoneyInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const cents = Number.parseInt(digits, 10);
+  if (!Number.isFinite(cents)) return "";
+  return (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatMoneyValue(value: unknown) {
+  if (value == null || value === "") return "";
+  const numeric = typeof value === "number" ? value : Number(String(value).replace(",", "."));
+  if (!Number.isFinite(numeric)) return "";
+  return numeric.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function parseMoneyInput(value: string) {
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -291,6 +320,15 @@ export default function CandidatosScreen() {
   const [draftDocFile, setDraftDocFile] = useState<File | null>(null);
   const [cvParseLoading, setCvParseLoading] = useState(false);
   const [cvParseFileName, setCvParseFileName] = useState<string | null>(null);
+  const [cvParseFile, setCvParseFile] = useState<File | null>(null);
+  const [cvParseDebug, setCvParseDebug] = useState<{
+    fonte: string;
+    aiTentou: boolean;
+    aiErro: string | null;
+    aiRawContent: string | null;
+    campos: Record<string, unknown>;
+  } | null>(null);
+  const [cvParseDebugOpen, setCvParseDebugOpen] = useState(false);
 
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggested, setSuggested] = useState<Record<string, unknown> | null>(null);
@@ -522,6 +560,9 @@ export default function CandidatosScreen() {
     setDraftDocFile(null);
     setCvParseLoading(false);
     setCvParseFileName(null);
+    setCvParseFile(null);
+    setCvParseDebug(null);
+    setCvParseDebugOpen(false);
     setDraftDocTipo(enumOptions(enums, "candidatoDocumentoTipo")[0]?.code ?? "curriculo");
     setDraft({
       nome: "",
@@ -549,6 +590,9 @@ export default function CandidatosScreen() {
       setDraftDocFile(null);
       setCvParseLoading(false);
       setCvParseFileName(null);
+      setCvParseFile(null);
+      setCvParseDebug(null);
+      setCvParseDebugOpen(false);
       setDraftDocTipo(enumOptions(enums, "candidatoDocumentoTipo")[0]?.code ?? "curriculo");
       const d = await fetchJson<Candidato>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`);
       setDraft({ ...d, status: resolveStatusEnumCode(d.status, enums) });
@@ -556,6 +600,29 @@ export default function CandidatosScreen() {
     } catch {
       toast.error("Falha ao abrir edição.");
     }
+  }
+
+  async function showPreenchimentoManualSwal(detail?: string | null) {
+    const previousPointerEvents = document.body.style.pointerEvents;
+    const text =
+      (detail?.trim()
+        ? `${detail.trim()}\n\n`
+        : "") +
+      "Não foi possível preencher o cadastro automaticamente. Preencha os dados do candidato manualmente.";
+    await Swal.fire({
+      icon: "warning",
+      title: "Preenchimento manual",
+      text,
+      confirmButtonText: "Entendi",
+      didOpen: () => {
+        document.body.style.pointerEvents = "auto";
+        const container = Swal.getContainer();
+        if (container) container.style.zIndex = "10000";
+      },
+      willClose: () => {
+        document.body.style.pointerEvents = previousPointerEvents;
+      },
+    });
   }
 
   async function parseCurriculoForDraft(file: File) {
@@ -567,14 +634,19 @@ export default function CandidatosScreen() {
 
     setCvParseLoading(true);
     setCvParseFileName(file.name);
+    setCvParseFile(file);
     try {
       const form = new FormData();
       form.append("arquivo", file);
+      const vagaId = pickString(draft.vagaId, "").trim();
+      if (vagaId) form.append("vagaId", vagaId);
+
       const parsed = await fetchJson<Record<string, unknown>>(`${BASE}/api/candidatos/curriculo-parse`, {
         method: "POST",
         body: form,
       });
 
+      const sucesso = parsed.sucesso === true || parsed.Sucesso === true;
       const nome = pickString(parsed.nome ?? parsed.Nome, "").trim();
       const email = pickString(parsed.email ?? parsed.Email, "").trim();
       const fone = pickString(parsed.fone ?? parsed.Fone, "").trim();
@@ -582,6 +654,7 @@ export default function CandidatosScreen() {
       const cidade = pickString(parsed.cidade ?? parsed.Cidade, "").trim();
       const uf = pickString(parsed.uf ?? parsed.Uf, "").trim().toUpperCase().slice(0, 2);
       const linkedinUrl = pickString(parsed.linkedinUrl ?? parsed.LinkedinUrl, "").trim();
+      const observacoes = pickString(parsed.observacoes ?? parsed.Observacoes, "").trim();
       const cvText = pickString(parsed.cvText ?? parsed.CvText, "").trim();
       const pretRaw = parsed.pretensaoSalarial ?? parsed.PretensaoSalarial;
       const pretensao =
@@ -590,24 +663,14 @@ export default function CandidatosScreen() {
           : pretRaw != null && pretRaw !== "" && Number.isFinite(Number(pretRaw))
             ? Number(pretRaw)
             : null;
+      const trabRaw = parsed.trabalhandoAtualmente ?? parsed.TrabalhandoAtualmente;
+      const trabalhandoAtualmente =
+        trabRaw === true ? true : trabRaw === false ? false : null;
 
-      setDraft((prev) => {
-        const isNew = !pickString(prev.id, "").trim();
-        const empty = (v: unknown) => !pickString(v, "").trim();
-        const next: Partial<Candidato> & Record<string, unknown> = { ...prev };
-        // CV é fonte inicial: no novo cadastro aplica o que o parse trouxe; na edição só completa vazios.
-        if (nome && (isNew || empty(prev.nome))) next.nome = nome;
-        if (email && (isNew || empty(prev.email))) next.email = email;
-        if (fone && (isNew || empty(prev.fone))) next.fone = fone;
-        if (celular && (isNew || empty(prev.celular))) next.celular = celular;
-        else if (!celular && fone && (isNew || empty(prev.celular))) next.celular = fone;
-        if (cidade && (isNew || empty(prev.cidade))) next.cidade = cidade;
-        if (uf && (isNew || empty(prev.uf) || pickString(prev.uf, "") === "SP")) next.uf = uf;
-        if (linkedinUrl && (isNew || empty(prev.linkedinUrl))) next.linkedinUrl = linkedinUrl;
-        if (pretensao != null && (isNew || prev.pretensaoSalarial == null)) next.pretensaoSalarial = pretensao;
-        if (cvText) next.cvText = cvText;
-        return next;
-      });
+      const fonte = pickString(parsed.fonte ?? parsed.Fonte, "error").toLowerCase();
+      const aiTentou = parsed.aiTentou === true || parsed.AiTentou === true;
+      const aiErro = pickString(parsed.aiErro ?? parsed.AiErro, "").trim() || null;
+      const aiRawContent = pickString(parsed.aiRawContent ?? parsed.AiRawContent, "").trim() || null;
 
       setPendingDocs((prev) => {
         const withoutSame = prev.filter((d) => d.tipo !== "curriculo" || d.nomeArquivo !== file.name);
@@ -625,8 +688,50 @@ export default function CandidatosScreen() {
         ];
       });
 
-      const fonte = pickString(parsed.fonte ?? parsed.Fonte, "heuristic").toLowerCase();
-      const viaIa = fonte === "ai";
+      setCvParseDebug({
+        fonte,
+        aiTentou,
+        aiErro,
+        aiRawContent,
+        campos: {
+          sucesso,
+          nome,
+          email,
+          fone,
+          celular,
+          cidade,
+          uf,
+          linkedinUrl,
+          pretensaoSalarial: pretensao,
+          trabalhandoAtualmente,
+          observacoes: observacoes ? `${observacoes.slice(0, 200)}…` : null,
+        },
+      });
+
+      if (!sucesso || fonte !== "ai") {
+        if (cvText) {
+          setDraft((prev) => ({ ...prev, cvText }));
+        }
+        await showPreenchimentoManualSwal(aiErro);
+        return;
+      }
+
+      setDraft((prev) => {
+        const next: Partial<Candidato> & Record<string, unknown> = { ...prev };
+        if (nome) next.nome = nome;
+        if (email) next.email = email;
+        if (fone) next.fone = fone;
+        if (celular) next.celular = celular;
+        else if (!celular && fone) next.celular = fone;
+        if (cidade) next.cidade = cidade;
+        if (uf) next.uf = uf;
+        if (linkedinUrl) next.linkedinUrl = linkedinUrl;
+        if (pretensao != null) next.pretensaoSalarial = pretensao;
+        if (trabalhandoAtualmente != null) next.trabalhandoAtualmente = trabalhandoAtualmente;
+        if (observacoes) next.obs = observacoes;
+        if (cvText) next.cvText = cvText;
+        return next;
+      });
 
       const found: string[] = [];
       if (nome) found.push("nome");
@@ -635,25 +740,24 @@ export default function CandidatosScreen() {
       if (cidade || uf) found.push("cidade/UF");
       if (linkedinUrl) found.push("LinkedIn");
       if (pretensao != null) found.push("pretensão");
+      if (trabalhandoAtualmente != null) found.push("situação");
+      if (observacoes) found.push("observações");
 
-      if (found.length === 0) {
-        toast.message("Currículo anexado, mas não encontramos campos para preencher. Complete manualmente.");
-      } else if (!nome || !email || !(celular || fone)) {
-        toast.success(
-          viaIa
-            ? `IA preencheu: ${found.join(", ")}. Revise o que faltar.`
-            : `Campos preenchidos do CV: ${found.join(", ")}. Revise o que faltar.`,
-        );
-      } else {
-        toast.success(
-          viaIa
-            ? `Currículo analisado por IA: ${found.join(", ")}.`
-            : `Campos preenchidos do CV: ${found.join(", ")}.`,
-        );
-      }
-    } catch {
-      setCvParseFileName(null);
-      toast.error("Falha ao analisar o currículo.");
+      toast.success(
+        found.length > 0
+          ? `IA preencheu: ${found.join(", ")}. Revise os dados.`
+          : "Currículo analisado pela IA. Revise o cadastro.",
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao analisar o currículo.";
+      setCvParseDebug({
+        fonte: "error",
+        aiTentou: true,
+        aiErro: msg,
+        aiRawContent: null,
+        campos: {},
+      });
+      await showPreenchimentoManualSwal(msg);
     } finally {
       setCvParseLoading(false);
     }
@@ -1628,30 +1732,76 @@ export default function CandidatosScreen() {
               <div className="space-y-4">
                 {!draft.id ? (
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-emerald-800">
-                      Currículo (fonte do cadastro)
-                    </label>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-emerald-800">
+                        Currículo (fonte do cadastro)
+                      </label>
+                      {cvParseDebug ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 border-emerald-300 bg-white/80 text-emerald-900 hover:bg-white"
+                          onClick={() => setCvParseDebugOpen(true)}
+                          title="Ver retorno da IA / parse"
+                        >
+                          <Brain className="size-3.5" />
+                          Ver retorno da IA
+                        </Button>
+                      ) : null}
+                    </div>
                     <p className="mb-2 text-xs text-emerald-900/80">
-                      Envie o PDF do candidato para preencher automaticamente (IA + leitura do texto) nome, e-mail, telefone e outros dados.
+                      Envie o PDF do candidato para a IA preencher o cadastro e gerar um resumo nas observações (com avaliação para a vaga selecionada).
                     </p>
-                    <input
-                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-emerald-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-emerald-900"
-                      type="file"
-                      accept=".pdf,.docx,.txt,application/pdf"
-                      disabled={cvParseLoading}
-                      onChange={(e) => {
-                        const file = e.currentTarget.files?.[0] ?? null;
-                        e.currentTarget.value = "";
-                        if (file) void parseCurriculoForDraft(file);
-                      }}
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-emerald-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-emerald-900"
+                        type="file"
+                        accept=".pdf,.docx,.txt,application/pdf"
+                        disabled={cvParseLoading}
+                        onChange={(e) => {
+                          const file = e.currentTarget.files?.[0] ?? null;
+                          e.currentTarget.value = "";
+                          if (file) void parseCurriculoForDraft(file);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 shrink-0 gap-1.5 border-emerald-300 bg-white/80 text-emerald-900 hover:bg-white"
+                        disabled={cvParseLoading || !cvParseFile}
+                        title={
+                          !cvParseFile
+                            ? "Anexe um currículo antes de avaliar novamente"
+                            : "Reenviar o currículo à IA com a vaga atual"
+                        }
+                        onClick={() => {
+                          if (cvParseFile) void parseCurriculoForDraft(cvParseFile);
+                        }}
+                      >
+                        {cvParseLoading ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3.5" />
+                        )}
+                        Avaliar novamente
+                      </Button>
+                    </div>
                     {cvParseLoading ? (
                       <div className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-900">
                         <Loader2 className="size-3.5 animate-spin" />
                         Analisando currículo com IA…
                       </div>
                     ) : cvParseFileName ? (
-                      <p className="mt-2 text-xs text-emerald-900/90">Arquivo: {cvParseFileName} (será anexado ao salvar)</p>
+                      <p className="mt-2 text-xs text-emerald-900/90">
+                        Arquivo: {cvParseFileName} (será anexado ao salvar)
+                        {cvParseDebug ? (
+                          <span className="ml-1 text-emerald-800/70">
+                            · {cvParseDebug.fonte === "ai" ? "preenchido pela IA" : "falha na IA — preencher manual"}
+                          </span>
+                        ) : null}
+                      </p>
                     ) : null}
                   </div>
                 ) : null}
@@ -1735,18 +1885,18 @@ export default function CandidatosScreen() {
                   <div className="md:col-span-4">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Pretensão salarial (R$)</label>
                     <input
-                      className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                      type="number"
-                      min={0}
-                      step={100}
-                      placeholder="Ex: 5000"
-                      value={draft.pretensaoSalarial != null ? String(draft.pretensaoSalarial) : ""}
-                      onChange={(e) =>
+                      className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm tabular-nums"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={formatMoneyValue(draft.pretensaoSalarial)}
+                      onChange={(e) => {
+                        const masked = formatMoneyInput(e.target.value);
                         setDraft({
                           ...draft,
-                          pretensaoSalarial: e.target.value !== "" ? parseFloat(e.target.value) : null,
-                        })
-                      }
+                          pretensaoSalarial: masked ? parseMoneyInput(masked) : null,
+                        });
+                      }}
                     />
                   </div>
                   <div className="md:col-span-6">
@@ -1783,7 +1933,13 @@ export default function CandidatosScreen() {
                   </div>
                   <div className="md:col-span-12">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Observações</label>
-                    <textarea className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={pickString((draft as Record<string, unknown>)?.obs, "")} onChange={(e) => setDraft({ ...draft, obs: e.target.value })} placeholder="Observações sobre o candidato..." />
+                    <textarea
+                      className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                      rows={6}
+                      value={pickString((draft as Record<string, unknown>)?.obs, "")}
+                      onChange={(e) => setDraft({ ...draft, obs: e.target.value })}
+                      placeholder="Resumo do perfil, habilidades e avaliação para a vaga (gerado pela IA ou informado manualmente)…"
+                    />
                   </div>
                 </div>
               </div>
@@ -1929,6 +2085,61 @@ export default function CandidatosScreen() {
               <Button onClick={() => void saveDraft()}>
                 Salvar
               </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cvParseDebugOpen && cvParseDebug ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setCvParseDebugOpen(false)}
+        >
+          <div
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/40 p-4">
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Diagnóstico do parse</p>
+                <div className="text-base font-extrabold">Retorno da IA / leitura do CV</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Fonte usada nos campos:{" "}
+                  <strong>{cvParseDebug.fonte === "ai" ? "IA" : "indisponível (preencher manual)"}</strong>
+                  {cvParseDebug.aiTentou ? " · IA foi chamada" : " · IA não foi chamada"}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setCvParseDebugOpen(false)}>
+                Fechar
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
+              {cvParseDebug.aiErro ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-amber-800">Aviso / erro da IA</div>
+                  <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-xs">{cvParseDebug.aiErro}</pre>
+                </div>
+              ) : null}
+              <div>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Campos aplicados ao formulário</div>
+                <pre className="overflow-auto rounded-md border border-border/50 bg-muted/30 p-3 font-mono text-xs">
+                  {JSON.stringify(cvParseDebug.campos, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Texto bruto da IA</div>
+                {cvParseDebug.aiRawContent ? (
+                  <pre className="max-h-[40vh] overflow-auto rounded-md border border-border/50 bg-muted/30 p-3 font-mono text-xs whitespace-pre-wrap break-words">
+                    {cvParseDebug.aiRawContent}
+                  </pre>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Sem retorno bruto — a IA não foi chamada ou não devolveu conteúdo. Preencha o cadastro manualmente.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

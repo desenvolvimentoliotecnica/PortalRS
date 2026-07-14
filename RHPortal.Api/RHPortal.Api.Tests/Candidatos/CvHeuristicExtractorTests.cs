@@ -50,4 +50,15 @@ public sealed class CvHeuristicExtractorTests
         Assert.Equal("(21) 99999-0000", r.Celular);
         Assert.Contains("Maria", r.Nome ?? "", StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Extract_does_not_glue_tld_with_following_word()
+    {
+        var text = "alegspa@hotmail.comObjetivoAtuar como desenvolvedor\n(11) 98481-4184\nSão Paulo - SP";
+        var r = CvHeuristicExtractor.Extract(text, "Alexandre_Guerreiro_Sparapan_CV 1.pdf");
+
+        Assert.Equal("alegspa@hotmail.com", r.Email);
+        Assert.Contains("Alexandre", r.Nome ?? "", StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Objetivo", r.Email ?? "", StringComparison.OrdinalIgnoreCase);
+    }
 }
