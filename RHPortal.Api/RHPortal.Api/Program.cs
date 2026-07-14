@@ -314,6 +314,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPort
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
+builder.Services.AddScoped<RhPortal.Api.Messaging.Email.ICandidateEmailTemplateService, RhPortal.Api.Messaging.Email.CandidateEmailTemplateService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
 builder.Services.AddHostedService<CvImportWorker>();

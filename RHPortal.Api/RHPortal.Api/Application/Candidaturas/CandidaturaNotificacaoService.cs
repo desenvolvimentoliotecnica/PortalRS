@@ -53,6 +53,7 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
     private readonly IWhatsAppMessageSender _whatsAppSender;
     private readonly ILogger<CandidaturaNotificacaoService> _logger;
     private readonly INotificacaoTemplateService? _templateService;
+    private readonly ICandidateEmailTemplateService? _candidateEmailTemplates;
     private readonly WhatsAppOptions _waOptions;
     private readonly IConfiguration? _configuration;
     private readonly IHttpContextAccessor? _httpContextAccessor;
@@ -78,7 +79,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         IOptions<WhatsAppOptions> waOptions,
         INotificacaoTemplateService? templateService = null,
         IConfiguration? configuration = null,
-        IHttpContextAccessor? httpContextAccessor = null)
+        IHttpContextAccessor? httpContextAccessor = null,
+        ICandidateEmailTemplateService? candidateEmailTemplates = null)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -86,6 +88,7 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         _whatsAppSender = whatsAppSender;
         _logger = logger;
         _templateService = templateService;
+        _candidateEmailTemplates = candidateEmailTemplates;
         _waOptions = waOptions.Value ?? new WhatsAppOptions();
         _configuration = configuration;
         _httpContextAccessor = httpContextAccessor;
@@ -164,6 +167,33 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         string? entrevistaLink,
         CancellationToken ct)
     {
+        // Canal e-mail: catálogo unificado EmailTemplates (rich-text + tags {{...}})
+        if (canal == CanalNotificacao.Email && _candidateEmailTemplates is not null)
+        {
+            var code = CandidateEmailTemplateCatalog.ResolveCodeForEtapa(etapa);
+            if (!string.IsNullOrWhiteSpace(code))
+            {
+                var tokens = new Dictionary<string, string?>
+                {
+                    ["CandidatoNome"] = candidatoNome,
+                    ["VagaTitulo"] = vagaTitulo ?? "(vaga)",
+                    ["EmpresaNome"] = empresaNome ?? "Portal de RH",
+                    ["EntrevistaData"] = entrevistaData ?? "a combinar",
+                    ["EntrevistaModalidade"] = entrevistaModalidade ?? "presencial / online",
+                    ["EntrevistaLinkConfirmacao"] = entrevistaLink,
+                };
+                var rendered = await _candidateEmailTemplates.ResolveRenderedAsync(code, tokens, ct);
+                var assunto = rendered.Subject;
+                var bodyHtml = rendered.BodyHtml;
+                if (IsEtapaEntrevista(etapa) && !string.IsNullOrWhiteSpace(entrevistaLink)
+                    && !bodyHtml.Contains(entrevistaLink, StringComparison.OrdinalIgnoreCase))
+                {
+                    bodyHtml = $"{bodyHtml.Trim()}<p>Confirme sua presença ou sugira outro horário: <a href=\"{System.Net.WebUtility.HtmlEncode(entrevistaLink)}\">{System.Net.WebUtility.HtmlEncode(entrevistaLink)}</a></p>";
+                }
+                return (assunto, bodyHtml);
+            }
+        }
+
         if (_templateService is not null)
         {
             var ef = await _templateService.GetEfetivoAsync(etapa, canal, idioma, ct);
@@ -245,8 +275,14 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
 
         try
         {
-            var bodyHtml = $"<p>{System.Net.WebUtility.HtmlEncode(mensagem).Replace("\n", "<br />")}</p>";
-            await _emailQueue.EnqueueRawAsync(email!, assunto, bodyHtml, mensagem, isSystem: true, source: "candidatura-etapa", ct);
+            // Se a mensagem já parece HTML do catálogo, envia direto; senão wrap legado.
+            var bodyHtml = mensagem.Contains('<') && mensagem.Contains('>')
+                ? mensagem
+                : $"<p>{System.Net.WebUtility.HtmlEncode(mensagem).Replace("\n", "<br />")}</p>";
+            var bodyText = mensagem.Contains('<')
+                ? EmailTemplateRenderer.StripHtmlToText(mensagem)
+                : mensagem;
+            await _emailQueue.EnqueueRawAsync(email!, assunto, bodyHtml, bodyText, isSystem: true, source: "candidatura-etapa", ct);
             _db.NotificacoesCandidaturaLogs.Add(NovoLog(cand, candidato, etapa, CanalNotificacao.Email, NotificacaoStatus.Enviado, email, mensagem, null, tenantId, now));
         }
         catch (Exception ex)

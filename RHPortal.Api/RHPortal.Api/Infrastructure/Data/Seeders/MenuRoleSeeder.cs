@@ -120,6 +120,7 @@ public static class MenuRoleSeeder
                 "documentacao-padrao.manage",
                 "folha.desligamentos.view",
                 "folha.entrevista-saida.manage",
+                "email-templates.manage",
             ],
             ["Especialista de RH"] =
             [
@@ -132,6 +133,7 @@ public static class MenuRoleSeeder
                 "feedback.gamificacao.view",
                 "folha.desligamentos.view",
                 "folha.entrevista-saida.manage",
+                "email-templates.manage",
             ],
         };
 

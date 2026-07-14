@@ -47,18 +47,16 @@ public sealed class AdmissaoPortalOtpService : IAdmissaoPortalOtpService
         _cache.Set(otpKey, code, OtpTtl);
         _cache.Set(cooldownKey, true, ResendCooldown);
 
-        var bodyHtml = $"""
-            <p>Olá,</p>
-            <p>Seu código de acesso ao Portal de Admissão é:</p>
-            <p style="font-size:28px;font-weight:bold;letter-spacing:6px;">{code}</p>
-            <p>Válido por 15 minutos. Se você não solicitou, ignore este e-mail.</p>
-            """;
-
-        await _emailQueue.EnqueueRawAsync(
+        await _emailQueue.EnqueueTemplateAsync(
+            CandidateEmailTemplateCodes.AdmissaoPortalOtp,
             email.Trim(),
-            "Código de acesso — Portal de Admissão",
-            bodyHtml,
-            $"Seu código de acesso ao Portal de Admissão é: {code}. Válido por 15 minutos.",
+            new Dictionary<string, string?>
+            {
+                ["CandidatoNome"] = "",
+                ["EmpresaNome"] = "Portal de Admissão",
+                ["CodigoOtp"] = code,
+                ["ValidadeMinutos"] = ((int)OtpTtl.TotalMinutes).ToString(),
+            },
             isSystem: true,
             source: "admissao-portal-otp",
             ct);
