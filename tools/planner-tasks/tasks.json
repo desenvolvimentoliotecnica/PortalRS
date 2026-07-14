@@ -6,10 +6,34 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-13T23:42:01.768Z",
-    "totalTarefas": 252
+    "atualizadoEm": "2026-07-14T00:06:49.179Z",
+    "totalTarefas": 253
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-253",
+      "nome": "[Portal RH] Tornar o DNALIO opcional ao salvar a vaga",
+      "descricaoAmigavel": "Dor: Ao salvar uma vaga, o sistema exige o DNALIO mesmo quando nao deveria ser obrigatorio.\\nNecessidade: Permitir salvar/publicar sem DNALIO, mantendo o campo quando informado.\\nSolucao proposta: Remover validacao de obrigatoriedade no front e no backend.\\nDefinicao de pronto: E possivel salvar a vaga sem DNALIO; com campo preenchido o valor continua gravado.\\nQ/A - Como testar: Abrir vaga, deixar DNALIO em branco e salvar. Confirmar sucesso. Preencher e salvar de novo.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "21:03",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "21:06",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "5 Tornar o DNALIO opcional ao salvar a vaga",
+      "entregavel": "DNALIO opcional no save e na publicacao (front+API+hub); campo permanece disponivel e e gravado quando informado.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "plannerTaskId": "sQz2mNYqv0C_Pjt4IbDdzmUAD6Xy"
+      },
+      "observacoes": "Aguardando promocao HML/PRD."
+    },
     {
       "id": "TASK-2026-252",
       "nome": "[Portal RH] Criterios do candidato ideal: espelhar outras abas na edicao",
