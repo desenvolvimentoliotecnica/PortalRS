@@ -6,10 +6,37 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T00:07:20.300Z",
-    "totalTarefas": 253
+    "atualizadoEm": "2026-07-14T00:36:00.000Z",
+    "totalTarefas": 254
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-254",
+      "nome": "[Portal RH] Ajustar tamanho e camada dos modais no Kanban de candidaturas",
+      "descricaoAmigavel": "Dor: Ao mover candidato no Kanban, o modal fica cortado (alto demais, sem rolagem) e o menu lateral aparece por cima do fundo escuro.\\nNecessidade: Modal cabe na tela, com rolagem interna e botoes acessiveis, e fica acima do menu.\\nSolucao proposta: Limitar altura do modal, rolar o conteudo e elevar a camada do dialogo.\\nDefinicao de pronto: Mover para entrevista RH cabem titulo e Confirmar/Cancelar na tela; menu fica atras do modal.\\nQ/A - Como testar: No Kanban, mover candidato para Entrevista RH; confirmar cabecalho, rolagem e rodape visiveis; menu atrás do overlay.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "21:28",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "21:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "6 Ajustar tamanho e camada dos modais no Kanban de candidaturas — Corrigir z-index e tamanho dos modais ao movimentar candidato no Kanban, para caber na tela e ficar acima do menu.",
+      "entregavel": "Modal de movimentacao no Kanban com altura limitada, rolagem e camada acima do menu lateral.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "8fd3ccb6"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #234",
+        "plannerTaskId": "D3tx_EPKb0C8Ac_mBdVVomUACoao",
+        "prPrd": "Merge PR #235"
+      },
+      "observacoes": "Promovido HML (PR #234) e PRD (PR #235) em 13/07/2026."
+    },
     {
       "id": "TASK-2026-253",
       "nome": "[Portal RH] Tornar o DNALIO opcional ao salvar a vaga",
