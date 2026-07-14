@@ -543,6 +543,322 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
   },
 }
 
+type AccessLegalSection = {
+  heading: string
+  paragraphs?: string[]
+  bullets?: string[]
+}
+
+type AccessLegalDocument = {
+  title: string
+  updatedAt: string
+  sections: AccessLegalSection[]
+}
+
+const ACCESS_LEGAL_DOCUMENTS: Record<AccessLanguage, { terms: AccessLegalDocument; privacy: AccessLegalDocument }> = {
+  'pt-BR': {
+    terms: {
+      title: 'Termos de uso',
+      updatedAt: 'Última atualização: 14 de julho de 2026',
+      sections: [
+        {
+          heading: '1. Aceitação',
+          paragraphs: [
+            'Ao criar uma conta ou utilizar o Portal de Vagas da Liotécnica, você declara ter lido e concordado com estes Termos de Uso. Se não concordar, não utilize o portal.',
+          ],
+        },
+        {
+          heading: '2. Objeto do serviço',
+          paragraphs: [
+            'O Portal de Vagas permite que candidatos se cadastrem, preencham perfil profissional, visualizem oportunidades e acompanhem candidaturas junto a processos seletivos da Liotécnica Indústria de Alimentos e suas unidades.',
+          ],
+        },
+        {
+          heading: '3. Cadastro e responsabilidade da conta',
+          paragraphs: [
+            'Você se compromete a informar dados verdadeiros, completos e atualizados, a manter a confidencialidade da senha e a não compartilhar o acesso com terceiros.',
+          ],
+          bullets: [
+            'É proibido criar contas em nome de outra pessoa sem autorização.',
+            'Você é responsável pelas atividades realizadas com sua conta.',
+            'A Liotécnica pode suspender ou excluir contas com informações falsas ou uso indevido.',
+          ],
+        },
+        {
+          heading: '4. Uso adequado',
+          paragraphs: [
+            'O portal deve ser usado somente para fins de recrutamento e candidatura. É vedado tentar obter acesso não autorizado, interferir no funcionamento do sistema ou enviar conteúdo ilícito, ofensivo ou discriminatório.',
+          ],
+        },
+        {
+          heading: '5. Processos seletivos',
+          paragraphs: [
+            'A participação em processos seletivos não garante contratação. A Liotécnica analisa candidaturas conforme critérios da vaga e pode encerrar, alterar ou cancelar oportunidades a qualquer momento, sem obrigação de justificação individual além do previsto em política interna e na legislação aplicável.',
+          ],
+        },
+        {
+          heading: '6. Propriedade intelectual',
+          paragraphs: [
+            'Marcas, layouts, textos e demais conteúdos do portal pertencem à Liotécnica ou a seus licenciadores. É proibida a reprodução sem autorização prévia, salvo para uso pessoal necessário à candidatura.',
+          ],
+        },
+        {
+          heading: '7. Limitação de responsabilidade',
+          paragraphs: [
+            'O portal é oferecido “como está”. Empregamos esforços razoáveis de disponibilidade e segurança, sem garantir disponibilidade ininterrupta. Não nos responsabilizamos por danos decorrentes de uso indevido, falhas de conexão do usuário ou decisões de terceiros no processo seletivo, na medida permitida pela lei.',
+          ],
+        },
+        {
+          heading: '8. Alterações',
+          paragraphs: [
+            'Podemos atualizar estes Termos periodicamente. A versão vigente permanece disponível no portal. O uso continuado após alterações relevantes implica ciência das novas condições.',
+          ],
+        },
+        {
+          heading: '9. Contato',
+          paragraphs: [
+            'Dúvidas sobre estes Termos podem ser encaminhadas aos canais oficiais de Recrutamento e Seleção / RH da Liotécnica.',
+          ],
+        },
+      ],
+    },
+    privacy: {
+      title: 'Política de Privacidade',
+      updatedAt: 'Última atualização: 14 de julho de 2026',
+      sections: [
+        {
+          heading: '1. Quem somos',
+          paragraphs: [
+            'Esta Política descreve como a Liotécnica Indústria de Alimentos trata dados pessoais no Portal de Vagas, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018).',
+          ],
+        },
+        {
+          heading: '2. Dados que coletamos',
+          bullets: [
+            'Dados de identificação e contato: nome, e-mail, telefone, CPF, RG, data de nascimento, filiação, cidade e UF.',
+            'Dados profissionais: currículo, experiências, formação, habilidades e informações enviadas no perfil.',
+            'Dados de uso: registros de acesso, endereço IP e trilhas necessárias à segurança e auditoria.',
+          ],
+        },
+        {
+          heading: '3. Finalidades',
+          paragraphs: ['Os dados são tratados para:'],
+          bullets: [
+            'Criar e gerenciar sua conta no portal.',
+            'Viabilizar candidaturas e comunicação sobre etapas do processo seletivo.',
+            'Cumprir obrigações legais e de compliance.',
+            'Proteger a segurança da plataforma e prevenir fraudes.',
+          ],
+        },
+        {
+          heading: '4. Bases legais',
+          paragraphs: [
+            'O tratamento ocorre com base no consentimento (quando aplicável), na execução de procedimentos preliminares relacionados a contrato a pedido do titular (candidatura) e no legítimo interesse para segurança e melhoria do serviço, sempre com respeito aos direitos do titular.',
+          ],
+        },
+        {
+          heading: '5. Compartilhamento',
+          paragraphs: [
+            'Dados pessoais não são vendidos. Podemos compartilhá-los com equipes internas de RH e gestores envolvidos na seleção, com prestadores de infraestrutura necessários à operação do portal e com autoridades quando exigido por lei.',
+          ],
+        },
+        {
+          heading: '6. Direitos do titular (LGPD art. 18)',
+          paragraphs: ['Você pode solicitar:'],
+          bullets: [
+            'Confirmação da existência de tratamento e acesso aos dados.',
+            'Correção de dados incompletos, inexatos ou desatualizados.',
+            'Anonimização, bloqueio ou eliminação de dados desnecessários, quando cabível.',
+            'Informação sobre compartilhamentos e revogação de consentimento, quando esta for a base legal.',
+          ],
+        },
+        {
+          heading: '7. Retenção e segurança',
+          paragraphs: [
+            'Mantemos os dados pelo tempo necessário às finalidades do recrutamento ou exigências legais, adotando medidas técnicas e administrativas para reduzir riscos de acesso indevido, perda ou uso inadequado.',
+          ],
+        },
+        {
+          heading: '8. Contato do encarregado',
+          paragraphs: [
+            'Para exercer direitos ou esclarecer dúvidas sobre privacidade no Portal de Vagas, utilize os canais oficiais de RH / Recrutamento e Seleção da Liotécnica.',
+          ],
+        },
+      ],
+    },
+  },
+  'en-US': {
+    terms: {
+      title: 'Terms of Use',
+      updatedAt: 'Last updated: July 14, 2026',
+      sections: [
+        {
+          heading: '1. Acceptance',
+          paragraphs: [
+            'By creating an account or using the Liotécnica Jobs Portal, you confirm that you have read and agree to these Terms of Use. If you do not agree, do not use the portal.',
+          ],
+        },
+        {
+          heading: '2. Service',
+          paragraphs: [
+            'The Jobs Portal lets candidates register, complete a professional profile, explore opportunities, and follow applications in Liotécnica recruitment processes.',
+          ],
+        },
+        {
+          heading: '3. Account responsibility',
+          bullets: [
+            'Provide accurate and up-to-date information.',
+            'Keep your password confidential and do not share your account.',
+            'Liotécnica may suspend or remove accounts with false information or misuse.',
+          ],
+        },
+        {
+          heading: '4. Proper use',
+          paragraphs: [
+            'Use the portal only for recruitment and applications. Unauthorized access attempts, interference with the system, or unlawful/offensive content are prohibited.',
+          ],
+        },
+        {
+          heading: '5. Selection processes',
+          paragraphs: [
+            'Applying does not guarantee hiring. Liotécnica may change or close job openings according to business needs and applicable law.',
+          ],
+        },
+        {
+          heading: '6. Intellectual property',
+          paragraphs: [
+            'Brands, layouts, texts and other portal content belong to Liotécnica or its licensors and may not be reproduced without prior authorization.',
+          ],
+        },
+        {
+          heading: '7. Changes and contact',
+          paragraphs: [
+            'These Terms may be updated periodically. Continued use after relevant changes means you acknowledge the new version. Questions may be sent through official Liotécnica Talent Acquisition / HR channels.',
+          ],
+        },
+      ],
+    },
+    privacy: {
+      title: 'Privacy Policy',
+      updatedAt: 'Last updated: July 14, 2026',
+      sections: [
+        {
+          heading: '1. Who we are',
+          paragraphs: [
+            'This Policy explains how Liotécnica Indústria de Alimentos processes personal data in the Jobs Portal under Brazil’s LGPD (Law 13.709/2018).',
+          ],
+        },
+        {
+          heading: '2. Data we collect',
+          bullets: [
+            'Identity and contact data (name, email, phone, documents, city/state).',
+            'Professional data submitted in your profile and applications.',
+            'Usage and security logs needed to operate the portal.',
+          ],
+        },
+        {
+          heading: '3. Purposes',
+          bullets: [
+            'Create and manage your account.',
+            'Run applications and communicate selection steps.',
+            'Meet legal obligations and protect the platform.',
+          ],
+        },
+        {
+          heading: '4. Sharing and rights',
+          paragraphs: [
+            'We do not sell personal data. Data may be shared with internal HR/hiring managers, infrastructure providers, and authorities when required by law. You may request access, correction, deletion when applicable, and information about processing under LGPD.',
+          ],
+        },
+        {
+          heading: '5. Retention, security and contact',
+          paragraphs: [
+            'We keep data only as long as needed for recruitment or legal requirements, applying reasonable security measures. Contact official Liotécnica HR / Talent Acquisition channels to exercise your rights.',
+          ],
+        },
+      ],
+    },
+  },
+  'es-ES': {
+    terms: {
+      title: 'Términos de uso',
+      updatedAt: 'Última actualización: 14 de julio de 2026',
+      sections: [
+        {
+          heading: '1. Aceptación',
+          paragraphs: [
+            'Al crear una cuenta o usar el Portal de Vacantes de Liotécnica, usted declara haber leído y aceptado estos Términos de Uso. Si no está de acuerdo, no utilice el portal.',
+          ],
+        },
+        {
+          heading: '2. Servicio',
+          paragraphs: [
+            'El portal permite registrarse, completar el perfil profesional, ver oportunidades y seguir candidaturas en procesos de selección de Liotécnica.',
+          ],
+        },
+        {
+          heading: '3. Responsabilidad de la cuenta',
+          bullets: [
+            'Informar datos verdaderos y actualizados.',
+            'Mantener la confidencialidad de la contraseña.',
+            'Liotécnica puede suspender o eliminar cuentas con información falsa o uso indebido.',
+          ],
+        },
+        {
+          heading: '4. Uso adecuado',
+          paragraphs: [
+            'El portal debe usarse solo para reclutamiento y candidatura. Está prohibido el acceso no autorizado, interferir en el sistema o enviar contenido ilícito u ofensivo.',
+          ],
+        },
+        {
+          heading: '5. Procesos selectivos',
+          paragraphs: [
+            'Participar no garantiza contratación. Liotécnica puede modificar o cerrar vacantes según necesidades del negocio y la legislación aplicable.',
+          ],
+        },
+        {
+          heading: '6. Cambios y contacto',
+          paragraphs: [
+            'Estos Términos pueden actualizarse periódicamente. El uso continuo tras cambios relevantes implica conocimiento de la nueva versión. Para dudas, use los canales oficiales de RR. HH. / Reclutamiento de Liotécnica.',
+          ],
+        },
+      ],
+    },
+    privacy: {
+      title: 'Política de Privacidad',
+      updatedAt: 'Última actualización: 14 de julio de 2026',
+      sections: [
+        {
+          heading: '1. Quiénes somos',
+          paragraphs: [
+            'Esta Política describe cómo Liotécnica Indústria de Alimentos trata datos personales en el Portal de Vacantes, conforme a la LGPD (Ley 13.709/2018).',
+          ],
+        },
+        {
+          heading: '2. Datos que recopilamos',
+          bullets: [
+            'Datos de identificación y contacto.',
+            'Datos profesionales del perfil y candidaturas.',
+            'Registros de uso necesarios para seguridad y operación.',
+          ],
+        },
+        {
+          heading: '3. Finalidades y derechos',
+          paragraphs: [
+            'Tratamos los datos para gestionar la cuenta, permitir candidaturas, cumplir obligaciones legales y proteger la plataforma. Usted puede solicitar acceso, corrección y demás derechos previstos en la LGPD a través de los canales oficiales de RR. HH.',
+          ],
+        },
+        {
+          heading: '4. Compartición, retención y contacto',
+          paragraphs: [
+            'No vendemos datos personales. Podemos compartirlos con equipos internos de selección, proveedores de infraestructura y autoridades cuando la ley lo exija. Conservamos los datos el tiempo necesario a la finalidad o a exigencias legales.',
+          ],
+        },
+      ],
+    },
+  },
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -724,6 +1040,7 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
   const [error, setError] = useState<string | null>(null)
   const [registerError, setRegisterError] = useState<string | null>(null)
   const [showHelpModal, setShowHelpModal] = useState(false)
+  const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [language, setLanguage] = useState<AccessLanguage>(() => {
     if (typeof window === 'undefined') return 'pt-BR'
@@ -749,6 +1066,8 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [cityLoading, setCityLoading] = useState(false)
   const text = ACCESS_TRANSLATIONS[language]
+  const legalDocs = ACCESS_LEGAL_DOCUMENTS[language]
+  const activeLegalDoc = legalModal === 'terms' ? legalDocs.terms : legalModal === 'privacy' ? legalDocs.privacy : null
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -932,21 +1251,6 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
             <h2>{authMode === 'register' ?text.subtitleRegister : text.subtitle}</h2>
           </div>
 
-          <div className="auth-sso-grid">
-            <button type="button" className="auth-sso-btn" disabled>
-              <i className="fab fa-microsoft" aria-hidden="true"></i>
-              {text.ssoMicrosoft}
-              <span>{text.unavailable}</span>
-            </button>
-            <button type="button" className="auth-sso-btn" disabled>
-              <i className="fab fa-google" aria-hidden="true"></i>
-              {text.ssoGoogle}
-              <span>{text.unavailable}</span>
-            </button>
-          </div>
-
-          <div className="auth-divider">{text.or}</div>
-
           {authMode === 'login' ?(
             <form className="auth-card auth-card-main" onSubmit={onSubmit}>
               <label className="auth-field">
@@ -1089,9 +1393,13 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
 
           <p className="auth-terms">
             {text.termsPrefix}{' '}
-            <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer">{text.termsUse}</a>{' '}
+            <button type="button" className="auth-terms-link" onClick={() => setLegalModal('terms')}>
+              {text.termsUse}
+            </button>{' '}
             {text.termsAnd}{' '}
-            <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer">{text.privacyPolicy}</a>
+            <button type="button" className="auth-terms-link" onClick={() => setLegalModal('privacy')}>
+              {text.privacyPolicy}
+            </button>
             {text.termsSuffix ?` ${text.termsSuffix}` : ''}
           </p>
         </div>
@@ -1099,13 +1407,13 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
 
       {showHelpModal ?(
         <div className="auth-modal-backdrop" onClick={() => setShowHelpModal(false)}>
-          <div className="auth-help-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="auth-help-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="auth-help-title">
             <div className="auth-help-modal-header">
               <div>
-                <h2>{text.helpTitle}</h2>
+                <h2 id="auth-help-title">{text.helpTitle}</h2>
                 <div className="auth-help-modal-subtitle">{text.helpSubtitle}</div>
               </div>
-              <button type="button" className="auth-modal-close" onClick={() => setShowHelpModal(false)} aria-label="Fechar">
+              <button type="button" className="auth-modal-close" onClick={() => setShowHelpModal(false)} aria-label={text.close}>
                 <i className="fas fa-times" aria-hidden="true"></i>
               </button>
             </div>
@@ -1117,6 +1425,50 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
             </div>
             <div className="auth-help-modal-footer">
               <button className="auth-submit auth-modal-primary auth-submit-inline" type="button" onClick={() => setShowHelpModal(false)}>
+                {text.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activeLegalDoc ?(
+        <div className="auth-modal-backdrop" onClick={() => setLegalModal(null)}>
+          <div
+            className="auth-help-modal auth-legal-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-legal-title"
+          >
+            <div className="auth-help-modal-header">
+              <div>
+                <h2 id="auth-legal-title">{activeLegalDoc.title}</h2>
+                <div className="auth-help-modal-subtitle auth-legal-modal-updated">{activeLegalDoc.updatedAt}</div>
+              </div>
+              <button type="button" className="auth-modal-close" onClick={() => setLegalModal(null)} aria-label={text.close}>
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div className="auth-legal-modal-body">
+              {activeLegalDoc.sections.map((section) => (
+                <section key={section.heading}>
+                  <h3>{section.heading}</h3>
+                  {section.paragraphs?.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                  {section.bullets?.length ? (
+                    <ul>
+                      {section.bullets.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
+              ))}
+            </div>
+            <div className="auth-help-modal-footer">
+              <button className="auth-submit auth-modal-primary auth-submit-inline" type="button" onClick={() => setLegalModal(null)}>
                 {text.close}
               </button>
             </div>
