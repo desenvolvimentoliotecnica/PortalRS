@@ -6,10 +6,35 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T10:19:00-03:00",
-    "totalTarefas": 262
+    "atualizadoEm": "2026-07-14T10:48:00-03:00",
+    "totalTarefas": 263
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-263",
+      "nome": "[Portal RH] IA no parse de CV do Novo Candidato com LiteLLM e seed ligado",
+      "descricaoAmigavel": "Dor: no cadastro manual de candidato o CV só preenche campos por regras fixas e não usa a IA do servidor.\nNecessidade: ao enviar o CV no Novo Candidato, a IA preencher os dados; admin configura em /admin/ia; ambiente sobe com IA já ligada.\nSolução proposta: integrar curriculo-parse com CvGptExtractor (fallback heurístico), toggle UsarIaParseCurriculo, OpenAI ApiBase para LiteLLM e seed de config/chave/módulo.\nDefinição de pronto: upload de CV no Novo Candidato preenche via IA; /admin/ia mostra openai/mistral e toggle ON; se IA falhar, usa heurística.\nQ/A - Como testar: abrir Novo Candidato, anexar PDF fictício, conferir campos; em Configuração de IA desligar o toggle e repetir.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "10:22",
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "10:47",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Integrar IA no envio do CV de novo candidato (manual), configs na página do tenant, com seed deixando a IA funcionando e ligada.",
+      "entregavel": "Parse de CV no Novo Candidato com IA + fallback, página /admin/ia com toggle e seed LiteLLM ativo.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "b71ffc9a"
+        ],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": null
+    },
     {
       "id": "TASK-2026-262",
       "nome": "[Portal RH] Modelos de retorno ao candidato (Julia) e escolha no envio",

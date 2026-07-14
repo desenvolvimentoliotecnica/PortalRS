@@ -106,6 +106,11 @@ public sealed class TenantAiConfigDto
     public string? EmbeddingProvider { get; set; }
     public string? EmbeddingModel { get; set; }
 
+    /// <summary>
+    /// Quando <c>true</c>, o Novo Candidato tenta preencher o formulário via IA ao anexar CV.
+    /// </summary>
+    public bool UsarIaParseCurriculo { get; set; } = true;
+
     /// <summary>Lista de providers conhecidos pelo factory — para popular dropdowns na UI.</summary>
     public IReadOnlyList<string> KnownProviders { get; set; } = new List<string>();
 
@@ -137,6 +142,7 @@ public sealed class TenantAiConfigRequest
     public string? LlmModel { get; set; }
     public string? EmbeddingProvider { get; set; }
     public string? EmbeddingModel { get; set; }
+    public bool? UsarIaParseCurriculo { get; set; }
 }
 
 // ── Service ──
@@ -427,6 +433,8 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         config.LlmModel = NullIfBlank(request.LlmModel);
         config.EmbeddingProvider = NormalizeProviderName(request.EmbeddingProvider);
         config.EmbeddingModel = NullIfBlank(request.EmbeddingModel);
+        if (request.UsarIaParseCurriculo.HasValue)
+            config.UsarIaParseCurriculo = request.UsarIaParseCurriculo.Value;
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -441,6 +449,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
             LlmModel = config?.LlmModel,
             EmbeddingProvider = config?.EmbeddingProvider,
             EmbeddingModel = config?.EmbeddingModel,
+            UsarIaParseCurriculo = config?.UsarIaParseCurriculo ?? true,
             KnownProviders = _aiProviderFactory.KnownProviders,
             AvailableProviders = await ComputeAvailableProvidersAsync(ct),
             AiEnabled = await _aiResolver.IsAiEnabledAsync(ct),

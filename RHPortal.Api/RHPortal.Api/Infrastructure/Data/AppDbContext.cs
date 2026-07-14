@@ -2420,6 +2420,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.RmImportacaoAutomaticaIntervaloMinutos).HasDefaultValue(15);
             b.Property(x => x.RmImportacaoAutomaticaMaxPorExecucao).HasDefaultValue(50);
 
+            b.Property(x => x.UsarIaParseCurriculo).HasDefaultValue(true);
+
             b.HasOne(x => x.AprovadorRh)
                 .WithMany()
                 .HasForeignKey(x => x.AprovadorRhId)

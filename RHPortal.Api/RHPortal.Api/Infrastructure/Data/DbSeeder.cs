@@ -106,6 +106,11 @@ public static class DbSeeder
                         .EnsureAsync(masterDb, ownerEmail, ownerPassword, ct);
                 }
 
+                await ReportAsync("seed-litellm", "Registrando provider LiteLLM no master...", 23);
+                var protector = scope.ServiceProvider.GetRequiredService<RhPortal.Api.Infrastructure.Security.ISecretProtector>();
+                await global::RhPortal.Api.Infrastructure.Data.Seeders.LiteLlmAiProviderSeeder
+                    .EnsureAsync(masterDb, protector, config, env, ct);
+
                 // ---------------------------
                 // 2b. Bootstrap tenants declarados em configuração.
                 // Em servidor virgem, isso registra tenants base antes da etapa
@@ -179,6 +184,8 @@ public static class DbSeeder
                         .EnsureAsync(tenantDb, tenantId, empresaGeocoding, tenantLogger, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantRmIntegrationDefaultsSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantAiDefaultsSeeder
+                        .EnsureAsync(tenantDb, masterDb, tenantId, env, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.RmRequisicaoStatusMapSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.DocumentacaoPadraoConfigSeeder

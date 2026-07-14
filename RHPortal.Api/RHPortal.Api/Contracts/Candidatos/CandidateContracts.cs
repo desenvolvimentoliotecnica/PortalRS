@@ -111,7 +111,7 @@ public sealed record CandidatoCurriculoExtrairResponse(
     TalentoImportPdfSuggestedData? SuggestedData
 );
 
-/// <summary>Parse determinístico de currículo sem criar candidato nem persistir documento.</summary>
+/// <summary>Parse de currículo sem criar candidato nem persistir documento (IA opcional + heurística).</summary>
 public sealed record CandidatoCurriculoParseResponse(
     string? CvText,
     string? Nome,
@@ -121,7 +121,9 @@ public sealed record CandidatoCurriculoParseResponse(
     string? Cidade,
     string? Uf,
     string? LinkedinUrl,
-    decimal? PretensaoSalarial
+    decimal? PretensaoSalarial,
+    /// <summary><c>ai</c> quando a LLM preencheu campos; <c>heuristic</c> só extrator determinístico.</summary>
+    string Fonte = "heuristic"
 );
 
 public sealed record CandidateMatchRequest(

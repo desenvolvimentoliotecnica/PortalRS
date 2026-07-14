@@ -30,6 +30,18 @@ public sealed class OpenAIOptions
 {
     public string ApiKey { get; set; } = "";
     public string DefaultModel { get; set; } = "gpt-4o-mini";
+
+    /// <summary>
+    /// Base OpenAI-compatible (oficial ou proxy LiteLLM/vLLM).
+    /// Default: API pública OpenAI. Para LiteLLM interno: <c>http://10.0.30.30:4000/v1</c>.
+    /// </summary>
+    public string ApiBase { get; set; } = "https://api.openai.com/v1";
+
+    /// <summary>Limite de tokens de saída (CV JSON longo). Default 8192.</summary>
+    public int MaxTokens { get; set; } = 8192;
+
+    /// <summary>Timeout HTTP em segundos para chat/completions. Default 120.</summary>
+    public int TimeoutSeconds { get; set; } = 120;
 }
 
 /// <summary>

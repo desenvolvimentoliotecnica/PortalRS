@@ -200,5 +200,11 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// </summary>
     public string? EmbeddingModel { get; set; }
 
+    /// <summary>
+    /// Quando <c>true</c>, o parse de CV no Novo Candidato tenta IA antes da heurística.
+    /// Default <c>true</c>. Desligar em /admin/ia mantém só o extrator determinístico.
+    /// </summary>
+    public bool UsarIaParseCurriculo { get; set; } = true;
+
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

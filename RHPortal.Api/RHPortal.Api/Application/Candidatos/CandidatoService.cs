@@ -8,6 +8,7 @@ using RhPortal.Api.Contracts.Talentos;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Contracts.Notifications;
+using RhPortal.Api.Application.Ai;
 using RhPortal.Api.Application.Candidaturas;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Talentos;
@@ -53,6 +54,7 @@ public sealed class CandidatoService : ICandidatoService
     private readonly NotificationPublisher _notificationPublisher;
     private readonly IMatchingService _matchingService;
     private readonly ICvGptExtractor _cvGptExtractor;
+    private readonly ITenantAiSettingsResolver _aiSettingsResolver;
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
     private readonly ICandidatoVagaMatchingScoreService? _matchingScoreService;
     private readonly ICandidaturaService? _candidaturaService;
@@ -67,6 +69,7 @@ public sealed class CandidatoService : ICandidatoService
         NotificationPublisher notificationPublisher,
         IMatchingService matchingService,
         ICvGptExtractor cvGptExtractor,
+        ITenantAiSettingsResolver aiSettingsResolver,
         ICurrentUserContext currentUser,
         IRHPortalAiMatchClient? aiMatchClient = null,
         ICandidatoVagaMatchingScoreService? matchingScoreService = null,
@@ -80,6 +83,7 @@ public sealed class CandidatoService : ICandidatoService
         _notificationPublisher = notificationPublisher;
         _matchingService = matchingService;
         _cvGptExtractor = cvGptExtractor;
+        _aiSettingsResolver = aiSettingsResolver;
         _currentUser = currentUser;
         _aiMatchClient = aiMatchClient;
         _matchingScoreService = matchingScoreService;
@@ -951,17 +955,24 @@ public sealed class CandidatoService : ICandidatoService
             }
 
             var cvText = await ResumeTextExtractor.ExtractAsync(tempPath, ct);
-            var h = CvHeuristicExtractor.Extract(cvText, arquivo.FileName);
-            return new CandidatoCurriculoParseResponse(
-                string.IsNullOrWhiteSpace(cvText) ? null : cvText.Trim(),
-                h.Nome,
-                h.Email,
-                h.Fone,
-                h.Celular,
-                h.Cidade,
-                h.Uf,
-                h.LinkedinUrl,
-                h.PretensaoSalarial);
+            var heuristic = CvHeuristicExtractor.Extract(cvText, arquivo.FileName);
+
+            TalentoImportPdfSuggestedData? aiData = null;
+            var tenantConfig = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
+            var usarIa = tenantConfig?.UsarIaParseCurriculo ?? true;
+            if (usarIa && await _aiSettingsResolver.IsAiEnabledAsync(ct) && !string.IsNullOrWhiteSpace(cvText))
+            {
+                try
+                {
+                    aiData = await _cvGptExtractor.ExtractSuggestedDataAsync(cvText, ct);
+                }
+                catch
+                {
+                    /* best-effort — cai na heurística */
+                }
+            }
+
+            return CvParseFieldMerger.Merge(cvText, aiData, heuristic);
         }
         finally
         {
