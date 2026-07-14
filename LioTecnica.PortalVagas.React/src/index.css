@@ -758,6 +758,63 @@ img {
   gap: 1rem;
 }
 
+.auth-legal-modal {
+  width: min(100%, 640px);
+  max-height: min(86vh, 820px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.auth-legal-modal-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+  display: grid;
+  gap: 1.1rem;
+  color: #344054;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.auth-legal-modal-body section h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.auth-legal-modal-body section p,
+.auth-legal-modal-body section ul {
+  margin: 0;
+}
+
+.auth-legal-modal-body section ul {
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.auth-legal-modal-updated {
+  color: #667085;
+  font-size: 0.8rem;
+}
+
+.auth-terms-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #1f6fe5;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.auth-terms-link:hover,
+.auth-terms-link:focus-visible {
+  color: #1554b0;
+}
+
 .auth-register-modal {
   width: min(100%, 560px);
 }
@@ -1023,6 +1080,10 @@ img {
   color: rgba(255, 255, 255, 0.62);
   font-size: 0.85rem;
   line-height: 1.5;
+}
+
+.auth-brand-pillars > div:last-child {
+  padding-bottom: 1.75rem;
 }
 
 .auth-brand-footer {
@@ -1383,7 +1444,8 @@ img {
   white-space: nowrap;
 }
 
-.auth-terms a {
+.auth-terms a,
+.auth-terms .auth-terms-link {
   color: var(--lt-navy-600);
   font-weight: 800;
   text-decoration: underline;
@@ -1391,7 +1453,8 @@ img {
   text-underline-offset: 3px;
 }
 
-.auth-terms a:hover {
+.auth-terms a:hover,
+.auth-terms .auth-terms-link:hover {
   color: var(--lt-navy-700);
 }
 
