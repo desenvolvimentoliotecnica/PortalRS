@@ -6,10 +6,37 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T01:35:00.000Z",
-    "totalTarefas": 256
+    "atualizadoEm": "2026-07-14T01:56:30.000Z",
+    "totalTarefas": 257
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-257",
+      "nome": "[Portal RH] Melhorar layout da boas-vindas do portal de admissão em desktop menor",
+      "descricaoAmigavel": "Dor: Em notebooks e janelas menores, a pagina de boas-vindas ainda ficava empilhada como mobile e o layout nao aproveitava a tela.\\nNecessidade: Layout em duas colunas e CTA acessivel tambem em desktop/tablet menores (~768px+).\\nSolucao proposta: Antecipar o grid de duas colunas, painel lateral e CTA do rodape a partir de md.\\nDefinicao de pronto: Em viewport ~900–1200px, vaga e Como funciona ficam lado a lado e o botao Iniciar permanece no rodape.\\nQ/A - Como testar: Abrir /DocumentoAdmissao e redimensionar a janela para ~1024px e ~1280px.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "22:54",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "22:55",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "nao somente em mobile, em telas desktop menores, tb precisa melhorar o layout.... e no fim, encerrar a task, fazer commit, push em DEV e promover para HML e PRD",
+      "entregavel": "Boas-vindas do portal de admissao com layout de 2 colunas e CTA adequado a partir de tablet/desktop menor.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "aee9ab9e"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #246",
+        "plannerTaskId": "Bv8_nZdcAEaKw6mGGXm3pWUAEjwk",
+        "prPrd": "Merge PR #247"
+      },
+      "observacoes": "Refinamento da TASK-2026-256; promovido HML (PR #246) e PRD (PR #247) em 13/07/2026."
+    },
     {
       "id": "TASK-2026-256",
       "nome": "[Portal RH] Exibir dados da vaga e melhorar layout no portal público de admissão",
