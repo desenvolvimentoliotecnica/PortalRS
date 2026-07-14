@@ -690,8 +690,14 @@ export default function CandidaturasKanbanScreen() {
           if (!open && !moveDialog?.saving) setMoveDialog(null);
         }}
       >
-        <DialogContent className={moveDialog?.destino && shouldScheduleInterview(moveDialog.destino) ? "sm:max-w-2xl" : "sm:max-w-md"}>
-          <DialogHeader>
+        <DialogContent
+          className={
+            moveDialog?.destino && shouldScheduleInterview(moveDialog.destino)
+              ? "flex max-h-[min(90dvh,880px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+              : "flex max-h-[min(90dvh,880px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+          }
+        >
+          <DialogHeader className="shrink-0 space-y-1.5 border-b px-6 py-4 pr-12 text-left">
             <DialogTitle>Mover candidato</DialogTitle>
             <DialogDescription>
               Confirme a alteração de etapa e registre uma observação, se necessário.
@@ -699,7 +705,7 @@ export default function CandidaturasKanbanScreen() {
           </DialogHeader>
 
           {moveDialog && (
-            <div className="space-y-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
               <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="font-medium">{moveDialog.item.candidatoNome}</div>
@@ -1060,7 +1066,7 @@ export default function CandidaturasKanbanScreen() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t bg-background px-6 py-4 sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setMoveDialog(null)}
