@@ -32,8 +32,14 @@ export type VagaRetornoNegativoEnviarResponse = {
   resultados: VagaRetornoNegativoEnviarItemResult[];
 };
 
-export async function previewRetornoNegativo(vagaId: string): Promise<VagaRetornoNegativoPreviewResponse | null> {
-  const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/retorno-negativo/preview`);
+export async function previewRetornoNegativo(
+  vagaId: string,
+  emailTemplateCode?: string | null,
+): Promise<VagaRetornoNegativoPreviewResponse | null> {
+  const qs = emailTemplateCode
+    ? `?emailTemplateCode=${encodeURIComponent(emailTemplateCode)}`
+    : "";
+  const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/retorno-negativo/preview${qs}`);
   if (res.status === 404) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -45,11 +51,15 @@ export async function previewRetornoNegativo(vagaId: string): Promise<VagaRetorn
 export async function enviarRetornoNegativo(
   vagaId: string,
   candidaturaIds: string[],
+  emailTemplateCode?: string | null,
 ): Promise<VagaRetornoNegativoEnviarResponse> {
   const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/retorno-negativo/enviar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ candidaturaIds }),
+    body: JSON.stringify({
+      candidaturaIds,
+      emailTemplateCode: emailTemplateCode ?? null,
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

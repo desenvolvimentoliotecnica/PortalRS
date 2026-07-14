@@ -235,11 +235,22 @@ export async function avancarEtapa(
   observacao?: string | null,
   entrevista?: AgendarEntrevistaCandidaturaRequest | null,
   notificar = true,
+  emailTemplateCode?: string | null,
+  emailSubjectOverride?: string | null,
+  emailBodyHtmlOverride?: string | null,
 ): Promise<AvancarEtapaResponse> {
   const res = await apiFetch(`/api/candidaturas/${candidaturaId}/avancar-etapa`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ novaEtapa, observacao: observacao ?? null, entrevista: entrevista ?? null, notificar }),
+    body: JSON.stringify({
+      novaEtapa,
+      observacao: observacao ?? null,
+      entrevista: entrevista ?? null,
+      notificar,
+      emailTemplateCode: emailTemplateCode ?? null,
+      emailSubjectOverride: emailSubjectOverride ?? null,
+      emailBodyHtmlOverride: emailBodyHtmlOverride ?? null,
+    }),
   });
   if (!res.ok) {
     let msg = "Falha ao avançar etapa.";
