@@ -111,7 +111,7 @@ public sealed record CandidatoCurriculoExtrairResponse(
     TalentoImportPdfSuggestedData? SuggestedData
 );
 
-/// <summary>Parse de currículo sem criar candidato nem persistir documento (IA opcional + heurística).</summary>
+/// <summary>Parse de currículo via IA para o modal Novo Candidato (sem heurística).</summary>
 public sealed record CandidatoCurriculoParseResponse(
     string? CvText,
     string? Nome,
@@ -122,8 +122,20 @@ public sealed record CandidatoCurriculoParseResponse(
     string? Uf,
     string? LinkedinUrl,
     decimal? PretensaoSalarial,
-    /// <summary><c>ai</c> quando a LLM preencheu campos; <c>heuristic</c> só extrator determinístico.</summary>
-    string Fonte = "heuristic"
+    /// <summary><c>ai</c> em sucesso; <c>error</c> quando a IA falhou.</summary>
+    string Fonte = "error",
+    /// <summary>Texto bruto retornado pela IA (diagnóstico).</summary>
+    string? AiRawContent = null,
+    /// <summary>True se o sistema tentou chamar a IA neste parse.</summary>
+    bool AiTentou = false,
+    /// <summary>Mensagem de erro/diagnóstico da IA.</summary>
+    string? AiErro = null,
+    /// <summary>Observações geradas pela IA (resumo + fit da vaga).</summary>
+    string? Observacoes = null,
+    /// <summary>Se o candidato está trabalhando atualmente (quando a IA identificar).</summary>
+    bool? TrabalhandoAtualmente = null,
+    /// <summary>True quando a IA preencheu dados utilizáveis.</summary>
+    bool Sucesso = false
 );
 
 public sealed record CandidateMatchRequest(

@@ -1,72 +1,61 @@
 using RhPortal.Api.Contracts.Candidates;
-using RhPortal.Api.Contracts.Talentos;
+using RhPortal.Api.Application.Talentos;
 
 namespace RhPortal.Api.Application.Candidatos;
 
-/// <summary>
-/// Mescla resultado de IA com heurística determinística para o parse do Novo Candidato.
-/// Prioriza IA nos campos presentes; completa vazios com heurística (ex.: pretensão).
-/// </summary>
+/// <summary>Monta a resposta do parse Novo Candidato a partir do resultado da IA (sem heurística).</summary>
 public static class CvParseFieldMerger
 {
     public const string FonteAi = "ai";
-    public const string FonteHeuristic = "heuristic";
+    public const string FonteError = "error";
 
-    public static CandidatoCurriculoParseResponse Merge(
+    public static CandidatoCurriculoParseResponse FromAi(
         string? cvText,
-        TalentoImportPdfSuggestedData? ai,
-        CvHeuristicExtractor.Result heuristic)
+        CvNovoCandidatoAiData? ai,
+        string? aiRawContent,
+        bool aiTentou,
+        string? aiErro)
     {
-        var usedAi = ai is not null;
-        var aiPhone = NullIfBlank(ai?.Fone);
+        if (ai is null)
+        {
+            return new CandidatoCurriculoParseResponse(
+                string.IsNullOrWhiteSpace(cvText) ? null : cvText.Trim(),
+                null, null, null, null, null, null, null, null,
+                FonteError,
+                aiRawContent,
+                aiTentou,
+                aiErro ?? "Não foi possível preencher o cadastro com IA.",
+                null,
+                null,
+                Sucesso: false);
+        }
 
-        var nome = First(NullIfBlank(ai?.Nome), heuristic.Nome);
-        var email = First(NullIfBlank(ai?.Email), heuristic.Email);
-        var celular = First(aiPhone, heuristic.Celular, heuristic.Fone);
-        var fone = First(
-            // se IA trouxe o mesmo número do celular, não duplica em fone fixo
-            heuristic.Fone is not null
-            && aiPhone is not null
-            && DigitsEqual(heuristic.Fone, aiPhone)
-                ? null
-                : heuristic.Fone);
-        if (fone is null && heuristic.Fone is not null && aiPhone is null)
-            fone = heuristic.Fone;
-
-        var cidade = First(NullIfBlank(ai?.Cidade), heuristic.Cidade);
-        var uf = First(NullIfBlank(ai?.Uf), heuristic.Uf);
-        var linkedin = First(NullIfBlank(ai?.LinkedinUrl), heuristic.LinkedinUrl);
-        var pretensao = heuristic.PretensaoSalarial;
+        var email = CvHeuristicExtractor.TrimEmailAtKnownTld(ai.Email);
+        var uf = ai.Uf?.Trim();
+        if (uf is { Length: > 2 })
+            uf = uf[..2].ToUpperInvariant();
+        else if (uf is { Length: 2 })
+            uf = uf.ToUpperInvariant();
 
         return new CandidatoCurriculoParseResponse(
             string.IsNullOrWhiteSpace(cvText) ? null : cvText.Trim(),
-            nome,
+            NullIfBlank(ai.Nome),
             email,
-            fone,
-            celular,
-            cidade,
-            uf?.Length == 2 ? uf.ToUpperInvariant() : uf,
-            linkedin,
-            pretensao,
-            usedAi ? FonteAi : FonteHeuristic);
-    }
-
-    private static string? First(params string?[] values)
-    {
-        foreach (var v in values)
-        {
-            if (!string.IsNullOrWhiteSpace(v))
-                return v.Trim();
-        }
-        return null;
+            NullIfBlank(ai.Fone),
+            NullIfBlank(ai.Celular) ?? NullIfBlank(ai.Fone),
+            NullIfBlank(ai.Cidade),
+            uf,
+            NullIfBlank(ai.LinkedinUrl),
+            ai.PretensaoSalarial,
+            FonteAi,
+            aiRawContent,
+            aiTentou,
+            null,
+            NullIfBlank(ai.Observacoes),
+            ai.TrabalhandoAtualmente,
+            Sucesso: true);
     }
 
     private static string? NullIfBlank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static bool DigitsEqual(string a, string b)
-    {
-        static string Digits(string s) => new string(s.Where(char.IsDigit).ToArray());
-        return Digits(a) == Digits(b);
-    }
 }

@@ -12,6 +12,13 @@ public static class CvHeuristicExtractor
         @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    /// <summary>TLDs comuns — mais longos primeiro para não cortar .com.br em .com.</summary>
+    private static readonly string[] KnownEmailTlds =
+    [
+        "com.br", "org.br", "gov.br", "edu.br", "net.br",
+        "com", "net", "org", "gov", "edu", "info", "biz", "io", "co", "me", "ai", "app", "dev", "br"
+    ];
+
     private static readonly Regex LinkedInRegex = new(
         @"https?://(?:www\.)?linkedin\.com/in/[A-Za-z0-9\-_%]+/?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -83,7 +90,40 @@ public static class CvHeuristicExtractor
     }
 
     private static string? ExtractEmail(string text)
-        => EmailRegex.Matches(text).Select(m => m.Value.Trim()).FirstOrDefault(e => e.Length >= 5);
+    {
+        foreach (Match m in EmailRegex.Matches(text))
+        {
+            var cleaned = TrimEmailAtKnownTld(m.Value.Trim());
+            if (cleaned is { Length: >= 5 })
+                return cleaned;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// PDF sem espaço cola o e-mail no próximo título (ex.: hotmail.comObjetivoAtuar).
+    /// Corta no TLD conhecido mais longo encontrado no domínio.
+    /// </summary>
+    internal static string? TrimEmailAtKnownTld(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return null;
+        var raw = email.Trim();
+        var at = raw.IndexOf('@');
+        if (at <= 0 || at >= raw.Length - 3) return raw;
+
+        var domain = raw[(at + 1)..];
+        var domainLower = domain.ToLowerInvariant();
+        foreach (var tld in KnownEmailTlds)
+        {
+            var needle = "." + tld;
+            var idx = domainLower.IndexOf(needle, StringComparison.Ordinal);
+            if (idx < 0) continue;
+            var end = idx + needle.Length;
+            return raw[..(at + 1 + end)];
+        }
+
+        return raw;
+    }
 
     private static string? ExtractLinkedIn(string text)
     {
@@ -270,6 +310,9 @@ public static class CvHeuristicExtractor
             if (!string.IsNullOrWhiteSpace(baseName))
             {
                 baseName = Regex.Replace(baseName, @"\b(cv|curriculo|currículo|curriculum|vitae)\b", "", RegexOptions.IgnoreCase);
+                // Remove sufixos de versão/cópia: " 1", "(1)", " copy", " v2"
+                baseName = Regex.Replace(baseName, @"\s*[\(\[]?\s*(?:copy|copia|cópia|v?\d+)\s*[\)\]]?\s*$", "", RegexOptions.IgnoreCase);
+                baseName = Regex.Replace(baseName, @"\s+\d+\s*$", "").Trim();
                 baseName = Regex.Replace(baseName, @"\s+", " ").Trim();
                 var cleaned = CleanNameCandidate(baseName);
                 if (cleaned is not null) return cleaned;

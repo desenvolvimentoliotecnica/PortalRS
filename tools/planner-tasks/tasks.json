@@ -6,10 +6,56 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T10:51:00-03:00",
-    "totalTarefas": 263
+    "atualizadoEm": "2026-07-14T11:50:00-03:00",
+    "totalTarefas": 265
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-265",
+      "nome": "[Portal RH] Máscara numérica na pretensão salarial do candidato",
+      "descricaoAmigavel": "Dor: pretensão salarial aceita número sem formato brasileiro.\nNecessidade: ao digitar ou preencher, exibir máscara com 2 casas (ex.: 10.000,00).\nSolução proposta: aplicar máscara BRL no campo Pretensão salarial do cadastro de candidato.\nDefinição de pronto: campo mostra 10.000,00 ao digitar/AI; valor salvo continua numérico.\nQ/A - Como testar: Novo/Editar candidato, digitar 1000000 e ver 10.000,00; preencher via CV e conferir formato.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "11:43",
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "11:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "o campo PRETENSÃO SALARIAL (R$) deve ter mascara numerica ao digitar ou preencher, com 2 casas decimais 10.000,00",
+      "entregavel": "Campo Pretensão salarial com máscara pt-BR (2 casas) no cadastro de candidato.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": ["9de8190f"],
+        "branch": "DEV",
+        "prHml": "Merge PR #272"
+      },
+      "observacoes": null
+    },
+    {
+      "id": "TASK-2026-264",
+      "nome": "[Portal RH] Parse de CV só com IA + resumo na observação e reavaliar",
+      "descricaoAmigavel": "Dor: heuristica preenche mal (nome/email) e nao ha avaliacao do perfil na observacao.\nNecessidade: so IA preenche o Novo Candidato; se falhar, avisar para preencher manual; observacoes com resumo e fit da vaga; botao reavaliar.\nSolucao proposta: desligar heuristica no parse; prompt dedicado com todos os campos + observacoes; Swal em falha; botao Avaliar novamente.\nDefinicao de pronto: CV preenche via IA; falha mostra Swal; observacoes trazem resumo/fit; reavaliar refaz o parse.\nQ/A - Como testar: Novo Candidato com vaga, anexar CV, conferir campos/obs; forcar falha (IA off) e ver Swal; clicar Avaliar novamente.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "11:16",
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "11:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "IA deve preencher todos os campos do print; desativar heuristica; Swal se falhar; observacoes com resumo e avaliacao vs vaga; botao Avaliar novamente.",
+      "entregavel": "Novo Candidato com parse só IA, observações (resumo+fit), Swal em falha e botão Avaliar novamente.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": ["9de8190f"],
+        "branch": "DEV",
+        "prHml": "Merge PR #272"
+      },
+      "observacoes": null
+    },
     {
       "id": "TASK-2026-263",
       "nome": "[Portal RH] IA no parse de CV do Novo Candidato com LiteLLM e seed ligado",

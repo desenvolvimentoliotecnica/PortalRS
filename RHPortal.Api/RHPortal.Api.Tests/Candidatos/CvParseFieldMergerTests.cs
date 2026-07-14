@@ -1,5 +1,5 @@
 using RhPortal.Api.Application.Candidatos;
-using RhPortal.Api.Contracts.Talentos;
+using RhPortal.Api.Application.Talentos;
 using Xunit;
 
 namespace RHPortal.Api.Tests.Candidatos;
@@ -7,62 +7,44 @@ namespace RHPortal.Api.Tests.Candidatos;
 public sealed class CvParseFieldMergerTests
 {
     [Fact]
-    public void Merge_prefers_ai_and_fills_pretensao_from_heuristic()
+    public void FromAi_maps_all_fields_and_trims_glued_email()
     {
-        var ai = new TalentoImportPdfSuggestedData(
-            "Mariana Costa Almeida",
-            "mariana.almeida@email.com",
-            "(11) 90000-0000",
+        var ai = new CvNovoCandidatoAiData(
+            "Alexandre Guerreiro Sparapan",
+            "alegspa@hotmail.comObjetivoAtuar",
+            "(11) 3333-4444",
+            "(11) 98481-4184",
             "São Paulo",
             "SP",
-            "https://linkedin.com/in/marianaalmeid",
-            null, null, null, null, null, null, null, null,
-            Array.Empty<TalentoCompetenciaItem>(),
-            Array.Empty<TalentoExperienciaItem>(),
-            Array.Empty<TalentoTreinamentoItem>(),
-            Array.Empty<TalentoFormacaoItem>());
+            "https://linkedin.com/in/alexandre",
+            8500m,
+            true,
+            "Resumo do candidato e fit para a vaga.");
 
-        var h = new CvHeuristicExtractor.Result(
-            "Nome Errado Heuristica",
-            "errado@email.com",
-            "(11) 3333-4444",
-            "(11) 98888-7777",
-            "Guarulhos",
-            "SP",
-            null,
-            5500m);
+        var result = CvParseFieldMerger.FromAi("texto cv", ai, "{...}", aiTentou: true, null);
 
-        var merged = CvParseFieldMerger.Merge("texto cv", ai, h);
-
-        Assert.Equal(CvParseFieldMerger.FonteAi, merged.Fonte);
-        Assert.Equal("Mariana Costa Almeida", merged.Nome);
-        Assert.Equal("mariana.almeida@email.com", merged.Email);
-        Assert.Equal("(11) 90000-0000", merged.Celular);
-        Assert.Equal("(11) 3333-4444", merged.Fone);
-        Assert.Equal("São Paulo", merged.Cidade);
-        Assert.Equal("SP", merged.Uf);
-        Assert.Contains("linkedin.com/in/marianaalmeid", merged.LinkedinUrl, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(5500m, merged.PretensaoSalarial);
+        Assert.True(result.Sucesso);
+        Assert.Equal(CvParseFieldMerger.FonteAi, result.Fonte);
+        Assert.Equal("Alexandre Guerreiro Sparapan", result.Nome);
+        Assert.Equal("alegspa@hotmail.com", result.Email);
+        Assert.Equal("(11) 3333-4444", result.Fone);
+        Assert.Equal("(11) 98481-4184", result.Celular);
+        Assert.Equal("São Paulo", result.Cidade);
+        Assert.Equal("SP", result.Uf);
+        Assert.Equal(8500m, result.PretensaoSalarial);
+        Assert.True(result.TrabalhandoAtualmente);
+        Assert.Contains("fit", result.Observacoes, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Merge_without_ai_uses_heuristic_fonte()
+    public void FromAi_without_data_returns_error()
     {
-        var h = new CvHeuristicExtractor.Result(
-            "João da Silva",
-            "joao@exemplo.com",
-            null,
-            "(11) 98888-7777",
-            "São Paulo",
-            "SP",
-            null,
-            null);
+        var result = CvParseFieldMerger.FromAi(
+            "cv", null, null, aiTentou: true, "IA offline");
 
-        var merged = CvParseFieldMerger.Merge("cv", null, h);
-
-        Assert.Equal(CvParseFieldMerger.FonteHeuristic, merged.Fonte);
-        Assert.Equal("João da Silva", merged.Nome);
-        Assert.Equal("joao@exemplo.com", merged.Email);
-        Assert.Equal("(11) 98888-7777", merged.Celular);
+        Assert.False(result.Sucesso);
+        Assert.Equal(CvParseFieldMerger.FonteError, result.Fonte);
+        Assert.Equal("IA offline", result.AiErro);
+        Assert.Null(result.Nome);
     }
 }
