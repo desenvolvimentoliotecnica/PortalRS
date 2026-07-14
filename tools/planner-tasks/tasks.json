@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T00:06:49.894Z",
+    "atualizadoEm": "2026-07-14T00:07:20.300Z",
     "totalTarefas": 253
   },
   "tarefas": [
@@ -25,16 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "5 Tornar o DNALIO opcional ao salvar a vaga",
       "entregavel": "DNALIO opcional no save e na publicacao (front+API+hub); campo permanece disponivel e e gravado quando informado.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "92dfe1de"
         ],
         "branch": "DEV",
-        "prHml": null,
-        "plannerTaskId": "sQz2mNYqv0C_Pjt4IbDdzmUAD6Xy"
+        "prHml": "Merge PR #230",
+        "plannerTaskId": "sQz2mNYqv0C_Pjt4IbDdzmUAD6Xy",
+        "prPrd": "Merge PR #231"
       },
-      "observacoes": "Aguardando promocao HML/PRD."
+      "observacoes": "Promovido HML (PR #230) e PRD (PR #231) em 13/07/2026."
     },
     {
       "id": "TASK-2026-252",
