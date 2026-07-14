@@ -226,6 +226,37 @@ export function useIsCompliance(): boolean {
     return !!me && me.roles.some((r) => r.toLowerCase() === "compliance");
 }
 
+/**
+ * Gestor (sem RH/Admin) nao ve e-mail/telefone/celular nem usa WhatsApp.
+ * Analista de RH, Recrutador, Admin e demais profiles mantem acesso.
+ */
+export function canViewCandidatoContato(me: {
+    isAdmin?: boolean;
+    isOwnerContext?: boolean;
+    roles: string[];
+} | null | undefined): boolean {
+    if (!me) return false;
+    if (me.isAdmin || me.isOwnerContext) return true;
+    const roles = me.roles.map((r) => r.toLowerCase());
+    if (
+        roles.includes("admin") ||
+        roles.includes("administrador") ||
+        roles.includes("owner") ||
+        roles.includes("rh") ||
+        roles.includes("recrutador") ||
+        roles.includes("especialista de rh") ||
+        roles.includes("analista de rh")
+    ) {
+        return true;
+    }
+    return !roles.includes("gestor");
+}
+
+export function useCanViewCandidatoContato(): boolean {
+    const { me } = useAuth();
+    return canViewCandidatoContato(me);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Guard                                                             */
 /* ------------------------------------------------------------------ */
