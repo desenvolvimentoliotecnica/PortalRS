@@ -32,7 +32,7 @@ export default function WizardStepper({ currentStep, completedSteps, isSubmitted
                                 {done && !active ? <Check className="size-4" /> : item.step}
                             </div>
                             <span
-                                className={`max-w-[72px] truncate text-center text-[10px] leading-tight sm:text-xs ${
+                                className={`max-w-[4.75rem] truncate text-center text-[10px] leading-tight sm:max-w-none sm:whitespace-normal sm:text-xs ${
                                     active ? "font-semibold text-[#0047BB]" : done ? "text-emerald-600" : "text-slate-500"
                                 }`}
                             >

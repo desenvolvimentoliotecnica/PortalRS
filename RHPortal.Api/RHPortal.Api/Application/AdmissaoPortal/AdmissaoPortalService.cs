@@ -702,6 +702,9 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             .Include(x => x.JobPosition)
             .Include(x => x.CentroCusto)
             .Include(x => x.Vaga)
+                .ThenInclude(v => v!.CentroCusto)
+            .Include(x => x.Vaga)
+                .ThenInclude(v => v!.Unit)
             .Include(x => x.Unit)
             .FirstOrDefaultAsync(x => x.Id == id && x.AccessToken != null, ct);
         if (pa is null || NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
@@ -911,16 +914,16 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             ?? tenant?.Name?.Trim()
             ?? "Portal de RH";
 
+        var vagaEntity = pa.Vaga;
         var cargo = pa.JobPosition?.Name?.Trim()
-            ?? pa.Vaga?.Titulo?.Trim();
+            ?? vagaEntity?.Titulo?.Trim();
         var area = pa.CentroCusto?.Description?.Trim()
-            ?? FormatVagaAreaTime(pa.Vaga?.AreaTime);
+            ?? vagaEntity?.CentroCusto?.Description?.Trim()
+            ?? FormatVagaAreaTime(vagaEntity?.AreaTime);
         var local = FormatLocalTrabalho(pa);
-        var tipoContratacao = FormatTipoContratacao(pa.TipoContratacao ?? MapVagaTipoContratacao(pa.Vaga?.TipoContratacao));
-        var salario = pa.Salario is > 0
-            ? pa.Salario.Value.ToString("C", new System.Globalization.CultureInfo("pt-BR"))
-            : "A combinar";
-        var dataInicio = pa.DataAdmissao?.ToString("dd/MM/yyyy");
+        var tipoContratacao = FormatTipoContratacao(pa.TipoContratacao ?? MapVagaTipoContratacao(vagaEntity?.TipoContratacao));
+        var salario = FormatSalarioPortal(pa.Salario, vagaEntity?.SalarioMinimo, vagaEntity?.SalarioMaximo);
+        var dataInicio = (pa.DataAdmissao ?? vagaEntity?.DataInicio)?.ToString("dd/MM/yyyy");
 
         var vaga = new PortalInformacoesVaga(cargo, area, local, tipoContratacao, salario, dataInicio);
         return new PortalWelcomeContext(nomeEmpresa, branding?.LogoUrl, vaga);
@@ -928,8 +931,14 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
     private static string? FormatLocalTrabalho(Domain.Entities.PreAdmissao pa)
     {
-        var cidade = pa.Unit?.City?.Trim() ?? pa.Cidade?.Trim();
-        var uf = pa.Unit?.Uf?.Trim() ?? pa.Uf?.Trim();
+        var cidade = pa.Unit?.City?.Trim()
+            ?? pa.Vaga?.Unit?.City?.Trim()
+            ?? pa.Vaga?.Cidade?.Trim()
+            ?? pa.Cidade?.Trim();
+        var uf = pa.Unit?.Uf?.Trim()
+            ?? pa.Vaga?.Unit?.Uf?.Trim()
+            ?? pa.Vaga?.Uf?.Trim()
+            ?? pa.Uf?.Trim();
         var modalidade = FormatVagaModalidade(pa.Vaga?.Modalidade);
 
         if (string.IsNullOrWhiteSpace(cidade) && string.IsNullOrWhiteSpace(uf))
@@ -940,6 +949,28 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             : cidade ?? uf;
 
         return modalidade is not null ? $"{local} ({modalidade})" : local;
+    }
+
+    private static string FormatSalarioPortal(decimal? salarioPre, decimal? salarioMin, decimal? salarioMax)
+    {
+        var culture = new System.Globalization.CultureInfo("pt-BR");
+        if (salarioPre is > 0)
+            return salarioPre.Value.ToString("C", culture);
+
+        if (salarioMin is > 0 && salarioMax is > 0)
+        {
+            if (salarioMin == salarioMax)
+                return salarioMin.Value.ToString("C", culture);
+            return $"{salarioMin.Value.ToString("C", culture)} a {salarioMax.Value.ToString("C", culture)}";
+        }
+
+        if (salarioMin is > 0)
+            return $"A partir de {salarioMin.Value.ToString("C", culture)}";
+
+        if (salarioMax is > 0)
+            return $"Até {salarioMax.Value.ToString("C", culture)}";
+
+        return "A combinar";
     }
 
     private static TipoContratacaoAdmissao? MapVagaTipoContratacao(VagaTipoContratacao? tipo) => tipo switch
