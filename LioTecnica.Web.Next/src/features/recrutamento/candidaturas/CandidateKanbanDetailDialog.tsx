@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, Mail, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
+import { useCanViewCandidatoContato } from "@/hooks/useAuth";
 import {
   Dialog,
   DialogContent,
@@ -103,6 +104,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function CandidateKanbanDetailDialog({ open, item, onClose }: Props) {
+  const canViewContato = useCanViewCandidatoContato();
   const [tab, setTab] = useState("resumo");
   const [portalPerfil, setPortalPerfil] = useState<CandidatoPortalPerfilCompleto | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -124,9 +126,9 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
 
   const docs = portalPerfil?.portalDocuments?.items ?? [];
   const perfilBasico = portalPerfil?.perfilBasico;
-  const resumoEmail = item?.candidatoEmail || perfilBasico?.email || "—";
-  const resumoTelefone = item?.candidatoFone || perfilBasico?.fone || "—";
-  const resumoCelular = item?.candidatoCelular || perfilBasico?.celular || "—";
+  const resumoEmail = canViewContato ? (item?.candidatoEmail || perfilBasico?.email || "—") : "—";
+  const resumoTelefone = canViewContato ? (item?.candidatoFone || perfilBasico?.fone || "—") : "—";
+  const resumoCelular = canViewContato ? (item?.candidatoCelular || perfilBasico?.celular || "—") : "—";
 
   useEffect(() => {
     if (!open || !item) return;
@@ -282,15 +284,16 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             <TabsTrigger value="perfil">Perfil do Portal</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
             <TabsTrigger value="observacoes">Observações</TabsTrigger>
-            <TabsTrigger value="email">Enviar Email</TabsTrigger>
+            {canViewContato && <TabsTrigger value="email">Enviar Email</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="resumo" className={`${tabContentClass} space-y-4`}>
             <div className="grid gap-3 md:grid-cols-3">
               <Field label="Candidato" value={item.candidatoNome} />
-              <Field label="Email" value={resumoEmail} />
-              <Field label="Telefone" value={resumoTelefone} />
-              <Field label="Celular" value={resumoCelular} />
+              {canViewContato && <Field label="Email" value={resumoEmail} />}
+              {canViewContato && <Field label="Telefone" value={resumoTelefone} />}
+              {canViewContato && <Field label="Celular" value={resumoCelular} />}
+              {canViewContato && (
               <div className="md:col-span-3">
                 <WhatsAppContactButton
                   celular={item.candidatoCelular ?? perfilBasico?.celular}
@@ -298,13 +301,16 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
                   candidatoNome={item.candidatoNome}
                 />
               </div>
+              )}
               <Field label="Vaga" value={[item.vagaTitulo, item.vagaCodigo].filter(Boolean).join(" · ")} />
               <Field label="Aplicada em" value={formatDate(item.aplicadaEmUtc)} />
               <Field label="SLA da etapa" value={`${item.diasNaEtapa}d / ${item.slaDiasEtapa}d`} />
               <Field label="Match do card" value={typeof item.matchScore === "number" ? `${Math.round(item.matchScore)}%` : "—"} />
             </div>
             <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
-              Use as abas para conferir o perfil completo informado pelo candidato no portal, baixar documentos e enviar uma mensagem formal por email e notificação interna.
+              {canViewContato
+                ? "Use as abas para conferir o perfil completo informado pelo candidato no portal, baixar documentos e enviar uma mensagem formal por email e notificação interna."
+                : "Use as abas para conferir o perfil e a compatibilidade do candidato. Dados de contato e comunicação ficam restritos ao RH."}
             </div>
           </TabsContent>
 
@@ -356,6 +362,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
               loading={portalLoading}
               loadError={portalError}
               candidatoId={item.candidatoId}
+              hideContact={!canViewContato}
             />
           </TabsContent>
 

@@ -209,6 +209,8 @@ type Props = {
   candidatoId?: string | null;
   /** Ex.: `/app` quando a app usa basePath; vazio na página de detalhes que chama `/api/...` direto. */
   apiPathPrefix?: string;
+  /** Oculta e-mail/telefone/celular (ex.: perfil Gestor). */
+  hideContact?: boolean;
 };
 
 export function CandidatoPortalPerfilReadonly({
@@ -218,6 +220,7 @@ export function CandidatoPortalPerfilReadonly({
   className = "",
   candidatoId = null,
   apiPathPrefix = "",
+  hideContact = false,
 }: Props) {
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [previewingDocId, setPreviewingDocId] = useState<string | null>(null);
@@ -292,11 +295,13 @@ export function CandidatoPortalPerfilReadonly({
           ) : null}
           <div className="min-w-0 flex-1 space-y-1">
             <div className="font-semibold text-base">{disp(p?.nome)}</div>
-            <div className="text-muted-foreground text-sm">{disp(p?.email)}</div>
+            {!hideContact && <div className="text-muted-foreground text-sm">{disp(p?.email)}</div>}
+            {!hideContact && (
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>Telefone: {disp(p?.fone)}</span>
               <span>Celular: {disp(p?.celular)}</span>
             </div>
+            )}
             {p?.linkedinUrl ? (
               <a href={p.linkedinUrl} className="text-sm text-[rgb(var(--lt-primary))] hover:underline break-all" target="_blank" rel="noopener noreferrer">
                 LinkedIn

@@ -175,7 +175,23 @@ public sealed class CandidatosController : ControllerBase
             return denied;
 
         var payload = await reader.GetCompletoAsync(id, ct);
-        return payload is null ? NotFound() : Ok(payload);
+        if (payload is null)
+            return NotFound();
+
+        if (!_userContext.CanViewCandidatoContato)
+        {
+            payload = payload with
+            {
+                PerfilBasico = payload.PerfilBasico with
+                {
+                    Email = string.Empty,
+                    Fone = null,
+                    Celular = null,
+                },
+            };
+        }
+
+        return Ok(payload);
     }
 
     /// <summary>

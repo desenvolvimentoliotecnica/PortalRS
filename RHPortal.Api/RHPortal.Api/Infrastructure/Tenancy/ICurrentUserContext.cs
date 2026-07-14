@@ -24,6 +24,12 @@ public interface ICurrentUserContext
     /// <summary>True quando o usuário tem perfil de RH (visão total de solicitações sem filtro por solicitante).</summary>
     bool IsRH { get; }
 
+    /// <summary>
+    /// True quando o usuário pode ver e-mail/telefone/celular do candidato e usar WhatsApp.
+    /// Gestor (sem RH/Admin) não acessa dados de contato pessoal.
+    /// </summary>
+    bool CanViewCandidatoContato { get; }
+
     /// <summary>True quando o usuário é Owner global (multi-tenant). Owner não pode assumir etapas de consenso.</summary>
     bool IsOwner { get; }
 

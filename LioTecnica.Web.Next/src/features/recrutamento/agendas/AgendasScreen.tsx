@@ -42,7 +42,7 @@ import {
   type AgendaVagaListItem as VagaListItem,
 } from "@/lib/schemas/recrutamento";
 import { apiFetch } from "@/lib/api";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useCanViewCandidatoContato } from "@/hooks/useAuth";
 import {
   AgendaParticipantsField,
   type AgendaParticipant,
@@ -407,6 +407,7 @@ function fmtTimeRange(start: Date | null, end: Date | null, allDay = false) {
 export default function AgendasScreen() {
   const calRef = useRef<FullCalendar | null>(null);
   const { me } = useAuth();
+  const canViewContato = useCanViewCandidatoContato();
   const defaultOwner = me?.displayName?.trim() || me?.email?.trim() || "";
 
   const fieldLabel = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground";
@@ -1599,7 +1600,7 @@ export default function AgendasScreen() {
                       <option value="">Selecione…</option>
                       {candidatos.map((c) => (
                         <option key={c.id} value={c.nome ?? ""}>
-                          {(c.nome ?? "—") + (c.email ? ` • ${c.email}` : "")}
+                          {(c.nome ?? "—") + (canViewContato && c.email ? ` • ${c.email}` : "")}
                         </option>
                       ))}
                     </select>

@@ -82,6 +82,7 @@ public sealed class CandidatoPerfilPortalEndpointTests
         m.Setup(x => x.UserId).Returns(userId);
         m.Setup(x => x.VagasDataScope).Returns(scope);
         m.Setup(x => x.CentroCustoId).Returns(centroCustoId);
+        m.Setup(x => x.CanViewCandidatoContato).Returns(true);
         return m.Object;
     }
 

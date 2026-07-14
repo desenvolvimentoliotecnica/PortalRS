@@ -63,6 +63,9 @@ public sealed class CurrentUserContext : ICurrentUserContext
     public bool IsAdmin => IsInRole("Admin") || IsInRole("Owner") || IsInRole("Administrador");
     public bool IsRH => IsInRole("RH") || IsInRole("Recrutador") || IsInRole("Especialista de RH") || IsInRole("Analista de RH");
 
+    /// <inheritdoc />
+    public bool CanViewCandidatoContato => IsAdmin || IsRH || !IsInRole("Gestor");
+
     public Guid? FuncionarioId
     {
         get

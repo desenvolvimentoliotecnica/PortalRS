@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { useCandidatoPhoneLookup } from "@/hooks/useCandidatoPhoneLookup";
+import { useCanViewCandidatoContato } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -140,7 +141,8 @@ function TableSkeleton({ cols = 9, rows = 6 }: { cols?: number; rows?: number })
 export default function ProcessoSeletivoScreen() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { getPhone } = useCandidatoPhoneLookup();
+    const canViewContato = useCanViewCandidatoContato();
+    const { getPhone } = useCandidatoPhoneLookup(canViewContato);
     const [projetos, setProjetos] = useState<ProjetoMin[]>([]);
     const [selectedProjeto, setSelectedProjeto] = useState<ProjetoMin | null>(null);
     const [fases, setFases] = useState<Fase[]>([]);
@@ -916,10 +918,12 @@ export default function ProcessoSeletivoScreen() {
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Nome</label>
                             <Input value={aprovarTarget?.candidatoNome ?? ""} readOnly className="bg-muted/30" />
                         </div>
+                        {canViewContato ? (
                         <div>
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">E-mail</label>
                             <Input value={aprovarTarget?.candidatoEmail ?? "—"} readOnly className="bg-muted/30" />
                         </div>
+                        ) : null}
                         <div>
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Celular (opcional)</label>
                             <Input
@@ -979,7 +983,9 @@ export default function ProcessoSeletivoScreen() {
                                 <div key={c.id} className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                                     <div>
                                         <div className="font-medium text-sm">{c.nome}</div>
+                                        {canViewContato && c.email ? (
                                         <div className="text-xs text-muted-foreground">{c.email}</div>
+                                        ) : null}
                                     </div>
                                     <Button size="sm" onClick={() => void addCandidatoAoProjeto(c.id)}>
                                         <Plus className="size-4 mr-1" /> Adicionar
