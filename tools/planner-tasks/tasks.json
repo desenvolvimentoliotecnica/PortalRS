@@ -6,10 +6,37 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T00:36:00.000Z",
-    "totalTarefas": 254
+    "atualizadoEm": "2026-07-14T01:07:00.000Z",
+    "totalTarefas": 255
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-255",
+      "nome": "[Portal RH] Restringir dados pessoais, contato e WhatsApp para o gestor",
+      "descricaoAmigavel": "Dor: O gestor ve e-mail, telefone e WhatsApp do candidato e pode conversar pelo WhatsApp.\\nNecessidade: Gestor nao ve contato pessoal nem usa WhatsApp; RH mantem acesso completo.\\nSolucao proposta: Esconder contato/WhatsApp no front para gestor e omitir e-mail/telefone/celular nas APIs relevantes.\\nDefinicao de pronto: Gestor no Kanban/agenda/processo seletivo nao ve e-mail/fone nem botao WhatsApp; Analista de RH continua vendo e conversando.\\nQ/A - Como testar: Entrar como Gestor no Kanban e abrir detalhe — sem e-mail/fone/WhatsApp. Entrar como Analista e confirmar acesso completo.",
+      "inicio": "2026-07-13",
+      "horarioInicio": "21:55",
+      "conclusao": "2026-07-13",
+      "horarioConclusao": "22:06",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "8 Restringir dados pessoais, contato e WhatsApp para o gestor — Impedir que o gestor veja dados pessoais de contato (conversar pelo whatsapp, telefone, email) do candidato e que converse pelo WhatsApp; RH mantém acesso completo.",
+      "entregavel": "Contato (e-mail/telefone/celular) e WhatsApp ocultos para Gestor no front e nas APIs; RH com acesso completo.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "c554d6ed"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #238",
+        "plannerTaskId": "Jim7FNC0jkKU6aw5hZuYsWUANU5k",
+        "prPrd": "Merge PR #239"
+      },
+      "observacoes": "Promovido HML (PR #238) e PRD (PR #239) em 13/07/2026."
+    },
     {
       "id": "TASK-2026-254",
       "nome": "[Portal RH] Ajustar tamanho e camada dos modais no Kanban de candidaturas",
