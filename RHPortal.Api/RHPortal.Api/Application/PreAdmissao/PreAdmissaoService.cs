@@ -558,20 +558,19 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         try
         {
-            await _emailQueue.EnqueueRawAsync(
-                to: email,
-                subject: "Bem-vindo ao RenderRH — seu acesso foi criado",
-                bodyHtml: $"""
-                    <p>Olá, <strong>{pa.Nome}</strong>!</p>
-                    <p>Sua admissão foi aprovada e seu acesso ao sistema foi criado.</p>
-                    <p><strong>Senha temporária:</strong> <code>{tempPassword}</code></p>
-                    <p>Por segurança, altere sua senha no primeiro acesso.</p>
-                    <p>Seu cadastro completo no sistema será finalizado após confirmação da integração com o ERP.</p>
-                    """,
-                bodyText: $"Olá {pa.Nome}! Sua admissão foi aprovada. Senha temporária: {tempPassword}. Altere no primeiro acesso.",
+            await _emailQueue.EnqueueTemplateAsync(
+                CandidateEmailTemplateCodes.PreAdmissaoCriarUsuario,
+                email,
+                new Dictionary<string, string?>
+                {
+                    ["CandidatoNome"] = pa.Nome,
+                    ["EmpresaNome"] = pa.TenantId,
+                    ["SenhaTemporaria"] = tempPassword,
+                    ["UrlPreAdmissao"] = "",
+                },
                 isSystem: true,
                 source: "PreAdmissao.CriarUsuario",
-                ct: ct);
+                ct);
         }
         catch (Exception ex)
         {
@@ -895,38 +894,23 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var emailEnviado = false;
         if (request.EnviarEmail && !string.IsNullOrWhiteSpace(pa.Email))
         {
-            var tokens = new Dictionary<string, string?>
-            {
-                ["nome"] = pa.Nome,
-                ["url"] = url,
-                ["empresa"] = _tenantContext.TenantId,
-            };
-
-            // Try to use configurable template from DB
-            var template = await _db.EmailTemplates.AsNoTracking()
-                .FirstOrDefaultAsync(t => t.Name == "PreAdmissaoLink" && t.IsActive, ct);
-
-            string subject;
-            string body;
-            if (template is not null)
-            {
-                subject = Messaging.Email.EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
-                body = Messaging.Email.EmailTemplateRenderer.Render(template.BodyHtml, tokens);
-            }
-            else
-            {
-                // Fallback inline
-                subject = "Preencha seus dados para admissão";
-                body = $@"<p>Olá <b>{pa.Nome}</b>,</p>
-<p>Você foi aprovado(a) e precisa preencher seus dados para admissão.</p>
-<p><a href=""{url}"" style=""background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;"">Preencher meus dados</a></p>
-<p>Ou copie e cole este link no navegador:<br/><small>{url}</small></p>
-<p>Atenciosamente,<br/>Equipe RH</p>";
-            }
-
             try
             {
-                await _emailQueue.EnqueueRawAsync(pa.Email, subject, body, null, true, "pre-admissao-link", ct);
+                await _emailQueue.EnqueueTemplateAsync(
+                    CandidateEmailTemplateCodes.PreAdmissaoLink,
+                    pa.Email,
+                    new Dictionary<string, string?>
+                    {
+                        ["CandidatoNome"] = pa.Nome,
+                        ["nome"] = pa.Nome,
+                        ["UrlPreAdmissao"] = url,
+                        ["url"] = url,
+                        ["EmpresaNome"] = _tenantContext.TenantId,
+                        ["empresa"] = _tenantContext.TenantId,
+                    },
+                    isSystem: true,
+                    source: "pre-admissao-link",
+                    ct);
                 emailEnviado = true;
             }
             catch { /* best-effort: email pode não estar configurado */ }
@@ -997,44 +981,27 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var emailEnviado = false;
         if (request.EnviarEmail && !string.IsNullOrWhiteSpace(pa.Email))
         {
-            var listaDocsHtml = string.Join("", labels.Select(l => $"<li>{l}</li>"));
-            var tokens = new Dictionary<string, string?>
-            {
-                ["nome"] = pa.Nome,
-                ["url"] = url,
-                ["empresa"] = _tenantContext.TenantId,
-                ["documentos"] = string.Join(", ", labels),
-                ["observacao"] = observacao,
-            };
-
-            var template = await _db.EmailTemplates.AsNoTracking()
-                .FirstOrDefaultAsync(t => t.Name == "PreAdmissaoReenvioDocumentos" && t.IsActive, ct);
-
-            string subject;
-            string body;
-            if (template is not null)
-            {
-                subject = Messaging.Email.EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
-                body = Messaging.Email.EmailTemplateRenderer.Render(template.BodyHtml, tokens);
-            }
-            else
-            {
-                subject = "Reenvio de documentos — Admissão";
-                var obsBlock = string.IsNullOrWhiteSpace(request.ObservacaoRh)
-                    ? ""
-                    : $"<p><b>Observação do RH:</b> {observacao}</p>";
-                body = $@"<p>Olá <b>{pa.Nome}</b>,</p>
-<p>Identificamos a necessidade de reenviar os seguintes documentos para sua admissão:</p>
-<ul>{listaDocsHtml}</ul>
-{obsBlock}
-<p><a href=""{url}"" style=""background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;"">Acessar formulário</a></p>
-<p>Ou copie e cole este link no navegador:<br/><small>{url}</small></p>
-<p>Atenciosamente,<br/>Equipe RH</p>";
-            }
-
             try
             {
-                await _emailQueue.EnqueueRawAsync(pa.Email, subject, body, null, true, "pre-admissao-reenvio-docs", ct);
+                await _emailQueue.EnqueueTemplateAsync(
+                    CandidateEmailTemplateCodes.PreAdmissaoReenvioDocumentos,
+                    pa.Email,
+                    new Dictionary<string, string?>
+                    {
+                        ["CandidatoNome"] = pa.Nome,
+                        ["nome"] = pa.Nome,
+                        ["UrlPreAdmissao"] = url,
+                        ["url"] = url,
+                        ["EmpresaNome"] = _tenantContext.TenantId,
+                        ["empresa"] = _tenantContext.TenantId,
+                        ["DocumentosPendentes"] = string.Join(", ", labels),
+                        ["documentos"] = string.Join(", ", labels),
+                        ["Observacao"] = observacao,
+                        ["observacao"] = observacao,
+                    },
+                    isSystem: true,
+                    source: "pre-admissao-reenvio-docs",
+                    ct);
                 emailEnviado = true;
             }
             catch { /* best-effort */ }

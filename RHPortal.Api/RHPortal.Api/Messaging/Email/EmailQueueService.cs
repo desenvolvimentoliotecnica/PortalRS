@@ -79,19 +79,39 @@ public sealed class EmailQueueService : IEmailQueueService
             .OrderByDescending(x => x.Version)
             .FirstOrDefaultAsync(ct);
 
-        if (template is null)
-            throw new InvalidOperationException(_localizer["InfrastructureEmail.TemplateNotFound", templateName]);
+        string subjectTemplate;
+        string bodyTemplate;
+        Guid? templateId = null;
+        int? templateVersion = null;
 
-        var subject = EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
-        var body = EmailTemplateRenderer.Render(template.BodyHtml, tokens);
+        if (template is not null)
+        {
+            subjectTemplate = template.SubjectTemplate;
+            bodyTemplate = template.BodyHtml;
+            templateId = template.Id;
+            templateVersion = template.Version;
+        }
+        else if (CandidateEmailTemplateCatalog.TryGet(templateName, out var def))
+        {
+            subjectTemplate = def.SubjectDefault;
+            bodyTemplate = def.BodyHtmlDefault;
+        }
+        else
+        {
+            throw new InvalidOperationException(_localizer["InfrastructureEmail.TemplateNotFound", templateName]);
+        }
+
+        var subject = EmailTemplateRenderer.Render(subjectTemplate, tokens);
+        var body = EmailTemplateRenderer.Render(bodyTemplate, tokens);
+        var bodyText = EmailTemplateRenderer.StripHtmlToText(body);
 
         var decrypted = await _emailConfig.GetDecryptedAsync(ct);
-        (to, subject, body, _) = SmtpTestRedirectFormatting.Apply(to, subject, body, null, decrypted);
+        (to, subject, body, bodyText) = SmtpTestRedirectFormatting.Apply(to, subject, body, bodyText, decrypted);
 
-        var message = BuildMessage(to, subject, body, null, isSystem, source);
-        message.TemplateId = template.Id;
-        message.TemplateName = template.Name;
-        message.TemplateVersion = template.Version;
+        var message = BuildMessage(to, subject, body, bodyText, isSystem, source);
+        message.TemplateId = templateId;
+        message.TemplateName = templateName;
+        message.TemplateVersion = templateVersion;
         message.PayloadJson = EmailTemplateRenderer.ToJson(tokens);
 
         _db.EmailMessages.Add(message);

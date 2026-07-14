@@ -524,35 +524,17 @@ public sealed class CandidatosController : ControllerBase
 
         try
         {
-            var nome = WebUtility.HtmlEncode(candidatoNome);
-            var vaga = string.IsNullOrWhiteSpace(vagaTitulo)
-                ? ""
-                : $"<p><strong>Vaga:</strong> {WebUtility.HtmlEncode(vagaTitulo)}</p>";
-            var camposHtml = string.Join("", campos.Select(c => $"<li>{WebUtility.HtmlEncode(c)}</li>"));
-            var bodyHtml = $"""
-                <p>Olá {nome},</p>
-                <p>{WebUtility.HtmlEncode(mensagem)}</p>
-                {vaga}
-                <p><strong>Campos solicitados:</strong></p>
-                <ul>{camposHtml}</ul>
-                <p>Acesse o Portal de Vagas, abra seu workspace e atualize seu perfil para seguir no processo.</p>
-                """;
-            var bodyText = $"""
-                Olá {candidatoNome},
-
-                {mensagem}
-
-                {(string.IsNullOrWhiteSpace(vagaTitulo) ? "" : $"Vaga: {vagaTitulo}\n")}
-                Campos solicitados: {string.Join(", ", campos)}
-
-                Acesse o Portal de Vagas, abra seu workspace e atualize seu perfil para seguir no processo.
-                """;
-
-            await emailQueue.EnqueueRawAsync(
+            var camposTexto = string.Join(", ", campos);
+            await emailQueue.EnqueueTemplateAsync(
+                CandidateEmailTemplateCodes.SolicitarCompletarDados,
                 to,
-                titulo,
-                bodyHtml,
-                bodyText,
+                new Dictionary<string, string?>
+                {
+                    ["CandidatoNome"] = candidatoNome,
+                    ["EmpresaNome"] = "Portal de RH",
+                    ["VagaTitulo"] = vagaTitulo,
+                    ["CamposSolicitados"] = camposTexto,
+                },
                 isSystem: true,
                 source: "portal-candidato-completar-dados",
                 ct);

@@ -372,36 +372,18 @@ public sealed class PropostaVagaService : IPropostaVagaService
         var beneficiosTexto = MontarBeneficiosTexto(row.Proposta);
         var beneficiosHtml = MontarBeneficiosHtml(row.Proposta);
 
-        var subject = $"Proposta enviada — {SafeText(vagaTitulo, "vaga")}";
-        var bodyText = $"""
-            Olá, {SafeText(candidatoNome, "candidato")}!
-
-            Ficamos felizes em te enviar uma proposta para o cargo de "{SafeText(vagaTitulo, "vaga")}".
-            Você pode visualizar e aceitar pelo link abaixo:
-
-            {link}
-
-            Prazo: {prazo}
-            {(string.IsNullOrWhiteSpace(beneficiosTexto) ? "" : $"\nBenefícios:\n{beneficiosTexto}\n")}
-
-            {SafeText(empresaNome, "Portal de RH")} — RH
-            """;
-
-        var bodyHtml = $"""
-            <p>Olá, {Html(candidatoNome, "candidato")}!</p>
-            <p>Ficamos felizes em te enviar uma proposta para o cargo de &quot;{Html(vagaTitulo, "vaga")}&quot;.<br>
-            Você pode visualizar e aceitar pelo link abaixo:</p>
-            <p><a href="{WebUtility.HtmlEncode(link)}">{WebUtility.HtmlEncode(link)}</a></p>
-            <p>Prazo: {WebUtility.HtmlEncode(prazo)}</p>
-            {(string.IsNullOrWhiteSpace(beneficiosHtml) ? "" : $"<p><strong>Benefícios:</strong></p>{beneficiosHtml}")}
-            <p>{Html(empresaNome, "Portal de RH")} — RH</p>
-            """;
-
-        await _emailQueue.EnqueueRawAsync(
+        await _emailQueue.EnqueueTemplateAsync(
+            CandidateEmailTemplateCodes.PropostaVaga,
             row.Candidato.Email.Trim(),
-            subject,
-            bodyHtml,
-            bodyText,
+            new Dictionary<string, string?>
+            {
+                ["CandidatoNome"] = candidatoNome,
+                ["VagaTitulo"] = vagaTitulo,
+                ["EmpresaNome"] = empresaNome,
+                ["UrlProposta"] = link,
+                ["PrazoProposta"] = prazo,
+                ["Beneficios"] = string.IsNullOrWhiteSpace(beneficiosHtml) ? (beneficiosTexto ?? "") : beneficiosHtml,
+            },
             isSystem: true,
             source: "proposta-vaga",
             ct);
