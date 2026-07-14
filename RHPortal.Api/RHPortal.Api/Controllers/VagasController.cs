@@ -495,11 +495,12 @@ public sealed class VagasController : ControllerBase
     public async Task<ActionResult<VagaRetornoNegativoPreviewResponse>> PreviewRetornoNegativo(
         [FromRoute] Guid id,
         [FromServices] IVagaRetornoNegativoService service,
+        [FromQuery] string? emailTemplateCode,
         CancellationToken ct)
     {
         if (!_userContext.IsAdmin && _userContext.IsReadOnly)
             return Forbid();
-        var result = await service.PreviewAsync(id, ct);
+        var result = await service.PreviewAsync(id, ct, emailTemplateCode);
         return result is null ? NotFound() : Ok(result);
     }
 

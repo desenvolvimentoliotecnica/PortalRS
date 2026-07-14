@@ -19,6 +19,7 @@ public static class CandidateEmailTemplateCodes
     public const string PreAdmissaoCriarUsuario = "PreAdmissaoCriarUsuario";
     public const string AdmissaoPortalOtp = "AdmissaoPortalOtp";
     public const string SolicitarCompletarDados = "SolicitarCompletarDados";
+    public const string SolicitacaoDocumentacaoAdmissional = "SolicitacaoDocumentacaoAdmissional";
 
     public static readonly string[] All =
     [
@@ -38,5 +39,6 @@ public static class CandidateEmailTemplateCodes
         PreAdmissaoCriarUsuario,
         AdmissaoPortalOtp,
         SolicitarCompletarDados,
+        SolicitacaoDocumentacaoAdmissional,
     ];
 }

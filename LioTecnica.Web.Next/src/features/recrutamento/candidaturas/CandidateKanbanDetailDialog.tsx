@@ -31,6 +31,14 @@ import {
   type CandidaturaHistoricoItem,
   type KanbanCandidaturaItem,
 } from "./candidaturaApi";
+import {
+  applyEmailTokens,
+  defaultEmailTemplateForEtapa,
+  getEmailTemplateByCode,
+  htmlToPlainish,
+  listEmailTemplates,
+  type EmailTemplateListItem,
+} from "./emailTemplatesClient";
 
 type MatchBreakdown = {
   scoreFinal: number;
@@ -116,6 +124,9 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
   const [emailBody, setEmailBody] = useState("");
   const [emailFiles, setEmailFiles] = useState<File[]>([]);
   const [emailSending, setEmailSending] = useState(false);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplateListItem[]>([]);
+  const [emailTemplateCode, setEmailTemplateCode] = useState("");
+  const [emailTemplateLoading, setEmailTemplateLoading] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [candidaturaDetail, setCandidaturaDetail] = useState<CandidaturaDetalhe | null>(null);
   const [observacoesLoading, setObservacoesLoading] = useState(false);
@@ -143,8 +154,17 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
     setEmailFeedback(null);
     setEmailSubject(`Contato sobre sua candidatura${item.vagaTitulo ? ` - ${item.vagaTitulo}` : ""}`);
     setEmailBody(`Olá ${item.candidatoNome},\n\n`);
+    setEmailTemplateCode(defaultEmailTemplateForEtapa(resolveEtapa(item.etapaMacro)));
+    setEmailFiles([]);
 
     let cancelled = false;
+    void listEmailTemplates()
+      .then((list) => {
+        if (!cancelled) setEmailTemplates(list.filter((t) => t.isActive !== false));
+      })
+      .catch(() => {
+        if (!cancelled) setEmailTemplates([]);
+      });
     void (async () => {
       setPortalLoading(true);
       const result = await fetchCandidatoPortalPerfil(item.candidatoId);
@@ -222,6 +242,32 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
       toast.error(e instanceof Error ? e.message : "Falha ao registrar observação.");
     } finally {
       setSavingObservacao(false);
+    }
+  }
+
+  async function applyEmailTemplate(code: string) {
+    if (!item || !code) return;
+    setEmailTemplateCode(code);
+    setEmailTemplateLoading(true);
+    try {
+      const detail = await getEmailTemplateByCode(code);
+      const tokens = {
+        CandidatoNome: item.candidatoNome,
+        VagaTitulo: item.vagaTitulo ?? "",
+        EmpresaNome: "Liotécnica",
+        EntrevistaData: "",
+        EntrevistaHorario: "",
+        EntrevistaLinkConfirmacao: "",
+        LinkAvaliacao: "",
+        DataAdmissao: "",
+        UrlProposta: "",
+      };
+      setEmailSubject(applyEmailTokens(detail.subjectTemplate, tokens));
+      setEmailBody(htmlToPlainish(applyEmailTokens(detail.bodyHtml, tokens)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao carregar modelo de e-mail.");
+    } finally {
+      setEmailTemplateLoading(false);
     }
   }
 
@@ -476,6 +522,20 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
           <TabsContent value="email" className={`${tabContentClass} space-y-4`}>
             <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
               O mesmo assunto e corpo serão enviados por email e aparecerão como mensagem interna no portal do candidato.
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Usar modelo</label>
+              <select
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={emailTemplateCode}
+                disabled={emailTemplateLoading || emailSending}
+                onChange={(e) => void applyEmailTemplate(e.target.value)}
+              >
+                <option value="">Selecionar modelo...</option>
+                {emailTemplates.map((t) => (
+                  <option key={t.name} value={t.name}>{t.displayName}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Assunto</label>

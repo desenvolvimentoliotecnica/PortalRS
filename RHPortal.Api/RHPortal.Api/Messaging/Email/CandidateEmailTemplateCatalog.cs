@@ -13,13 +13,35 @@ public sealed record CandidateEmailTemplateDefinition(
 
 /// <summary>
 /// Fonte de verdade dos padrões de fábrica (imutáveis). Seed e Reset usam estes valores.
+/// Textos de retorno ao candidato alinhados aos modelos da Julia Machado (RH).
 /// </summary>
 public static class CandidateEmailTemplateCatalog
 {
     private static readonly string[] TagsEtapa =
     [
         "CandidatoNome", "VagaTitulo", "EmpresaNome",
-        "EntrevistaData", "EntrevistaModalidade", "EntrevistaLinkConfirmacao",
+        "EntrevistaData", "EntrevistaHorario", "EntrevistaModalidade", "EntrevistaLinkConfirmacao",
+    ];
+
+    private static readonly string[] TagsEntrevista =
+    [
+        "CandidatoNome", "VagaTitulo", "EmpresaNome",
+        "EntrevistaData", "EntrevistaHorario", "EntrevistaLinkConfirmacao",
+    ];
+
+    private static readonly string[] TagsProposta =
+    [
+        "CandidatoNome", "VagaTitulo", "EmpresaNome", "UrlProposta", "PrazoProposta", "DataAdmissao", "Beneficios",
+    ];
+
+    private static readonly string[] TagsTeste =
+    [
+        "CandidatoNome", "VagaTitulo", "EmpresaNome", "LinkAvaliacao",
+    ];
+
+    private static readonly string[] TagsDocAdmissional =
+    [
+        "CandidatoNome", "EmpresaNome", "UrlPreAdmissao", "DocumentosPendentes", "DataAdmissao",
     ];
 
     private static readonly Lazy<IReadOnlyDictionary<string, CandidateEmailTemplateDefinition>> Map =
@@ -61,6 +83,18 @@ public static class CandidateEmailTemplateCatalog
 
     private static IReadOnlyDictionary<string, CandidateEmailTemplateDefinition> BuildMap()
     {
+        var retornoNegativoBody = """
+            Olá, {{CandidatoNome}}!
+            Agradecemos sua participação em nosso processo seletivo e o interesse em fazer parte da {{EmpresaNome}}.
+            Após uma análise cuidadosa de todos os candidatos, seguimos com outro profissional para esta oportunidade. Essa decisão foi baseada no alinhamento mais aderente ao momento e às necessidades específicas da posição.
+            Gostaríamos de destacar que seu perfil foi avaliado com muito respeito e consideração, e ficamos felizes por conhecermos sua trajetória profissional.
+            Agradecemos pelo tempo dedicado ao processo e desejamos muito sucesso em seus próximos desafios.
+            Esperamos poder nos reencontrar em futuras oportunidades.
+            Atenciosamente,
+            Equipe de RH
+            {{EmpresaNome}}
+            """;
+
         var items = new[]
         {
             Def(
@@ -89,87 +123,102 @@ public static class CandidateEmailTemplateCatalog
                 """)),
             Def(
                 CandidateEmailTemplateCodes.EtapaEntrevista,
-                "Etapa — Entrevista",
-                "Avanço para entrevista RH.",
-                TagsEtapa,
-                "Próximo passo: entrevista para {{VagaTitulo}}",
+                "Agendamento de entrevista com RH",
+                "Modelo padrão: agendamento de entrevista com o time de RH.",
+                TagsEntrevista,
+                "Agendamento de entrevista com RH — {{VagaTitulo}}",
                 HtmlBody("""
                 Olá, {{CandidatoNome}}!
-                Você avançou para a etapa de entrevista na vaga {{VagaTitulo}}.
+                Sua entrevista com nosso time de Recursos Humanos foi agendada com sucesso.
                 Data: {{EntrevistaData}}
-                Modalidade: {{EntrevistaModalidade}}
-                Confirme sua presença: {{EntrevistaLinkConfirmacao}}
+                Horário: {{EntrevistaHorario}}
+                Para acessar a reunião, utilize o link abaixo:
+                {{EntrevistaLinkConfirmacao}}
+                Caso tenha qualquer imprevisto, pedimos a gentileza de nos informar com antecedência.
+                Desejamos uma excelente entrevista e agradecemos sua participação em nosso processo seletivo.
+                Atenciosamente,
+                Equipe de RH
+                {{EmpresaNome}}
                 """)),
             Def(
                 CandidateEmailTemplateCodes.EtapaEntrevistaTecnica,
-                "Etapa — Entrevista técnica",
-                "Avanço para entrevista técnica.",
-                TagsEtapa,
-                "Próximo passo: entrevista técnica para {{VagaTitulo}}",
+                "Confirmação de entrevista com gestor",
+                "Modelo padrão: confirmação de entrevista com o gestor da área.",
+                TagsEntrevista,
+                "Confirmação de entrevista com gestor — {{VagaTitulo}}",
                 HtmlBody("""
                 Olá, {{CandidatoNome}}!
-                Você avançou para a etapa de entrevista técnica na vaga {{VagaTitulo}}.
+                Parabéns por avançar em nosso processo seletivo!
+                Confirmamos sua entrevista com o gestor da área.
                 Data: {{EntrevistaData}}
-                Modalidade: {{EntrevistaModalidade}}
-                Confirme sua presença: {{EntrevistaLinkConfirmacao}}
+                Horário: {{EntrevistaHorario}}
+                Para acessar a reunião, utilize o link abaixo:
+                {{EntrevistaLinkConfirmacao}}
+                Caso tenha qualquer imprevisto, pedimos a gentileza de nos informar com antecedência.
+                Agradecemos sua participação e desejamos sucesso nesta etapa.
+                Atenciosamente,
+                Equipe de RH
+                {{EmpresaNome}}
                 """)),
             Def(
                 CandidateEmailTemplateCodes.EtapaTeste,
-                "Etapa — Teste",
-                "Liberação da etapa de testes.",
-                TagsEtapa,
-                "Teste técnico liberado — {{VagaTitulo}}",
+                "Envio de avaliações comportamentais (DISC)",
+                "Modelo padrão: envio do link DISC ou avaliações similares.",
+                TagsTeste,
+                "Avaliação comportamental — {{VagaTitulo}}",
                 HtmlBody("""
                 Olá, {{CandidatoNome}}!
-                Liberamos a etapa de testes para a vaga {{VagaTitulo}}. Acompanhe seu e-mail e o portal para as instruções.
+                Dando continuidade ao processo seletivo, compartilhamos abaixo o link para realização da próxima etapa de avaliação.
+                Link de acesso: {{LinkAvaliacao}}
+                Para garantir um resultado mais fiel ao seu perfil, recomendamos que a avaliação seja realizada em um ambiente tranquilo, sem interrupções e com atenção às instruções apresentadas.
+                O preenchimento deve ser feito com seus próprios dados e percepções, não existindo respostas certas ou erradas.
+                Após a conclusão, basta nos informar para que possamos seguir com as próximas etapas do processo.
+                Agradecemos sua participação e desejamos uma ótima avaliação!
+                Atenciosamente,
+                Equipe de RH
+                {{EmpresaNome}}
                 """)),
             Def(
                 CandidateEmailTemplateCodes.PropostaVaga,
-                "Proposta de vaga",
-                "Envio/reenvio do link de aceite da proposta.",
-                ["CandidatoNome", "VagaTitulo", "EmpresaNome", "UrlProposta", "PrazoProposta", "Beneficios"],
-                "Proposta enviada — {{VagaTitulo}}",
-                """
-                <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1a1a1a;">
-                  <p>Olá, <strong>{{CandidatoNome}}</strong>!</p>
-                  <p>Ficamos felizes em te enviar uma proposta para o cargo de &quot;{{VagaTitulo}}&quot;.</p>
-                  <p>Você pode visualizar e aceitar pelo link abaixo:</p>
-                  <p><a href="{{UrlProposta}}">{{UrlProposta}}</a></p>
-                  <p>Prazo: {{PrazoProposta}}</p>
-                  <p><strong>Benefícios:</strong><br/>{{Beneficios}}</p>
-                  <p>{{EmpresaNome}} — RH</p>
-                </div>
-                """),
+                "Aprovação e carta proposta",
+                "Modelo padrão: aprovação no processo e envio da carta proposta.",
+                TagsProposta,
+                "Você foi aprovado(a) — carta proposta {{VagaTitulo}}",
+                HtmlBody("""
+                Olá, {{CandidatoNome}}!
+                Temos uma ótima notícia: você foi aprovado(a) em nosso processo seletivo para a vaga {{VagaTitulo}}!
+                Ficamos muito felizes com o resultado e acreditamos que sua experiência e competências contribuirão significativamente para o nosso time.
+                Seu início está previsto para o dia {{DataAdmissao}}.
+                No link abaixo está a sua Carta Proposta, que deverá ser assinada e devolvida ao RH dentro do prazo informado.
+                {{UrlProposta}}
+                Em breve compartilharemos as próximas etapas do processo admissional.
+                Se tiver qualquer dúvida, estamos à disposição.
+                Seja muito bem-vindo(a) à {{EmpresaNome}}!
+                Atenciosamente,
+                Equipe de RH
+                {{EmpresaNome}}
+                """)),
             Def(
                 CandidateEmailTemplateCodes.EtapaReprovadoRh,
-                "Etapa — Reprovado (RH)",
-                "Encerramento pela triagem/RH.",
+                "Retorno negativo do processo seletivo (RH)",
+                "Modelo padrão: retorno negativo após análise do RH.",
                 TagsEtapa,
-                "Atualização sobre sua candidatura — {{VagaTitulo}}",
-                HtmlBody("""
-                Olá, {{CandidatoNome}}.
-                Agradecemos seu interesse na vaga {{VagaTitulo}}. Após análise do RH, seguiremos com outro candidato neste processo. Sucesso na jornada!
-                """)),
+                "Retorno sobre sua participação no processo seletivo — {{VagaTitulo}}",
+                HtmlBody(retornoNegativoBody)),
             Def(
                 CandidateEmailTemplateCodes.EtapaReprovadoGestor,
-                "Etapa — Reprovado (gestor)",
-                "Encerramento após avaliação do gestor.",
+                "Retorno negativo do processo seletivo (gestor)",
+                "Modelo padrão: retorno negativo após avaliação do gestor.",
                 TagsEtapa,
-                "Atualização sobre sua candidatura — {{VagaTitulo}}",
-                HtmlBody("""
-                Olá, {{CandidatoNome}}.
-                Agradecemos seu interesse na vaga {{VagaTitulo}}. Após avaliação do gestor, seguiremos com outro candidato neste processo. Sucesso na jornada!
-                """)),
+                "Retorno sobre sua participação no processo seletivo — {{VagaTitulo}}",
+                HtmlBody(retornoNegativoBody)),
             Def(
                 CandidateEmailTemplateCodes.EtapaRecusado,
-                "Etapa — Recusado",
-                "Candidatura recusada no processo.",
+                "Retorno negativo do processo seletivo",
+                "Modelo padrão: retorno negativo ao encerrar a candidatura/vaga.",
                 TagsEtapa,
-                "Atualização sobre sua candidatura — {{VagaTitulo}}",
-                HtmlBody("""
-                Olá, {{CandidatoNome}}.
-                Agradecemos seu interesse na vaga {{VagaTitulo}}, mas seguiremos com outro candidato neste processo. Sucesso na jornada!
-                """)),
+                "Retorno sobre sua participação no processo seletivo — {{VagaTitulo}}",
+                HtmlBody(retornoNegativoBody)),
             Def(
                 CandidateEmailTemplateCodes.EtapaDesistiu,
                 "Etapa — Desistência",
@@ -207,6 +256,23 @@ public static class CandidateEmailTemplateCatalog
                   <p style="color:#999;font-size:11px;text-align:center;">Atenciosamente, Equipe RH — {{EmpresaNome}}</p>
                 </div>
                 """),
+            Def(
+                CandidateEmailTemplateCodes.SolicitacaoDocumentacaoAdmissional,
+                "Solicitação de documentação admissional",
+                "Modelo padrão: após carta proposta assinada, pede documentação admissional.",
+                TagsDocAdmissional,
+                "Solicitação de documentação admissional — {{EmpresaNome}}",
+                HtmlBody("""
+                Olá, {{CandidatoNome}}!
+                Recebemos sua Carta Proposta devidamente assinada e agradecemos pelo retorno.
+                Para darmos continuidade ao seu processo de admissão, solicitamos o envio da documentação relacionada em anexo.
+                Pedimos a gentileza de encaminhar os documentos dentro do prazo informado para que possamos concluir as etapas cadastrais e preparar sua integração à empresa.
+                Caso tenha qualquer dúvida durante o processo, nossa equipe estará à disposição para auxiliá-lo(a).
+                Estamos felizes em tê-lo(a) conosco e seguimos à disposição.
+                Atenciosamente,
+                Equipe de RH
+                {{EmpresaNome}}
+                """)),
             Def(
                 CandidateEmailTemplateCodes.PreAdmissaoReenvioDocumentos,
                 "Pré-admissão — reenvio de documentos",

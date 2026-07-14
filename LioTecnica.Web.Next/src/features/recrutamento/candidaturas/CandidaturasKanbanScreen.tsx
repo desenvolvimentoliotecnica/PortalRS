@@ -22,6 +22,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  defaultEmailTemplateForEtapa,
+  listEmailTemplates,
+  type EmailTemplateListItem,
+} from "./emailTemplatesClient";
+import {
   avancarEtapa,
   bulkAvancarEtapa,
   ETAPA_KANBAN_LABELS,
@@ -116,6 +121,7 @@ type MoveDialogState = {
   destino: EtapaMacroCandidatura | "";
   observacao: string;
   notificarEnvolvidos: boolean;
+  emailTemplateCode: string;
   entrevista: InterviewDraft;
   saving: boolean;
 };
@@ -226,6 +232,19 @@ export default function CandidaturasKanbanScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTargetEtapa, setBulkTargetEtapa] = useState<EtapaMacroCandidatura | "">("");
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplateListItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listEmailTemplates()
+      .then((list) => {
+        if (!cancelled) setEmailTemplates(list.filter((t) => t.isActive !== false));
+      })
+      .catch(() => {
+        if (!cancelled) setEmailTemplates([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -365,6 +384,7 @@ export default function CandidaturasKanbanScreen() {
       destino: destino ?? "",
       observacao: "",
       notificarEnvolvidos: true,
+      emailTemplateCode: defaultEmailTemplateForEtapa(destino ?? ""),
       entrevista: defaultInterviewDraft(me?.displayName || me?.email || "Analista de RH"),
       saving: false,
     });
@@ -387,7 +407,7 @@ export default function CandidaturasKanbanScreen() {
 
   async function confirmMove() {
     if (readOnly || !moveDialog) return;
-    const { item, destino, observacao, entrevista, notificarEnvolvidos } = moveDialog;
+    const { item, destino, observacao, entrevista, notificarEnvolvidos, emailTemplateCode } = moveDialog;
     if (!destino) {
       toast.error("Selecione a etapa de destino.");
       return;
@@ -428,7 +448,14 @@ export default function CandidaturasKanbanScreen() {
 
     setMoveDialog((prev) => prev ? { ...prev, saving: true } : prev);
     try {
-      const result = await avancarEtapa(item.id, destino, observacao.trim() || null, entrevistaPayload, notificarEnvolvidos);
+      const result = await avancarEtapa(
+        item.id,
+        destino,
+        observacao.trim() || null,
+        entrevistaPayload,
+        notificarEnvolvidos,
+        notificarEnvolvidos ? (emailTemplateCode || null) : null,
+      );
       const notifSuffix = notificarEnvolvidos ? "" : " (sem notificação ao candidato)";
       toast.success(
         shouldScheduleInterview(destino)
@@ -738,6 +765,7 @@ export default function CandidaturasKanbanScreen() {
                   onChange={(e) => setMoveDialog((prev) => prev ? {
                     ...prev,
                     destino: e.target.value as EtapaMacroCandidatura,
+                    emailTemplateCode: defaultEmailTemplateForEtapa(e.target.value as EtapaMacroCandidatura),
                   } : prev)}
                 >
                   <option value="">Selecione a etapa...</option>
@@ -767,6 +795,28 @@ export default function CandidaturasKanbanScreen() {
                     </span>
                   </span>
                 </label>
+                {moveDialog.notificarEnvolvidos && (
+                  <label className="block text-xs font-medium text-neutral-700 pl-6">
+                    Modelo de e-mail
+                    <select
+                      className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
+                      value={moveDialog.emailTemplateCode}
+                      disabled={moveDialog.saving || emailTemplates.length === 0}
+                      onChange={(e) => setMoveDialog((prev) => prev ? {
+                        ...prev,
+                        emailTemplateCode: e.target.value,
+                      } : prev)}
+                    >
+                      {emailTemplates.length === 0 ? (
+                        <option value={moveDialog.emailTemplateCode}>Carregando modelos...</option>
+                      ) : (
+                        emailTemplates.map((t) => (
+                          <option key={t.name} value={t.name}>{t.displayName}</option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+                )}
                 {NOTIFICAR_ANALISTA_RH_HABILITADO && (
                   <label className="flex items-start gap-2 text-sm text-neutral-800 cursor-pointer">
                     <input type="checkbox" className="mt-0.5 accent-sky-600" disabled={moveDialog.saving} />
