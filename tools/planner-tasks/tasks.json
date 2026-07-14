@@ -6,10 +6,37 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T01:56:30.000Z",
-    "totalTarefas": 257
+    "atualizadoEm": "2026-07-14T10:51:30.000Z",
+    "totalTarefas": 258
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-258",
+      "nome": "[Portal RH] Limpar SSO e adicionar modais Termos/Privacidade no acesso",
+      "descricaoAmigavel": "Dor: Na tela de acesso/cadastro, botoes Microsoft/Google (em breve) ocupam espaco sem utilidade; o bloco Pacote completo fica colado no rodape; Termos e Politica abrem links quebrados.\nNecessidade: Tela limpa sem SSO; mais espaco abaixo do Pacote completo; Termos de Uso e Politica de Privacidade em modais com conteudo.\nSolucao proposta: Remover botoes SSO e separador OU; aumentar padding inferior do ultimo pilar; criar modais com texto legal acessiveis pelos links do rodape do formulario.\nDefinicao de pronto: /acesso sem botoes Microsoft/Google; Pacote completo com mais espaco abaixo; clicar Termos/Privacidade abre modal com conteudo legivel e botao Fechar.\nQ/A - Como testar: Abrir /acesso?tenantId=liotecnica; conferir ausencia dos SSO; scroll no painel esquerdo; abrir Termos e Politica pelos links.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "07:32",
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "07:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "pode remover da view acesso?tenantId=liotecnica os botoes Continuar com Microsoft e Continuar com Google. E dar um padding-bottom maior abaixo do texto Pacote completo. e crie os modais de Termos de Uso e Politica de Privacidade. Crie uma task no planner para isso com inicio.",
+      "entregavel": "Tela /acesso sem SSO, espaco extra no ultimo pilar e modais de Termos e Privacidade com conteudo.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "b44a317a"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #250",
+        "plannerTaskId": "jbCKJs7WGUKEtIdC6h_qmWUAIQ1F",
+        "prPrd": "Merge PR #251"
+      },
+      "observacoes": "Promovido HML (PR #250) e PRD (PR #251) em 14/07/2026. Planner Microsoft fechado (percentComplete=100)."
+    },
     {
       "id": "TASK-2026-257",
       "nome": "[Portal RH] Melhorar layout da boas-vindas do portal de admissão em desktop menor",
