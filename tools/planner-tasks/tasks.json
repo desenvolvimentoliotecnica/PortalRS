@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T00:06:49.179Z",
+    "atualizadoEm": "2026-07-14T00:06:49.894Z",
     "totalTarefas": 253
   },
   "tarefas": [
@@ -27,7 +27,9 @@
       "entregavel": "DNALIO opcional no save e na publicacao (front+API+hub); campo permanece disponivel e e gravado quando informado.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "92dfe1de"
+        ],
         "branch": "DEV",
         "prHml": null,
         "plannerTaskId": "sQz2mNYqv0C_Pjt4IbDdzmUAD6Xy"
