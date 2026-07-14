@@ -6,10 +6,37 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T10:51:30.000Z",
-    "totalTarefas": 258
+    "atualizadoEm": "2026-07-14T11:16:30.000Z",
+    "totalTarefas": 259
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-259",
+      "nome": "[Portal RH] Ampliar layout full-width do espaco do candidato",
+      "descricaoAmigavel": "Dor: Na tela Meu espaco (/candidato), o conteudo fica estreito no centro; a barra lateral (dados e menu) e estreita e fica colada no painel principal.\nNecessidade: Conteudo ocupando 100% da largura do browser; barra lateral 100px mais larga; mais espaco entre lateral e conteudo.\nSolucao proposta: Ajustar max-width/padding do shell, aumentar largura da sidebar em 100px e elevar o gap do grid.\nDefinicao de pronto: Em /candidato a area util preenche a largura da janela; sidebar ~100px maior; gap visivel entre menu e cards.\nQ/A - Como testar: Abrir /candidato?tenantId=liotecnica em desktop largo; conferir largura full, sidebar e espacamento.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "08:08",
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "08:15",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "na view candidato?tenantId=liotecnica quero q o conteudo ocupe 100% da largura do browser, e aumente em 100px a largura da barra lateral esquerda e aumente o gap entre o conteudo e a barra lateral. Crie uma task no planner para esse ajuste.",
+      "entregavel": "Layout /candidato em largura total, sidebar +100px e gap maior entre menu e conteudo.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "b7b318fb"
+        ],
+        "branch": "DEV",
+        "prHml": "Merge PR #254",
+        "plannerTaskId": "-udcQ22Es0CjGOWDQcARq2UAFVZ1",
+        "prPrd": "Merge PR #255"
+      },
+      "observacoes": "Promovido HML (PR #254) e PRD (PR #255) em 14/07/2026. Planner Microsoft fechado."
+    },
     {
       "id": "TASK-2026-258",
       "nome": "[Portal RH] Limpar SSO e adicionar modais Termos/Privacidade no acesso",
