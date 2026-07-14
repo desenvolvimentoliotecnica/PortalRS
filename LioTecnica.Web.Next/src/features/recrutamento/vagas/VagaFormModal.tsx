@@ -1473,7 +1473,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       if (!draft.tipoContratacao) campos.push("Tipo de Contratação");
       if (!draft.modalidade) campos.push("Modalidade");
       if (!draft.quantidadeVagas || draft.quantidadeVagas < 1) campos.push("Qtd. de Vagas");
-      if (!draft.descricaoCargoId) campos.push("Descrição de Cargo (DNALIO)");
+      // DNALIO (Descrição de Cargo) é opcional — TASK-2026-253
       if (!draft.eixoVagaId) campos.push("Tipo de Vaga");
       const mod = draft.modalidade.toLowerCase();
       if ((mod === "presencial" || mod === "hibrido") && !draft.unitId.trim()) {
@@ -1483,7 +1483,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       }
       if (campos.length > 0) {
         toast.error(`Preencha antes de publicar: ${campos.join(", ")}`);
-        setTab(!draft.descricaoCargoId ? "matching" : !draft.eixoVagaId ? "publicacao" : "dados");
+        setTab(!draft.eixoVagaId ? "publicacao" : "dados");
         return;
       }
     }
@@ -2016,7 +2016,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 </>
               )}
 
-              <SectionHeader title="Descrição de Cargo (template DNALIO)" description="Vincule uma descrição de cargo — o matching consome as seções estruturadas (Atividades, Competências, Vivências, Requisitos) para calcular score por categoria." />
+              <SectionHeader title="Descrição de Cargo (template DNALIO)" description="Opcional. Quando vinculada, o matching consome as seções estruturadas (Atividades, Competências, Vivências, Requisitos) para calcular score por categoria." />
               <Field label="Descrição de cargo" span="col-span-12">
                 <div className="space-y-2">
                   <div className="flex flex-col gap-2 md:flex-row">
