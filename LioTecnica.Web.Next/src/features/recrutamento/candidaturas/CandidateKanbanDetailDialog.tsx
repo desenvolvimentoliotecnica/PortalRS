@@ -133,6 +133,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
   const [observacoesLoading, setObservacoesLoading] = useState(false);
   const [observacoesError, setObservacoesError] = useState<string | null>(null);
   const [newObservacao, setNewObservacao] = useState("");
+  const [notificarGestorObs, setNotificarGestorObs] = useState(true);
   const [savingObservacao, setSavingObservacao] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState<EmailFeedbackState | null>(null);
 
@@ -152,6 +153,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
     setCandidaturaDetail(null);
     setObservacoesError(null);
     setNewObservacao("");
+    setNotificarGestorObs(true);
     setEmailFeedback(null);
     setEmailSubject(`Contato sobre sua candidatura${item.vagaTitulo ? ` - ${item.vagaTitulo}` : ""}`);
     setEmailBody(`<p>Olá, ${item.candidatoNome}!</p><p></p>`);
@@ -237,10 +239,14 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
 
     setSavingObservacao(true);
     try {
-      const updated = await registrarObservacaoCandidatura(item.id, text);
+      const updated = await registrarObservacaoCandidatura(item.id, text, notificarGestorObs);
       setCandidaturaDetail(updated);
       setNewObservacao("");
-      toast.success("Observação registrada.");
+      toast.success(
+        notificarGestorObs
+          ? "Observação registrada. Gestor será notificado por e-mail."
+          : "Observação registrada.",
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao registrar observação.");
     } finally {
@@ -477,7 +483,22 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
                 maxLength={2000}
                 onChange={(e) => setNewObservacao(e.target.value)}
               />
-              <div className="flex justify-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex items-start gap-2 text-sm text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 accent-sky-600"
+                    checked={notificarGestorObs}
+                    disabled={savingObservacao}
+                    onChange={(e) => setNotificarGestorObs(e.target.checked)}
+                  />
+                  <span>
+                    Notificar gestor
+                    <span className="mt-0.5 block text-xs opacity-80">
+                      Envia o parecer por e-mail ao gestor requisitante da vaga.
+                    </span>
+                  </span>
+                </label>
                 <Button
                   type="button"
                   onClick={() => void saveObservacao()}

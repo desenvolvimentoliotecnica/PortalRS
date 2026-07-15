@@ -45,6 +45,7 @@ public sealed class PropostaVagaServiceTests
         var candidaturaService = new CandidaturaService(
             db, tenantMock.Object, userContext.Object,
             notificacaoMock.Object,
+            Mock.Of<ICandidaturaResponsavelEmailNotifier>(),
             graphSyncMock.Object,
             corporateEmailMock.Object,
             new SlaEtapaResolver(db),

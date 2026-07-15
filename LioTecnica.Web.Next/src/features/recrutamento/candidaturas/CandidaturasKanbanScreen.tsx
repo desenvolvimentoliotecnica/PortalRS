@@ -61,9 +61,9 @@ function etapasDestinoDisponiveis(origem: EtapaMacroCandidatura): EtapaMacroCand
   return ETAPAS_DESTINO.filter((e) => e !== origem);
 }
 
-/** Notificações internas ainda não implementadas — ocultar no modal até habilitar. */
+/** Notificação analista RH ainda não implementada — ocultar no modal até habilitar. */
 const NOTIFICAR_ANALISTA_RH_HABILITADO = false;
-const NOTIFICAR_GESTOR_HABILITADO = false;
+const NOTIFICAR_GESTOR_HABILITADO = true;
 
 const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: string }> = {
   Aplicada:   { header: "bg-sky-50 text-sky-900",         accent: "border-sky-200" },
@@ -122,6 +122,7 @@ type MoveDialogState = {
   destino: EtapaMacroCandidatura | "";
   observacao: string;
   notificarEnvolvidos: boolean;
+  notificarGestor: boolean;
   emailTemplateCode: string;
   emailSubjectOverride: string | null;
   emailBodyHtmlOverride: string | null;
@@ -389,6 +390,7 @@ export default function CandidaturasKanbanScreen() {
       destino: destino ?? "",
       observacao: "",
       notificarEnvolvidos: true,
+      notificarGestor: true,
       emailTemplateCode: defaultEmailTemplateForEtapa(destino ?? ""),
       emailSubjectOverride: null,
       emailBodyHtmlOverride: null,
@@ -423,6 +425,7 @@ export default function CandidaturasKanbanScreen() {
       emailTemplateCode,
       emailSubjectOverride,
       emailBodyHtmlOverride,
+      notificarGestor,
     } = moveDialog;
     if (!destino) {
       toast.error("Selecione a etapa de destino.");
@@ -473,6 +476,7 @@ export default function CandidaturasKanbanScreen() {
         notificarEnvolvidos ? (emailTemplateCode || null) : null,
         notificarEnvolvidos ? emailSubjectOverride : null,
         notificarEnvolvidos ? emailBodyHtmlOverride : null,
+        Boolean(notificarGestor && observacao.trim()),
       );
       const notifSuffix = notificarEnvolvidos ? "" : " (sem notificação ao candidato)";
       toast.success(
@@ -865,8 +869,22 @@ export default function CandidaturasKanbanScreen() {
                 )}
                 {NOTIFICAR_GESTOR_HABILITADO && (
                   <label className="flex items-start gap-2 text-sm text-neutral-800 cursor-pointer">
-                    <input type="checkbox" className="mt-0.5 accent-sky-600" disabled={moveDialog.saving} />
-                    <span>Notificar gestor</span>
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 accent-sky-600"
+                      checked={moveDialog.notificarGestor}
+                      disabled={moveDialog.saving || !moveDialog.observacao.trim()}
+                      onChange={(e) => setMoveDialog((prev) => prev ? {
+                        ...prev,
+                        notificarGestor: e.target.checked,
+                      } : prev)}
+                    />
+                    <span>
+                      Notificar gestor
+                      <span className="mt-0.5 block text-xs text-neutral-500">
+                        Com observação preenchida, envia o parecer ao gestor requisitante da vaga.
+                      </span>
+                    </span>
                   </label>
                 )}
               </div>
