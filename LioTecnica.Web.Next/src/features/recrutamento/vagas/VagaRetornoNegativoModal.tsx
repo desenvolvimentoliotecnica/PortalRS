@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +19,10 @@ import {
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import {
   listEmailTemplates,
+  htmlToPlainish,
   type EmailTemplateListItem,
 } from "@/features/recrutamento/candidaturas/emailTemplatesClient";
+import EmailMessagePreviewDialog from "@/features/recrutamento/candidaturas/EmailMessagePreviewDialog";
 
 type Props = {
   open: boolean;
@@ -47,6 +50,9 @@ export default function VagaRetornoNegativoModal({
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplateListItem[]>([]);
   const [emailTemplateCode, setEmailTemplateCode] = useState(DEFAULT_RETORNO_CODE);
   const [selectionReady, setSelectionReady] = useState(false);
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+  const [emailSubjectOverride, setEmailSubjectOverride] = useState<string | null>(null);
+  const [emailBodyHtmlOverride, setEmailBodyHtmlOverride] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -54,6 +60,9 @@ export default function VagaRetornoNegativoModal({
       setEmailTemplateCode(DEFAULT_RETORNO_CODE);
       setPreview(null);
       setSelectionReady(false);
+      setEmailPreviewOpen(false);
+      setEmailSubjectOverride(null);
+      setEmailBodyHtmlOverride(null);
       return;
     }
     if (!vagaId) return;
@@ -84,6 +93,12 @@ export default function VagaRetornoNegativoModal({
 
   const destinatarios = preview?.destinatarios ?? [];
   const allSelected = destinatarios.length > 0 && destinatarios.every((d) => selected.has(d.candidaturaId));
+  const selectedIds = useMemo(() => Array.from(selected), [selected]);
+  const firstSelected = useMemo(
+    () => destinatarios.find((d) => selected.has(d.candidaturaId)) ?? destinatarios[0] ?? null,
+    [destinatarios, selected],
+  );
+  const hasCustomMessage = Boolean(emailBodyHtmlOverride?.trim());
 
   const toggleAll = () => {
     if (allSelected) {
@@ -102,13 +117,17 @@ export default function VagaRetornoNegativoModal({
     });
   };
 
-  const selectedIds = useMemo(() => Array.from(selected), [selected]);
-
   const handleFecharComEnvio = async () => {
     setSubmitting(true);
     try {
       if (selectedIds.length > 0) {
-        const res = await enviarRetornoNegativo(vagaId, selectedIds, emailTemplateCode);
+        const res = await enviarRetornoNegativo(
+          vagaId,
+          selectedIds,
+          emailTemplateCode,
+          emailSubjectOverride,
+          emailBodyHtmlOverride,
+        );
         if (res.falhas > 0 && res.enviados === 0) {
           throw new Error("Não foi possível enviar o retorno negativo.");
         }
@@ -131,6 +150,7 @@ export default function VagaRetornoNegativoModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !v && !submitting && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -151,21 +171,50 @@ export default function VagaRetornoNegativoModal({
             </p>
           ) : (
             <>
-              <label className="block text-xs font-medium text-foreground">
-                Modelo de e-mail
-                <select
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  value={emailTemplateCode}
-                  disabled={submitting}
-                  onChange={(e) => setEmailTemplateCode(e.target.value)}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-foreground">
+                  Modelo de e-mail
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    value={emailTemplateCode}
+                    disabled={submitting}
+                    onChange={(e) => {
+                      setEmailTemplateCode(e.target.value);
+                      setEmailSubjectOverride(null);
+                      setEmailBodyHtmlOverride(null);
+                    }}
+                  >
+                    {(emailTemplates.length > 0 ? emailTemplates : [
+                      { name: DEFAULT_RETORNO_CODE, displayName: "Retorno negativo do processo seletivo" } as EmailTemplateListItem,
+                    ]).map((t) => (
+                      <option key={t.name} value={t.name}>{t.displayName}</option>
+                    ))}
+                  </select>
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting || !emailTemplateCode || !firstSelected}
+                  onClick={() => setEmailPreviewOpen(true)}
                 >
-                  {(emailTemplates.length > 0 ? emailTemplates : [
-                    { name: DEFAULT_RETORNO_CODE, displayName: "Retorno negativo do processo seletivo" } as EmailTemplateListItem,
-                  ]).map((t) => (
-                    <option key={t.name} value={t.name}>{t.displayName}</option>
-                  ))}
-                </select>
-              </label>
+                  <Eye className="mr-1.5 size-3.5" />
+                  Visualizar / editar mensagem
+                </Button>
+                {firstSelected && (
+                  <p className="text-xs text-muted-foreground">
+                    Prévia com <strong>{firstSelected.candidatoNome}</strong>
+                    {selectedIds.length > 1
+                      ? ". Se personalizar o texto, a mesma mensagem será enviada a todos os selecionados."
+                      : "."}
+                  </p>
+                )}
+                {hasCustomMessage && (
+                  <p className="text-xs text-amber-700">
+                    Mensagem personalizada será enviada igual para todos os selecionados.
+                  </p>
+                )}
+              </div>
               <div className="flex items-center justify-between">
                 <span className="font-medium">{destinatarios.length} candidato(s) elegível(is)</span>
                 <button type="button" className="text-xs text-primary underline" onClick={toggleAll}>
@@ -191,12 +240,21 @@ export default function VagaRetornoNegativoModal({
                   ))}
                 </ul>
               </div>
-              {preview?.templateAssunto && (
-                <details className="rounded-md border border-border px-3 py-2">
-                  <summary className="cursor-pointer font-medium">Prévia do template de e-mail</summary>
+              {(hasCustomMessage || preview?.templateAssunto) && (
+                <details className="rounded-md border border-border px-3 py-2" open={hasCustomMessage}>
+                  <summary className="cursor-pointer font-medium">
+                    {hasCustomMessage ? "Mensagem confirmada" : "Prévia do template de e-mail"}
+                  </summary>
                   <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                    <div><strong>Assunto:</strong> {preview.templateAssunto}</div>
-                    <div className="whitespace-pre-wrap">{preview.templateCorpo}</div>
+                    <div>
+                      <strong>Assunto:</strong>{" "}
+                      {hasCustomMessage ? emailSubjectOverride : preview?.templateAssunto}
+                    </div>
+                    <div className="whitespace-pre-wrap">
+                      {hasCustomMessage
+                        ? htmlToPlainish(emailBodyHtmlOverride ?? "")
+                        : preview?.templateCorpo}
+                    </div>
                   </div>
                 </details>
               )}
@@ -228,5 +286,29 @@ export default function VagaRetornoNegativoModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <EmailMessagePreviewDialog
+      open={emailPreviewOpen}
+      onClose={() => setEmailPreviewOpen(false)}
+      templateCode={emailTemplateCode}
+      initialSubject={emailSubjectOverride}
+      initialBodyHtml={emailBodyHtmlOverride}
+      description={
+        firstSelected
+          ? `Prévia com ${firstSelected.candidatoNome}. Tags preenchidas. Se editar, a mesma mensagem será enviada a todos os selecionados.`
+          : undefined
+      }
+      tokens={{
+        CandidatoNome: firstSelected?.candidatoNome ?? "",
+        VagaTitulo: vagaTitulo,
+      }}
+      onConfirm={(subject, bodyHtml) => {
+        setEmailSubjectOverride(subject);
+        setEmailBodyHtmlOverride(bodyHtml);
+        setEmailPreviewOpen(false);
+        toast.success("Mensagem confirmada para o envio.");
+      }}
+    />
+    </>
   );
 }

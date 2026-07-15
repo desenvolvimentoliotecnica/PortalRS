@@ -26,6 +26,7 @@ import {
   listEmailTemplates,
   type EmailTemplateListItem,
 } from "./emailTemplatesClient";
+import EmailMessagePreviewDialog from "./EmailMessagePreviewDialog";
 import {
   avancarEtapa,
   bulkAvancarEtapa,
@@ -122,6 +123,8 @@ type MoveDialogState = {
   observacao: string;
   notificarEnvolvidos: boolean;
   emailTemplateCode: string;
+  emailSubjectOverride: string | null;
+  emailBodyHtmlOverride: string | null;
   entrevista: InterviewDraft;
   saving: boolean;
 };
@@ -233,6 +236,7 @@ export default function CandidaturasKanbanScreen() {
   const [bulkTargetEtapa, setBulkTargetEtapa] = useState<EtapaMacroCandidatura | "">("");
   const [bulkRunning, setBulkRunning] = useState(false);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplateListItem[]>([]);
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -378,6 +382,7 @@ export default function CandidaturasKanbanScreen() {
     if (readOnly) return;
     const origem = resolveEtapa(item.etapaMacro);
     if (destino && origem === destino) return;
+    setEmailPreviewOpen(false);
     setMoveDialog({
       item,
       origem,
@@ -385,6 +390,8 @@ export default function CandidaturasKanbanScreen() {
       observacao: "",
       notificarEnvolvidos: true,
       emailTemplateCode: defaultEmailTemplateForEtapa(destino ?? ""),
+      emailSubjectOverride: null,
+      emailBodyHtmlOverride: null,
       entrevista: defaultInterviewDraft(me?.displayName || me?.email || "Analista de RH"),
       saving: false,
     });
@@ -407,7 +414,16 @@ export default function CandidaturasKanbanScreen() {
 
   async function confirmMove() {
     if (readOnly || !moveDialog) return;
-    const { item, destino, observacao, entrevista, notificarEnvolvidos, emailTemplateCode } = moveDialog;
+    const {
+      item,
+      destino,
+      observacao,
+      entrevista,
+      notificarEnvolvidos,
+      emailTemplateCode,
+      emailSubjectOverride,
+      emailBodyHtmlOverride,
+    } = moveDialog;
     if (!destino) {
       toast.error("Selecione a etapa de destino.");
       return;
@@ -455,6 +471,8 @@ export default function CandidaturasKanbanScreen() {
         entrevistaPayload,
         notificarEnvolvidos,
         notificarEnvolvidos ? (emailTemplateCode || null) : null,
+        notificarEnvolvidos ? emailSubjectOverride : null,
+        notificarEnvolvidos ? emailBodyHtmlOverride : null,
       );
       const notifSuffix = notificarEnvolvidos ? "" : " (sem notificação ao candidato)";
       toast.success(
@@ -766,6 +784,8 @@ export default function CandidaturasKanbanScreen() {
                     ...prev,
                     destino: e.target.value as EtapaMacroCandidatura,
                     emailTemplateCode: defaultEmailTemplateForEtapa(e.target.value as EtapaMacroCandidatura),
+                    emailSubjectOverride: null,
+                    emailBodyHtmlOverride: null,
                   } : prev)}
                 >
                   <option value="">Selecione a etapa...</option>
@@ -796,26 +816,46 @@ export default function CandidaturasKanbanScreen() {
                   </span>
                 </label>
                 {moveDialog.notificarEnvolvidos && (
-                  <label className="block text-xs font-medium text-neutral-700 pl-6">
-                    Modelo de e-mail
-                    <select
-                      className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
-                      value={moveDialog.emailTemplateCode}
-                      disabled={moveDialog.saving || emailTemplates.length === 0}
-                      onChange={(e) => setMoveDialog((prev) => prev ? {
-                        ...prev,
-                        emailTemplateCode: e.target.value,
-                      } : prev)}
+                  <div className="space-y-2 pl-6">
+                    <label className="block text-xs font-medium text-neutral-700">
+                      Modelo de e-mail
+                      <select
+                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.emailTemplateCode}
+                        disabled={moveDialog.saving || emailTemplates.length === 0}
+                        onChange={(e) => setMoveDialog((prev) => prev ? {
+                          ...prev,
+                          emailTemplateCode: e.target.value,
+                          emailSubjectOverride: null,
+                          emailBodyHtmlOverride: null,
+                        } : prev)}
+                      >
+                        {emailTemplates.length === 0 ? (
+                          <option value={moveDialog.emailTemplateCode}>Carregando modelos...</option>
+                        ) : (
+                          emailTemplates.map((t) => (
+                            <option key={t.name} value={t.name}>{t.displayName}</option>
+                          ))
+                        )}
+                      </select>
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      disabled={moveDialog.saving || !moveDialog.emailTemplateCode}
+                      onClick={() => setEmailPreviewOpen(true)}
                     >
-                      {emailTemplates.length === 0 ? (
-                        <option value={moveDialog.emailTemplateCode}>Carregando modelos...</option>
-                      ) : (
-                        emailTemplates.map((t) => (
-                          <option key={t.name} value={t.name}>{t.displayName}</option>
-                        ))
-                      )}
-                    </select>
-                  </label>
+                      <Eye className="mr-1.5 size-3.5" />
+                      Visualizar / editar mensagem
+                    </Button>
+                    {moveDialog.emailBodyHtmlOverride ? (
+                      <p className="text-xs text-emerald-700">
+                        Mensagem personalizada será usada no envio.
+                      </p>
+                    ) : null}
+                  </div>
                 )}
                 {NOTIFICAR_ANALISTA_RH_HABILITADO && (
                   <label className="flex items-start gap-2 text-sm text-neutral-800 cursor-pointer">
@@ -1136,6 +1176,35 @@ export default function CandidaturasKanbanScreen() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {moveDialog && (
+        <EmailMessagePreviewDialog
+          open={emailPreviewOpen}
+          onClose={() => setEmailPreviewOpen(false)}
+          templateCode={moveDialog.emailTemplateCode}
+          initialSubject={moveDialog.emailSubjectOverride}
+          initialBodyHtml={moveDialog.emailBodyHtmlOverride}
+          tokens={{
+            CandidatoNome: moveDialog.item.candidatoNome,
+            VagaTitulo: moveDialog.item.vagaTitulo ?? "",
+            EntrevistaData: moveDialog.entrevista.data
+              ? new Date(`${moveDialog.entrevista.data}T12:00:00`).toLocaleDateString("pt-BR")
+              : "",
+            EntrevistaHorario: moveDialog.entrevista.horario || "",
+            EntrevistaLinkConfirmacao: moveDialog.entrevista.local.trim() || "",
+            LinkAvaliacao: moveDialog.entrevista.local.trim() || "",
+          }}
+          onConfirm={(subject, bodyHtml) => {
+            setMoveDialog((prev) => prev ? {
+              ...prev,
+              emailSubjectOverride: subject,
+              emailBodyHtmlOverride: bodyHtml,
+            } : prev);
+            setEmailPreviewOpen(false);
+            toast.success("Mensagem confirmada para o envio.");
+          }}
+        />
+      )}
 
       <Dialog
         open={!!proposalRedirect}
