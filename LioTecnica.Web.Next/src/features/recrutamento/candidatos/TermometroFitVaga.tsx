@@ -34,27 +34,25 @@ type Props = {
 export function TermometroFitVaga({ nivel, motivo, loading, hasVaga = true, className }: Props) {
   const active = normalizeFitIaNivel(nivel);
   const activeMeta = active ? NIVEIS.find((n) => n.code === active) : null;
+  const statusHint = loading
+    ? "Avaliando aderência com IA…"
+    : !activeMeta
+      ? "Aguardando análise da IA…"
+      : !hasVaga
+        ? "Avaliação geral (sem vaga)"
+        : null;
 
   return (
     <div className={`rounded-md border border-border/50 bg-muted/20 px-2.5 py-2 ${className ?? ""}`}>
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Termômetro de fit</p>
-          <p className="text-[11px] text-muted-foreground">
-            {loading
-              ? "Avaliando aderência com IA…"
-              : activeMeta
-                ? activeMeta.label
-                : "Aguardando análise da IA…"}
-            {!hasVaga && active ? " · avaliação geral (sem vaga)" : null}
-          </p>
-        </div>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Termômetro de fit</p>
         {activeMeta ? (
           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {NIVEIS.findIndex((n) => n.code === active) + 1}/5
           </span>
         ) : null}
       </div>
+      {statusHint ? <p className="mb-1.5 text-[11px] text-muted-foreground">{statusHint}</p> : null}
 
       <div className="grid grid-cols-5 gap-1" role="meter" aria-valuemin={1} aria-valuemax={5} aria-valuenow={active ? NIVEIS.findIndex((n) => n.code === active) + 1 : undefined} aria-label="Termômetro de fit à vaga">
         {NIVEIS.map((n) => {
@@ -74,7 +72,7 @@ export function TermometroFitVaga({ nivel, motivo, loading, hasVaga = true, clas
       </div>
 
       {motivo?.trim() ? (
-        <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{motivo.trim()}</p>
+        <p className="mt-3 text-[11px] leading-snug text-muted-foreground">{motivo.trim()}</p>
       ) : null}
     </div>
   );
