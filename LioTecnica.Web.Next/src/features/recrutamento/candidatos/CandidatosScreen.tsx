@@ -12,6 +12,7 @@ import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
 import { fetchCandidatoPortalPerfil } from "@/features/recrutamento/candidatos/portalPerfilClient";
+import { TermometroFitVaga, normalizeFitIaNivel } from "@/features/recrutamento/candidatos/TermometroFitVaga";
 import {
   buildCandidatoDocumentoDownloadPath,
   downloadCandidatoDocumento,
@@ -599,6 +600,8 @@ export default function CandidatosScreen() {
       pretensaoSalarial: null,
       trabalhandoAtualmente: null,
       cvText: null,
+      fitIaNivel: null,
+      fitIaMotivo: null,
     });
     setEditOpen(true);
   }
@@ -694,6 +697,8 @@ export default function CandidatosScreen() {
       const uf = pickString(parsed.uf ?? parsed.Uf, "").trim().toUpperCase().slice(0, 2);
       const linkedinUrl = pickString(parsed.linkedinUrl ?? parsed.LinkedinUrl, "").trim();
       const observacoes = pickString(parsed.observacoes ?? parsed.Observacoes, "").trim();
+      const termometro = normalizeFitIaNivel(parsed.termometro ?? parsed.Termometro);
+      const termometroMotivo = pickString(parsed.termometroMotivo ?? parsed.TermometroMotivo, "").trim();
       const cvText = pickString(parsed.cvText ?? parsed.CvText, "").trim();
       const pretRaw = parsed.pretensaoSalarial ?? parsed.PretensaoSalarial;
       const pretensao =
@@ -744,12 +749,16 @@ export default function CandidatosScreen() {
           pretensaoSalarial: pretensao,
           trabalhandoAtualmente,
           observacoes: observacoes ? `${observacoes.slice(0, 200)}…` : null,
+          termometro,
+          termometroMotivo: termometroMotivo || null,
         },
       });
 
       if (!sucesso || fonte !== "ai") {
         if (cvText) {
-          setDraft((prev) => ({ ...prev, cvText }));
+          setDraft((prev) => ({ ...prev, cvText, fitIaNivel: null, fitIaMotivo: null }));
+        } else {
+          setDraft((prev) => ({ ...prev, fitIaNivel: null, fitIaMotivo: null }));
         }
         await showPreenchimentoManualSwal(aiErro);
         return;
@@ -769,6 +778,8 @@ export default function CandidatosScreen() {
         if (trabalhandoAtualmente != null) next.trabalhandoAtualmente = trabalhandoAtualmente;
         if (observacoes) next.obs = observacoes;
         if (cvText) next.cvText = cvText;
+        next.fitIaNivel = termometro;
+        next.fitIaMotivo = termometroMotivo || null;
         return next;
       });
 
@@ -781,6 +792,7 @@ export default function CandidatosScreen() {
       if (pretensao != null) found.push("pretensão");
       if (trabalhandoAtualmente != null) found.push("situação");
       if (observacoes) found.push("observações");
+      if (termometro) found.push("termômetro");
 
       toast.success(
         found.length > 0
@@ -855,6 +867,8 @@ export default function CandidatosScreen() {
       pretensaoSalarial: c.pretensaoSalarial ?? null,
       vagaId,
       obs: pickString(cr?.obs, "").trim() || null,
+      fitIaNivel: normalizeFitIaNivel(cr?.fitIaNivel),
+      fitIaMotivo: pickString(cr?.fitIaMotivo, "").trim() || null,
       cvText: pickString(c.cvText, "").trim() || null,
       lastMatch: lm
         ? {
@@ -1980,6 +1994,14 @@ export default function CandidatosScreen() {
                       onChange={(e) => setDraft({ ...draft, obs: e.target.value })}
                       placeholder="Resumo do perfil, habilidades e avaliação para a vaga (gerado pela IA ou informado manualmente)…"
                     />
+                    <div className="mt-1.5 md:col-span-12">
+                      <TermometroFitVaga
+                        nivel={pickString((draft as Record<string, unknown>)?.fitIaNivel, "") || null}
+                        motivo={pickString((draft as Record<string, unknown>)?.fitIaMotivo, "") || null}
+                        loading={cvParseLoading}
+                        hasVaga={!!pickString(draft.vagaId, "").trim()}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

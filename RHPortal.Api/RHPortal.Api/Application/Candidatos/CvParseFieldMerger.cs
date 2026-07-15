@@ -53,7 +53,9 @@ public static class CvParseFieldMerger
             null,
             NullIfBlank(ai.Observacoes),
             ai.TrabalhandoAtualmente,
-            Sucesso: true);
+            Sucesso: true,
+            Termometro: NullIfBlank(ai.Termometro),
+            TermometroMotivo: NullIfBlank(ai.TermometroMotivo));
     }
 
     private static string? NullIfBlank(string? value)

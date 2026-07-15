@@ -321,7 +321,9 @@ public sealed class CandidatoService : ICandidatoService
             entity.ApplicationRecruiterUserId,
             entity.ApplicationRecruiterUserName,
             entity.CreatedAtUtc,
-            entity.UpdatedAtUtc
+            entity.UpdatedAtUtc,
+            entity.FitIaNivel,
+            entity.FitIaMotivo
         );
     }
 
@@ -356,6 +358,8 @@ public sealed class CandidatoService : ICandidatoService
             existing.VagaId = request.VagaId;
             existing.TalentoId = request.TalentoId;
             existing.Obs = TrimToMax(request.Obs, 2000);
+            existing.FitIaNivel = NormalizeFitIaNivel(request.FitIaNivel);
+            existing.FitIaMotivo = TrimToMax(request.FitIaMotivo, 240);
             existing.CvText = TrimOrNull(request.CvText);
             existing.ApplicationRecruiterUserId = TrimToMax(request.ApplicationRecruiterUserId, 120);
             existing.ApplicationRecruiterUserName = TrimToMax(request.ApplicationRecruiterUserName, 200);
@@ -405,6 +409,8 @@ public sealed class CandidatoService : ICandidatoService
             VagaId = request.VagaId,
             TalentoId = request.TalentoId,
             Obs = TrimToMax(request.Obs, 2000),
+            FitIaNivel = NormalizeFitIaNivel(request.FitIaNivel),
+            FitIaMotivo = TrimToMax(request.FitIaMotivo, 240),
             CvText = TrimOrNull(request.CvText),
             PortalAccessKey = GeneratePortalAccessKey(),
             ApplicationRecruiterUserId = TrimToMax(request.ApplicationRecruiterUserId, 120),
@@ -557,6 +563,8 @@ public sealed class CandidatoService : ICandidatoService
         entity.PretensaoSalarial = request.PretensaoSalarial;
         entity.VagaId = request.VagaId;
         entity.Obs = TrimToMax(request.Obs, 2000);
+        entity.FitIaNivel = NormalizeFitIaNivel(request.FitIaNivel);
+        entity.FitIaMotivo = TrimToMax(request.FitIaMotivo, 240);
         entity.CvText = TrimOrNull(request.CvText);
         entity.ApplicationRecruiterUserId = TrimToMax(request.ApplicationRecruiterUserId, 120);
         entity.ApplicationRecruiterUserName = TrimToMax(request.ApplicationRecruiterUserName, 200);
@@ -1099,7 +1107,9 @@ public sealed class CandidatoService : ICandidatoService
             c.ApplicationRecruiterUserId,
             c.ApplicationRecruiterUserName,
             c.CreatedAtUtc,
-            c.UpdatedAtUtc
+            c.UpdatedAtUtc,
+            c.FitIaNivel,
+            c.FitIaMotivo
         );
     }
 
@@ -1267,6 +1277,17 @@ public sealed class CandidatoService : ICandidatoService
     {
         var text = (uf ?? string.Empty).Trim();
         return string.IsNullOrWhiteSpace(text) ? null : text.ToUpperInvariant();
+    }
+
+    private static string? NormalizeFitIaNivel(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var v = raw.Trim().ToLowerInvariant();
+        return v switch
+        {
+            "baixo" or "parcial" or "adequado" or "bom" or "excelente" => v,
+            _ => null
+        };
     }
 
     private static string? TrimOrNull(string? value)
