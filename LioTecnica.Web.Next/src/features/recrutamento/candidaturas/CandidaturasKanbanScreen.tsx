@@ -121,6 +121,7 @@ type MoveDialogState = {
   origem: EtapaMacroCandidatura;
   destino: EtapaMacroCandidatura | "";
   observacao: string;
+  linkAvaliacao: string;
   notificarEnvolvidos: boolean;
   notificarGestor: boolean;
   emailTemplateCode: string;
@@ -389,6 +390,7 @@ export default function CandidaturasKanbanScreen() {
       origem,
       destino: destino ?? "",
       observacao: "",
+      linkAvaliacao: "",
       notificarEnvolvidos: true,
       notificarGestor: true,
       emailTemplateCode: defaultEmailTemplateForEtapa(destino ?? ""),
@@ -420,6 +422,7 @@ export default function CandidaturasKanbanScreen() {
       item,
       destino,
       observacao,
+      linkAvaliacao,
       entrevista,
       notificarEnvolvidos,
       emailTemplateCode,
@@ -477,6 +480,7 @@ export default function CandidaturasKanbanScreen() {
         notificarEnvolvidos ? emailSubjectOverride : null,
         notificarEnvolvidos ? emailBodyHtmlOverride : null,
         Boolean(notificarGestor && observacao.trim()),
+        destino === "Teste" ? (linkAvaliacao.trim() || null) : null,
       );
       const notifSuffix = notificarEnvolvidos ? "" : " (sem notificação ao candidato)";
       toast.success(
@@ -787,6 +791,7 @@ export default function CandidaturasKanbanScreen() {
                   onChange={(e) => setMoveDialog((prev) => prev ? {
                     ...prev,
                     destino: e.target.value as EtapaMacroCandidatura,
+                    linkAvaliacao: "",
                     emailTemplateCode: defaultEmailTemplateForEtapa(e.target.value as EtapaMacroCandidatura),
                     emailSubjectOverride: null,
                     emailBodyHtmlOverride: null,
@@ -888,6 +893,31 @@ export default function CandidaturasKanbanScreen() {
                   </label>
                 )}
               </div>
+
+              {moveDialog.destino === "Teste" && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-amber-950">Link do teste / DISC</h3>
+                    <p className="mt-0.5 text-xs text-amber-800">
+                      Opcional. Se preenchido, entra no e-mail do candidato no lugar de {"{{LinkAvaliacao}}"}.
+                    </p>
+                  </div>
+                  <label className="block text-xs font-medium text-amber-950">
+                    URL do teste
+                    <input
+                      type="url"
+                      className="mt-1 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+                      placeholder="https://..."
+                      value={moveDialog.linkAvaliacao}
+                      disabled={moveDialog.saving}
+                      onChange={(e) => setMoveDialog((prev) => prev ? {
+                        ...prev,
+                        linkAvaliacao: e.target.value,
+                      } : prev)}
+                    />
+                  </label>
+                </div>
+              )}
 
               {moveDialog.destino && shouldScheduleInterview(moveDialog.destino) && (
                 <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3">
@@ -1210,7 +1240,7 @@ export default function CandidaturasKanbanScreen() {
               : "",
             EntrevistaHorario: moveDialog.entrevista.horario || "",
             EntrevistaLinkConfirmacao: moveDialog.entrevista.local.trim() || "",
-            LinkAvaliacao: moveDialog.entrevista.local.trim() || "",
+            LinkAvaliacao: moveDialog.linkAvaliacao.trim() || "",
           }}
           onConfirm={(subject, bodyHtml) => {
             setMoveDialog((prev) => prev ? {

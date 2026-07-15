@@ -6,10 +6,35 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T12:36:00-03:00",
-    "totalTarefas": 274
+    "atualizadoEm": "2026-07-15T13:09:00-03:00",
+    "totalTarefas": 275
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-275",
+      "nome": "[Portal RH] Link DISC/teste ao mover para Teste e notificar candidato",
+      "descricaoAmigavel": "Dor: ao mover para Teste, o e-mail usa {{LinkAvaliacao}} vazio.\\nNecessidade: informar link opcional do teste/DISC no modal e preencher o template.\\nSolução proposta: campo LinkAvaliacao no avancar-etapa + UI no Kanban destino Teste.\\nDefinição de pronto: mover para Teste com link preenche o e-mail; sem link ainda notifica.\\nQ/A - Como testar: Kanban → Teste → preencher link → notificar → conferir LinkAvaliacao no e-mail/preview.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "12:44",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "13:09",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "item 11 — anexar teste/DISC ao mover para Teste (só link opcional)",
+      "entregavel": "Campo de link DISC/teste no mover para Teste preenchendo {{LinkAvaliacao}} na notificação.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "22ea78be"
+        ],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Fechada antes da promoção HML/PRD — link DISC/teste ao mover para Teste."
+    },
     {
       "id": "TASK-2026-274",
       "nome": "[Portal RH] Notificar o gestor quando o parecer for registrado pelo RH",
