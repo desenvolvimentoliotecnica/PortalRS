@@ -17,7 +17,7 @@
       "inicio": "2026-07-15",
       "horarioInicio": "09:46",
       "conclusao": "2026-07-15",
-      "horarioConclusao": "09:51",
+      "horarioConclusao": "09:52",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -29,7 +29,7 @@
       "referencias": {
         "commits": ["13efdb68"],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #281"
       },
       "observacoes": null
     },
@@ -40,7 +40,7 @@
       "inicio": "2026-07-15",
       "horarioInicio": "09:40",
       "conclusao": "2026-07-15",
-      "horarioConclusao": "09:51",
+      "horarioConclusao": "09:52",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -52,7 +52,7 @@
       "referencias": {
         "commits": ["bc2c9ded"],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #281"
       },
       "observacoes": null
     },
