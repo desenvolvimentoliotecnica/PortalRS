@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T12:35:00-03:00",
+    "atualizadoEm": "2026-07-15T12:36:00-03:00",
     "totalTarefas": 274
   },
   "tarefas": [
@@ -25,15 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "planejar/implementar item 10 — notificar gestor quando parecer for registrado (disparo C nos dois pontos; destinatário só gestor)",
       "entregavel": "Notificação por e-mail ao gestor requisitante ao registrar parecer (observação ou avanço com observação).",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "3593d58b"
+          "3593d58b",
+          "e638181d"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #300",
+        "prPrd": "Merge PR #301"
       },
-      "observacoes": "Fechada antes da promoção HML/PRD — notificar gestor ao registrar parecer."
+      "observacoes": "Promovido HML (PR #300) e PRD (PR #301) em 15/07/2026."
     },
     {
       "id": "TASK-2026-273",
