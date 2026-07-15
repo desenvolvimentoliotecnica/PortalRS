@@ -17,7 +17,7 @@
       "inicio": "2026-07-15",
       "horarioInicio": "09:34",
       "conclusao": "2026-07-15",
-      "horarioConclusao": "09:37",
+      "horarioConclusao": "09:38",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -29,7 +29,7 @@
       "referencias": {
         "commits": ["e5545209"],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #278"
       },
       "observacoes": null
     },
