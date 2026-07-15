@@ -7950,6 +7950,23 @@ namespace RhPortal.Api.Migrations
                     b.Property<int?>("DocMilitarTipo")
                         .HasColumnType("integer");
 
+                    b.Property<string>("DpAccessToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("DpEnviadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DpEnviadoParaEmail")
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<Guid?>("DpEnviadoPorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DpTokenExpiraEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset?>("EfetivadoManualmenteEmUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -8416,6 +8433,9 @@ namespace RhPortal.Api.Migrations
                     b.HasIndex("UnitId");
 
                     b.HasIndex("VagaId");
+
+                    b.HasIndex("DpAccessToken")
+                        .HasFilter("\"DpAccessToken\" IS NOT NULL");
 
                     b.HasIndex("TenantId", "AccessToken")
                         .HasFilter("\"AccessToken\" IS NOT NULL");

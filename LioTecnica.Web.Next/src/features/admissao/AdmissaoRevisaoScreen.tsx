@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronLeft, CheckCircle2, XCircle, AlertTriangle, FileText, User, MapPin,
     CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil, Download,
-    Zap, Clock, WrenchIcon, Trash2, Coins,
+    Zap, Clock, WrenchIcon, Trash2, Coins, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
@@ -236,6 +236,9 @@ interface PreAdmissao {
     integradaEmUtc: string | null;
     documentos: { id: string; tipo: number | string; lado: number; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; observacaoRh: string | null; createdAtUtc: string; presignedUrl: string }[];
     documentosSolicitados: { tipoDocumento: number | string; label: string; obrigatorio: boolean }[];
+    dpEnviadoEmUtc?: string | null;
+    dpEnviadoParaEmail?: string | null;
+    dpTokenExpiraEmUtc?: string | null;
 }
 
 const STATUS_MAP: Record<number | string, { label: string; color: string; icon: React.ElementType }> = {
@@ -358,6 +361,9 @@ export default function AdmissaoRevisaoScreen() {
 
     // "Efetivar" action
     const [efetivarSaving, setEfetivarSaving] = useState(false);
+    const [pacoteDpOpen, setPacoteDpOpen] = useState(false);
+    const [pacoteDpEmail, setPacoteDpEmail] = useState("");
+    const [pacoteDpLoading, setPacoteDpLoading] = useState(false);
 
     // "Cancelar/Excluir" dialog
     const [cancelOpen, setCancelOpen] = useState(false);
@@ -375,15 +381,17 @@ export default function AdmissaoRevisaoScreen() {
                 body: JSON.stringify({ observacao: approveObs || null }),
             });
             if (res.ok) {
-                toast.success("Admissão aprovada! Clique em Efetivar para enviar ao TOTVS.");
+                toast.success("Admissão aprovada! Envie o pacote ao Departamento Pessoal.");
+                setPacoteDpEmail(data?.dpEnviadoParaEmail ?? "");
+                setPacoteDpOpen(true);
                 await refetch();
                 return;
             }
             if (res.status === 422) {
                 const body = await res.json();
-                if (body?.type === "totvs_validation" && Array.isArray(body.errors)) {
+                if ((body?.type === "admission_validation" || body?.type === "totvs_validation") && Array.isArray(body.errors)) {
                     setTotvsErrors(body.errors as TotvsError[]);
-                    toast.warning("Há campos TOTVS obrigatórios pendentes. Preencha-os antes de enviar.");
+                    toast.warning("Há campos mínimos de admissão pendentes. Preencha-os antes de aprovar.");
                     return;
                 }
             }
@@ -672,7 +680,7 @@ export default function AdmissaoRevisaoScreen() {
                         ? "Admissão concluída e aprovada automaticamente"
                         : "Admissão enviada para revisão"}
                     description={isAprovada(data.status)
-                        ? "A validação TOTVS passou sem pendências. Revise abaixo e efetive a integração quando estiver pronto."
+                        ? "Use o botão Enviar pacote ao DP para encaminhar a ficha e os documentos ao Departamento Pessoal."
                         : "Revise os dados e documentos nesta tela. Use Aprovar ou Rejeitar conforme necessário."}
                     onDismiss={() => router.replace(`/admissao/revisao?id=${encodeURIComponent(data.id)}`)}
                 />
@@ -734,7 +742,7 @@ export default function AdmissaoRevisaoScreen() {
                     <div className="flex items-center gap-2">
                         <AlertTriangle className="size-4 text-orange-600 shrink-0" />
                         <p className="text-sm font-semibold text-orange-700 dark:text-orange-400">
-                            Campos TOTVS pendentes — a admissão não pode ser enviada até que sejam preenchidos
+                            Campos mínimos de admissão pendentes — preencha-os antes de aprovar
                         </p>
                     </div>
                     <div className="space-y-2 pl-6">
@@ -1093,23 +1101,39 @@ export default function AdmissaoRevisaoScreen() {
                 </div>
             )}
 
-            {/* ── Action bar: Aprovada — RH deve efetivar para enviar ao TOTVS ── */}
-            {isAprovada(data.status) && (
-                <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border/40 bg-card shadow-sm">
+            {/* ── Action bar: Aprovada — pacote DP (+ efetivar legado opcional) ── */}
+            {(isAprovada(data.status) || st(data.status, 5, "Integrada") || st(data.status, 8, "EmIntegracao")) && (
+                <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-teal-200 bg-teal-50/50 shadow-sm">
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">Admissão aprovada</p>
+                        <p className="text-sm font-medium">Pacote para o Departamento Pessoal</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            Clique em &ldquo;Efetivar&rdquo; para enviar ao TOTVS e aguardar a confirmação da integração.
+                            Envie um e-mail com a ficha e o link dos documentos (ZIP). O DP fará o cadastro nos sistemas legados.
+                            {data.dpEnviadoEmUtc ? (
+                                <> Último envio: {fmtDate(data.dpEnviadoEmUtc)}{data.dpEnviadoParaEmail ? ` · ${data.dpEnviadoParaEmail}` : ""}.</>
+                            ) : null}
                         </p>
                     </div>
                     <Button
-                        className="bg-emerald-600 hover:bg-emerald-700"
-                        onClick={handleEfetivar}
-                        disabled={efetivarSaving}
+                        className="bg-teal-700 hover:bg-teal-800"
+                        onClick={() => {
+                            setPacoteDpEmail(data.dpEnviadoParaEmail ?? "");
+                            setPacoteDpOpen(true);
+                        }}
+                        disabled={pacoteDpLoading}
                     >
-                        {efetivarSaving ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-                        Efetivar
+                        <Mail className="size-4" /> Enviar pacote ao DP
                     </Button>
+                    {isAprovada(data.status) && (
+                        <Button
+                            variant="outline"
+                            onClick={handleEfetivar}
+                            disabled={efetivarSaving}
+                            title="Opcional — integração TOTVS via Portal (desativada no fluxo habitual)"
+                        >
+                            {efetivarSaving ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                            Efetivar (legado)
+                        </Button>
+                    )}
                 </div>
             )}
 
@@ -1131,6 +1155,60 @@ export default function AdmissaoRevisaoScreen() {
                     </Button>
                 </div>
             )}
+
+            <Dialog open={pacoteDpOpen} onOpenChange={setPacoteDpOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Enviar pacote ao Departamento Pessoal</DialogTitle>
+                        <DialogDescription>
+                            O DP receberá a ficha no e-mail e um link válido por 7 dias para ver documentos e baixar o ZIP.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <Input
+                            type="email"
+                            value={pacoteDpEmail}
+                            onChange={(e) => setPacoteDpEmail(e.target.value)}
+                            placeholder="dp@empresa.com.br"
+                        />
+                        <div className="flex gap-2 justify-end">
+                            <Button variant="outline" onClick={() => setPacoteDpOpen(false)} disabled={pacoteDpLoading}>Cancelar</Button>
+                            <Button
+                                className="bg-teal-700 hover:bg-teal-800"
+                                disabled={pacoteDpLoading}
+                                onClick={async () => {
+                                    if (!pacoteDpEmail.trim() || !pacoteDpEmail.includes("@")) {
+                                        toast.error("Informe um e-mail válido.");
+                                        return;
+                                    }
+                                    setPacoteDpLoading(true);
+                                    try {
+                                        const res = await apiFetch(`/api/pre-admissao/${id}/enviar-pacote-dp`, {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ email: pacoteDpEmail.trim() }),
+                                        });
+                                        if (!res.ok) {
+                                            const body = await res.json().catch(() => null);
+                                            throw new Error(body?.message ?? "Falha ao enviar.");
+                                        }
+                                        toast.success("Pacote enviado ao Departamento Pessoal.");
+                                        setPacoteDpOpen(false);
+                                        await refetch();
+                                    } catch (e) {
+                                        toast.error((e as Error).message);
+                                    } finally {
+                                        setPacoteDpLoading(false);
+                                    }
+                                }}
+                            >
+                                {pacoteDpLoading ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
+                                Enviar pacote
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* ── Reject dialog ── */}
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>

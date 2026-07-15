@@ -38,6 +38,12 @@ export function isPreAdmissaoAprovada(status: PreAdmissaoStatusValue): boolean {
   return c === 3 || c === 8;
 }
 
+/** Aprovada, EmIntegracao ou Integrada — permite enviar/reenviar pacote ao DP. */
+export function canEnviarPacoteDp(status: PreAdmissaoStatusValue): boolean {
+  const c = preAdmissaoStatusCode(status);
+  return c === 3 || c === 5 || c === 8;
+}
+
 export function isPreAdmissaoIntegrada(status: PreAdmissaoStatusValue): boolean {
   return preAdmissaoStatusCode(status) === 5;
 }

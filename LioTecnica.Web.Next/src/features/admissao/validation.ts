@@ -3,8 +3,9 @@
  * (clique em "Finalizar Admissão"), não nos passos intermediários.
  *
  * Campos obrigatórios para o processo de admissão (RH):
- * Nome completo, RG, CPF, Data de Nascimento, Cidade, UF, Nome dos Pais e PIS.
- * Demais campos TOTVS podem ser preenchidos depois, antes da aprovação/integração.
+ * Nome completo, RG, CPF, Data de Nascimento, Cidade, UF, Nome dos Pais,
+ * E-mail e Celular.
+ * Demais campos TOTVS (ex.: PIS) podem ser preenchidos depois.
  */
 
 export interface ValidationError {
@@ -31,6 +32,9 @@ export interface PreAdmissaoFormLike {
   origemFuncionario?: number | null;
   nomeMae?: string | null;
   nomePai?: string | null;
+  email?: string | null;
+  celular?: string | null;
+  telefone?: string | null;
   regIdentidCivilNumero?: string | null;
   regIdentidCivilUf?: string | null;
   regIdentidCivilCidade?: string | null;
@@ -151,8 +155,10 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
     errors.push({ field: "cidade", label: "Cidade", stepIndex: STEP_INDEX.endereco, message: "Informe a cidade." });
   if (isBlank(form.uf))
     errors.push({ field: "uf", label: "UF", stepIndex: STEP_INDEX.endereco, message: "Selecione a UF." });
-  if (isBlank(form.pisPasep))
-    errors.push({ field: "pisPasep", label: "PIS/PASEP", stepIndex: STEP_INDEX.trabalhista, message: "Informe o PIS/PASEP." });
+  if (isBlank(form.email))
+    errors.push({ field: "email", label: "E-mail", stepIndex: STEP_INDEX.contato, message: "Informe o e-mail." });
+  if (isBlank(form.celular))
+    errors.push({ field: "celular", label: "Celular", stepIndex: STEP_INDEX.contato, message: "Informe o celular." });
 
   return errors;
 }

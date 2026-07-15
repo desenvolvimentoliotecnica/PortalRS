@@ -18,11 +18,16 @@ namespace RhPortal.Api.Controllers;
 public sealed class PreAdmissaoController : ControllerBase
 {
     private readonly IPreAdmissaoService _service;
+    private readonly IPreAdmissaoDpPacoteService _dpPacote;
     private readonly ICurrentUserContext _userContext;
 
-    public PreAdmissaoController(IPreAdmissaoService service, ICurrentUserContext userContext)
+    public PreAdmissaoController(
+        IPreAdmissaoService service,
+        IPreAdmissaoDpPacoteService dpPacote,
+        ICurrentUserContext userContext)
     {
         _service = service;
+        _dpPacote = dpPacote;
         _userContext = userContext;
     }
 
@@ -118,8 +123,8 @@ public sealed class PreAdmissaoController : ControllerBase
         {
             return UnprocessableEntity(new
             {
-                type    = "totvs_validation",
-                message = ex.Message,
+                type    = "admission_validation",
+                message = "Preencha os campos mínimos de admissão antes de aprovar.",
                 errors  = ex.Issues.Select(i => new
                 {
                     campo    = i.Campo,
@@ -262,6 +267,27 @@ public sealed class PreAdmissaoController : ControllerBase
             return result is null ? NotFound() : Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>RH envia ao Departamento Pessoal e-mail com ficha + link mágico (docs + ZIP).</summary>
+    [HttpPost("{id:guid}/enviar-pacote-dp")]
+    [ProducesResponseType(typeof(EnviarPacoteDpResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EnviarPacoteDp(
+        Guid id,
+        [FromBody] EnviarPacoteDpRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await _dpPacote.EnviarAsync(id, request.Email, _userContext.UserId, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>RH valida (aprova/rejeita) um documento individual da pré-admissão.</summary>
