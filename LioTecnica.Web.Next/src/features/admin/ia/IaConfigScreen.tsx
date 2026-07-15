@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import Swal from "sweetalert2";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Brain, Save, Sparkles, Network, AlertTriangle } from "lucide-react";
+import { Brain, FlaskConical, Loader2, Save, Sparkles, Network, AlertTriangle } from "lucide-react";
 
 /* ────────── types ────────── */
 
@@ -23,6 +24,15 @@ interface TenantAiConfigDto {
     effectiveLlmModel: string;
     effectiveEmbeddingProvider: string;
     effectiveEmbeddingModel: string;
+}
+
+interface TenantAiTestResponse {
+    success: boolean;
+    content: string | null;
+    error: string | null;
+    provider: string | null;
+    model: string | null;
+    cost: number;
 }
 
 const ALL_PROVIDER_OPTIONS = [
@@ -65,6 +75,7 @@ export default function IaConfigScreen() {
     const [embeddingProvider, setEmbeddingProvider] = useState<string>("");
     const [embeddingModel, setEmbeddingModel] = useState<string>("");
     const [usarIaParseCurriculo, setUsarIaParseCurriculo] = useState(true);
+    const [testing, setTesting] = useState(false);
 
     const [effective, setEffective] = useState<{
         llmProvider: string;
@@ -136,6 +147,134 @@ export default function IaConfigScreen() {
             toast.error(`Falha ao salvar: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
             setSaving(false);
+        }
+    }
+
+    async function testAi() {
+        const previousPointerEvents = document.body.style.pointerEvents;
+        const bumpZIndex = () => {
+            document.body.style.pointerEvents = "auto";
+            const container = Swal.getContainer();
+            if (container) container.style.zIndex = "10000";
+        };
+
+        const input = await Swal.fire({
+            title: "Testar IA",
+            html: `
+              <p class="swal-ai-test-hint" style="text-align:left;font-size:13px;margin:0 0 8px;color:#64748b">
+                Usa o <strong>provider/modelo já salvos</strong> deste tenant. Se alterou o modelo acima, salve antes de testar.
+              </p>
+            `,
+            input: "textarea",
+            inputLabel: "Prompt",
+            inputValue: "Responda em uma única frase curta em português: a configuração de IA está funcionando.",
+            inputAttributes: {
+                "aria-label": "Prompt para a IA",
+            },
+            inputPlaceholder: "Digite o prompt de teste…",
+            showCancelButton: true,
+            confirmButtonText: "Enviar",
+            cancelButtonText: "Cancelar",
+            didOpen: bumpZIndex,
+            willClose: () => {
+                document.body.style.pointerEvents = previousPointerEvents;
+            },
+            preConfirm: (value) => {
+                const text = (value ?? "").trim();
+                if (!text) {
+                    Swal.showValidationMessage("Informe um prompt.");
+                    return false;
+                }
+                return text;
+            },
+        });
+
+        if (!input.isConfirmed || typeof input.value !== "string") return;
+
+        setTesting(true);
+        Swal.fire({
+            title: "Consultando a IA…",
+            text: "Aguarde a resposta do modelo configurado.",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                bumpZIndex();
+                Swal.showLoading();
+            },
+            willClose: () => {
+                document.body.style.pointerEvents = previousPointerEvents;
+            },
+        });
+
+        try {
+            const res = await apiFetch("/api/tenant-configuracao/ai/test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: input.value }),
+            });
+
+            if (res.status === 403) throw new Error("Somente administradores podem testar a IA.");
+            if (!res.ok) {
+                const errBody = await res.text().catch(() => "");
+                throw new Error(errBody || `HTTP ${res.status}`);
+            }
+
+            const raw = (await res.json()) as Record<string, unknown>;
+            const dto: TenantAiTestResponse = {
+                success: raw.success === true || raw.Success === true,
+                content: typeof (raw.content ?? raw.Content) === "string" ? String(raw.content ?? raw.Content) : null,
+                error: typeof (raw.error ?? raw.Error) === "string" ? String(raw.error ?? raw.Error) : null,
+                provider: typeof (raw.provider ?? raw.Provider) === "string" ? String(raw.provider ?? raw.Provider) : null,
+                model: typeof (raw.model ?? raw.Model) === "string" ? String(raw.model ?? raw.Model) : null,
+                cost: typeof raw.cost === "number" ? raw.cost : typeof raw.Cost === "number" ? Number(raw.Cost) : 0,
+            };
+
+            const meta = [dto.provider, dto.model].filter(Boolean).join(" · ") || "sem provider/modelo";
+            if (dto.success && dto.content) {
+                await Swal.fire({
+                    icon: "success",
+                    title: "Resposta da IA",
+                    html: `
+                      <p style="text-align:left;font-size:12px;color:#64748b;margin:0 0 8px">${escapeHtml(meta)}</p>
+                      <pre style="text-align:left;white-space:pre-wrap;word-break:break-word;font-size:13px;max-height:320px;overflow:auto;margin:0;padding:12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">${escapeHtml(dto.content)}</pre>
+                    `,
+                    confirmButtonText: "Fechar",
+                    width: 560,
+                    didOpen: bumpZIndex,
+                    willClose: () => {
+                        document.body.style.pointerEvents = previousPointerEvents;
+                    },
+                });
+            } else {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Falha no teste",
+                    html: `
+                      <p style="text-align:left;font-size:12px;color:#64748b;margin:0 0 8px">${escapeHtml(meta)}</p>
+                      <pre style="text-align:left;white-space:pre-wrap;word-break:break-word;font-size:13px;max-height:320px;overflow:auto;margin:0;padding:12px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca">${escapeHtml(dto.error || dto.content || "Não foi possível obter resposta da IA.")}</pre>
+                    `,
+                    confirmButtonText: "Fechar",
+                    width: 560,
+                    didOpen: bumpZIndex,
+                    willClose: () => {
+                        document.body.style.pointerEvents = previousPointerEvents;
+                    },
+                });
+            }
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Falha ao testar a IA.";
+            await Swal.fire({
+                icon: "error",
+                title: "Falha no teste",
+                text: msg,
+                confirmButtonText: "Fechar",
+                didOpen: bumpZIndex,
+                willClose: () => {
+                    document.body.style.pointerEvents = previousPointerEvents;
+                },
+            });
+        } finally {
+            setTesting(false);
         }
     }
 
@@ -219,13 +358,34 @@ export default function IaConfigScreen() {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="llmModel">Modelo (opcional — vazio = default do provider)</Label>
-                                <Input
-                                    id="llmModel"
-                                    type="text"
-                                    placeholder={MODEL_PLACEHOLDERS[llmProvider] ?? "vazio = default global"}
-                                    value={llmModel}
-                                    onChange={(e) => setLlmModel(e.target.value)}
-                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Input
+                                        id="llmModel"
+                                        type="text"
+                                        className="flex-1 min-w-[12rem]"
+                                        placeholder={MODEL_PLACEHOLDERS[llmProvider] ?? "vazio = default global"}
+                                        value={llmModel}
+                                        onChange={(e) => setLlmModel(e.target.value)}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="shrink-0 gap-1.5"
+                                        disabled={testing || !aiEnabled || saving}
+                                        title={!aiEnabled ? "IA desabilitada para este tenant" : "Enviar um prompt de teste ao modelo salvo"}
+                                        onClick={() => void testAi()}
+                                    >
+                                        {testing ? (
+                                            <Loader2 className="size-4 animate-spin" />
+                                        ) : (
+                                            <FlaskConical className="size-4" />
+                                        )}
+                                        {testing ? "Testando…" : "Testar"}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    O teste usa a configuração <strong>salva</strong> (provider/modelo efetivos). Salve alterações antes de validar um modelo novo.
+                                </p>
                             </div>
                             <div className="space-y-2 pt-2 border-t border-border/40">
                                 <label className="flex items-start gap-3 text-sm cursor-pointer">
@@ -316,4 +476,13 @@ export default function IaConfigScreen() {
             )}
         </section>
     );
+}
+
+function escapeHtml(value: string) {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
