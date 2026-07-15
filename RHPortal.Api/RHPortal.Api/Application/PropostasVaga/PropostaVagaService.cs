@@ -73,6 +73,12 @@ public sealed class PropostaVagaService : IPropostaVagaService
             request.BeneficiosSelecionados,
             ct);
 
+        var salarioOferecido = request.SalarioOferecido;
+        if (!salarioOferecido.HasValue)
+            salarioOferecido = await ResolverSalarioPadraoDaVagaAsync(vaga, ct);
+
+        var dataPrevistaInicio = request.DataPrevistaInicio ?? vaga.DataInicio;
+
         var now = DateTimeOffset.UtcNow;
         var entity = new PropostaVaga
         {
@@ -83,11 +89,11 @@ public sealed class PropostaVagaService : IPropostaVagaService
             CandidaturaId = candidatura.Id,
             Status = PropostaVagaStatus.Rascunho,
             Moeda = request.Moeda,
-            SalarioOferecido = request.SalarioOferecido,
+            SalarioOferecido = salarioOferecido,
             DescricaoBeneficios = request.DescricaoBeneficios,
             IncluirBeneficiosNaProposta = incluirBeneficios,
             BeneficiosSelecionadosJson = beneficiosJson,
-            DataPrevistaInicio = request.DataPrevistaInicio,
+            DataPrevistaInicio = dataPrevistaInicio,
             MensagemPersonalizada = request.MensagemPersonalizada,
             ObservacaoInternaRh = request.ObservacaoInternaRh,
             CriadaPorUserId = _currentUser.UserId,
@@ -371,6 +377,7 @@ public sealed class PropostaVagaService : IPropostaVagaService
 
         var beneficiosTexto = MontarBeneficiosTexto(row.Proposta);
         var beneficiosHtml = MontarBeneficiosHtml(row.Proposta);
+        var dataAdmissao = row.Proposta.DataPrevistaInicio?.ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("pt-BR"));
 
         await _emailQueue.EnqueueTemplateAsync(
             CandidateEmailTemplateCodes.PropostaVaga,
@@ -383,10 +390,29 @@ public sealed class PropostaVagaService : IPropostaVagaService
                 ["UrlProposta"] = link,
                 ["PrazoProposta"] = prazo,
                 ["Beneficios"] = string.IsNullOrWhiteSpace(beneficiosHtml) ? (beneficiosTexto ?? "") : beneficiosHtml,
+                ["DataAdmissao"] = dataAdmissao,
             },
             isSystem: true,
             source: "proposta-vaga",
             ct);
+    }
+
+    private async Task<decimal?> ResolverSalarioPadraoDaVagaAsync(Vaga vaga, CancellationToken ct)
+    {
+        if (vaga.SalarioMinimo.HasValue) return vaga.SalarioMinimo;
+        if (vaga.SalarioMaximo.HasValue) return vaga.SalarioMaximo;
+
+        if (!vaga.JobPositionId.HasValue) return null;
+
+        var faixa = await _db.Set<FaixaSalarial>()
+            .AsNoTracking()
+            .Where(f => f.JobPositionId == vaga.JobPositionId.Value)
+            .OrderByDescending(f => f.UpdatedAtUtc)
+            .Select(f => new { f.SalarioMinimo, f.SalarioMaximo })
+            .FirstOrDefaultAsync(ct);
+
+        if (faixa is null) return null;
+        return faixa.SalarioMinimo != 0m ? faixa.SalarioMinimo : faixa.SalarioMaximo;
     }
 
     private async Task<string> ResolverEmpresaNomeAsync(CancellationToken ct)
