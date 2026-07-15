@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T11:46:00-03:00",
+    "atualizadoEm": "2026-07-15T11:47:00-03:00",
     "totalTarefas": 273
   },
   "tarefas": [
@@ -25,15 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "quando a analise de IA do CV estiver ativa, overlay com spinner Analisando curriculum e blur no modal | ocultar Documentos no Novo Candidato; termômetro sem rótulo duplicado e mais espaço até o parecer",
       "entregavel": "Overlay blur+spinner durante parse; Documentos oculto no Novo Candidato; termômetro sem texto Bom fit abaixo do título e espaçamento do parecer.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "33cab231"
+          "33cab231",
+          "19a2c439"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #292",
+        "prPrd": "Merge PR #293"
       },
-      "observacoes": "Fechada antes da promoção HML/PRD — overlay, Documentos oculto no Novo Candidato, ajustes do termômetro."
+      "observacoes": "Promovido HML (PR #292) e PRD (PR #293) em 15/07/2026."
     },
     {
       "id": "TASK-2026-272",
