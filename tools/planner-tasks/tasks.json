@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T10:53:00-03:00",
+    "atualizadoEm": "2026-07-15T10:54:00-03:00",
     "totalTarefas": 271
   },
   "tarefas": [
@@ -25,15 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "modal de novo candidato com tipografia menor, UI compacta, mais largo e prévia PDF do CV à direita",
       "entregavel": "Modal Novo Candidato redesenhado: layout largo, campos compactos e painel de prévia PDF do currículo.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "d32a00b7"
+          "d32a00b7",
+          "cb10646a"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #284",
+        "prPrd": "Merge PR #285"
       },
-      "observacoes": "Fechada antes da promoção HML/PRD — modal compacto + prévia PDF."
+      "observacoes": "Promovido HML (PR #284) e PRD (PR #285) em 15/07/2026."
     },
     {
       "id": "TASK-2026-270",
