@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T13:29:00-03:00",
+    "atualizadoEm": "2026-07-15T13:31:00-03:00",
     "totalTarefas": 276
   },
   "tarefas": [
@@ -25,16 +25,18 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Ajustar proposta: salário da faixa, data de início e benefícios",
       "entregavel": "Proposta pré-preenchida com salário/faixa e data da vaga, benefícios alinhados e sem código no fluxo de criação.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "ac2868d1"
+          "ac2868d1",
+          "7e3863f8"
         ],
         "branch": "DEV",
-        "prHml": null,
+        "prHml": "Merge PR #308",
+        "prPrd": "Merge PR #309",
         "plannerTaskId": "kynPt73FX0CShThqtkQjbmUAPO9E"
       },
-      "observacoes": "Fechada antes da promoção HML/PRD — prefill salário/data/benefícios na proposta."
+      "observacoes": "Promovido HML (PR #308) e PRD (PR #309) em 15/07/2026."
     },
     {
       "id": "TASK-2026-275",
