@@ -183,7 +183,9 @@
       "entregavel": "Preview/edicao do e-mail com tags preenchidas nos 3 fluxos de notificacao ao candidato.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "b825b330"
+        ],
         "branch": "DEV",
         "prHml": null,
         "plannerTaskId": "7HqCUrKLZEiLXB73O58iLmUADkdE"
