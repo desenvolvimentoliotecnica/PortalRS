@@ -6,10 +6,33 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T09:19:00-03:00",
-    "totalTarefas": 267
+    "atualizadoEm": "2026-07-15T09:37:00-03:00",
+    "totalTarefas": 268
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-268",
+      "nome": "[Portal RH] Timeout maior no parse de CV com IA",
+      "descricaoAmigavel": "Dor: teste curto de IA passa, mas o parse do CV no Novo Candidato cai com Requisição expirou.\nNecessidade: esperar a IA terminar a análise do currículo.\nSolução proposta: aumentar timeout do curriculo-parse no frontend (15s → 180s).\nDefinição de pronto: anexar CV no Novo Candidato não aborta em 15s; completa ou falha da IA.\nQ/A - Como testar: Novo Candidato, anexar PDF e aguardar preenchimento sem Swal de timeout imediato.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "09:34",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "09:38",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "ao adicionar CV deu Requisição expirou, mas no Testar a IA respondeu OK",
+      "entregavel": "Parse de CV com timeout adequado para chamada de IA.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": ["e5545209"],
+        "branch": "DEV",
+        "prHml": "Merge PR #278"
+      },
+      "observacoes": null
+    },
     {
       "id": "TASK-2026-267",
       "nome": "[Portal RH] Preview e edicao do e-mail ao notificar candidato",

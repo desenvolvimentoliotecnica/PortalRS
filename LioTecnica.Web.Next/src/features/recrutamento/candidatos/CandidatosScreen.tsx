@@ -106,15 +106,19 @@ function enumText(enums: EnumsByKey | null, key: string, code: unknown, fallback
   return opt?.text ?? (code ? String(code) : fallback);
 }
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await apiFetch(url, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init?.headers || {}),
+async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs?: number): Promise<T> {
+  const res = await apiFetch(
+    url,
+    {
+      ...init,
+      headers: {
+        Accept: "application/json",
+        ...(init?.headers || {}),
+      },
+      cache: "no-store",
     },
-    cache: "no-store",
-  });
+    timeoutMs,
+  );
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `HTTP_${res.status}`);
@@ -641,10 +645,14 @@ export default function CandidatosScreen() {
       const vagaId = pickString(draft.vagaId, "").trim();
       if (vagaId) form.append("vagaId", vagaId);
 
-      const parsed = await fetchJson<Record<string, unknown>>(`${BASE}/api/candidatos/curriculo-parse`, {
-        method: "POST",
-        body: form,
-      });
+      const parsed = await fetchJson<Record<string, unknown>>(
+        `${BASE}/api/candidatos/curriculo-parse`,
+        {
+          method: "POST",
+          body: form,
+        },
+        180_000, // IA + CV completo pode passar de 15s (default do apiFetch)
+      );
 
       const sucesso = parsed.sucesso === true || parsed.Sucesso === true;
       const nome = pickString(parsed.nome ?? parsed.Nome, "").trim();
