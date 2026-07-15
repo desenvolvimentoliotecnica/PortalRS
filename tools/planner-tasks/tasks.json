@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T11:50:00-03:00",
+    "atualizadoEm": "2026-07-15T11:52:00-03:00",
     "totalTarefas": 273
   },
   "tarefas": [
@@ -181,16 +181,18 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Preview/edição do e-mail (Kanban + Enviar Email + Retorno negativo) — implementar o plano",
       "entregavel": "Preview/edicao do e-mail com tags preenchidas nos 3 fluxos de notificacao ao candidato.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "b825b330"
+          "b825b330",
+          "ec54b8da"
         ],
         "branch": "DEV",
-        "prHml": null,
-        "plannerTaskId": "7HqCUrKLZEiLXB73O58iLmUADkdE"
+        "prHml": "Merge PR #296",
+        "plannerTaskId": "7HqCUrKLZEiLXB73O58iLmUADkdE",
+        "prPrd": "Merge PR #297"
       },
-      "observacoes": "Fechada antes da promoção HML/PRD — preview/edição de e-mail no Kanban, Enviar Email e retorno negativo."
+      "observacoes": "Promovido HML (PR #296) e PRD (PR #297) em 15/07/2026."
     },
     {
       "id": "TASK-2026-266",
