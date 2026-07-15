@@ -6,10 +6,33 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T11:05:00-03:00",
-    "totalTarefas": 272
+    "atualizadoEm": "2026-07-15T11:46:00-03:00",
+    "totalTarefas": 273
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-273",
+      "nome": "[Portal RH] Overlay com blur ao analisar CV com IA no Novo Candidato",
+      "descricaoAmigavel": "Dor: durante a análise do CV, o modal permanece editável e o feedback é só uma linha discreta.\\nNecessidade: bloquear o modal com blur e spinner central (Analisando currículo) enquanto a IA processa.\\nSolução proposta: overlay absoluto sobre o modal quando cvParseLoading estiver ativo.\\nDefinição de pronto: ao analisar/reavaliar CV, modal fica blurred com spinner e texto; sem interação até concluir.\\nQ/A - Como testar: Novo Candidato → anexar PDF → ver overlay; aguardar fim → overlay some e campos preenchidos.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "11:41",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "11:46",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "quando a analise de IA do CV estiver ativa, overlay com spinner Analisando curriculum e blur no modal | ocultar Documentos no Novo Candidato; termômetro sem rótulo duplicado e mais espaço até o parecer",
+      "entregavel": "Overlay blur+spinner durante parse; Documentos oculto no Novo Candidato; termômetro sem texto Bom fit abaixo do título e espaçamento do parecer.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Fechada antes da promoção HML/PRD — overlay, Documentos oculto no Novo Candidato, ajustes do termômetro."
+    },
     {
       "id": "TASK-2026-272",
       "nome": "[Portal RH] Termômetro de fit do CV à vaga (5 graus) no Novo Candidato",
