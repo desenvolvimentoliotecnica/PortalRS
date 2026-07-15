@@ -1764,18 +1764,32 @@ export default function CandidatosScreen() {
       ) : null}
 
       {editOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-3" role="dialog" aria-modal="true" onClick={() => setEditOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-3" role="dialog" aria-modal="true" onClick={() => { if (!cvParseLoading) setEditOpen(false); }}>
           <div
-            className="flex h-[92vh] max-h-[980px] w-full max-w-[min(98vw,92rem)] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
+            className="relative flex h-[92vh] max-h-[980px] w-full max-w-[min(98vw,92rem)] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
             onClick={(e) => e.stopPropagation()}
           >
+            {cvParseLoading ? (
+              <div
+                className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/55 backdrop-blur-sm"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <Loader2 className="size-8 animate-spin text-emerald-700" />
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-foreground">Analisando currículo</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Aguarde enquanto a IA preenche o cadastro…</p>
+                </div>
+              </div>
+            ) : null}
             <div className="shrink-0 border-b border-border/40 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
                   <div className="text-sm font-bold leading-tight">Cadastro</div>
                 </div>
-                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setEditOpen(false)}>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={cvParseLoading} onClick={() => setEditOpen(false)}>
                   Fechar
                 </Button>
               </div>
@@ -2006,14 +2020,10 @@ export default function CandidatosScreen() {
                 </div>
               </div>
 
+              {draft.id ? (
               <div>
                 <div className="rounded-lg border border-[rgba(16,82,144,.14)] bg-white/60 p-2">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Documentos</h3>
-                  {!draft.id ? (
-                    <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800">
-                      Os documentos serão enviados ao salvar o candidato.
-                    </div>
-                  ) : null}
 
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                     <div>
@@ -2137,6 +2147,7 @@ export default function CandidatosScreen() {
                   ) : null}
                 </div>
               </div>
+              ) : null}
               </div>
             </div>
 
@@ -2171,10 +2182,10 @@ export default function CandidatosScreen() {
             </div>
 
             <div className="flex shrink-0 justify-end gap-2 border-t border-border/40 px-3 py-2">
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setEditOpen(false)}>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={cvParseLoading} onClick={() => setEditOpen(false)}>
                 Cancelar
               </Button>
-              <Button size="sm" className="h-7 px-3 text-xs" onClick={() => void saveDraft()}>
+              <Button size="sm" className="h-7 px-3 text-xs" disabled={cvParseLoading} onClick={() => void saveDraft()}>
                 Salvar
               </Button>
             </div>
