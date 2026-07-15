@@ -27,7 +27,9 @@
       "entregavel": "Notificação por e-mail ao gestor requisitante ao registrar parecer (observação ou avanço com observação).",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "3593d58b"
+        ],
         "branch": "DEV",
         "prHml": null
       },
