@@ -30,6 +30,7 @@ import DocumentPreviewLightbox, { type PreviewItem } from "@/components/document
 import DocumentThumbnail, { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import {
     canAprovarPreAdmissao,
+    canEnviarPacoteDp,
     canGerarLinkPreAdmissao,
     canRejeitarPreAdmissao,
     canSolicitarDocumentosPreAdmissao,
@@ -84,6 +85,9 @@ interface PreAdmissaoDetail {
     documentos: DocumentoResponse[];
     documentosSolicitados: { tipoDocumento: number | string; label: string; obrigatorio: boolean }[];
     accessToken: string | null;
+    dpEnviadoEmUtc?: string | null;
+    dpEnviadoParaEmail?: string | null;
+    dpTokenExpiraEmUtc?: string | null;
 }
 
 /* ────── constants ────── */
@@ -91,8 +95,8 @@ interface PreAdmissaoDetail {
 const STATUS_STEPS = [
     { phase: 1, label: "Preenchimento Pendente", desc: "Aguardando candidato preencher dados" },
     { phase: 2, label: "Em Revisão", desc: "RH revisando os dados e documentos" },
-    { phase: 3, label: "Aprovada", desc: "Aguardando integração com TOTVS" },
-    { phase: 4, label: "Integrada", desc: "Dados enviados ao TOTVS com sucesso" },
+    { phase: 3, label: "Aprovada", desc: "Aprovada — enviar pacote ao Departamento Pessoal" },
+    { phase: 4, label: "Integrada", desc: "Cadastro legado / integração (se houver)" },
 ];
 
 const TIPO_DOC_LABEL = TIPO_DOC_LABELS;
@@ -202,6 +206,9 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const [aprovarOpen, setAprovarOpen] = useState(false);
     const [observacaoAprovar, setObservacaoAprovar] = useState("");
     const [aprovarLoading, setAprovarLoading] = useState(false);
+    const [pacoteDpOpen, setPacoteDpOpen] = useState(false);
+    const [pacoteDpEmail, setPacoteDpEmail] = useState("");
+    const [pacoteDpLoading, setPacoteDpLoading] = useState(false);
 
     /* reject dialog */
     const [rejeitarOpen, setRejeitarOpen] = useState(false);
@@ -277,6 +284,28 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
         }
     }, [data, persistDocsSolicitados]);
 
+    async function handleEnviarPacoteDp() {
+        if (!pacoteDpEmail.trim() || !pacoteDpEmail.includes("@")) {
+            toast.error("Informe um e-mail válido do Departamento Pessoal.");
+            return;
+        }
+        setPacoteDpLoading(true);
+        try {
+            await fetchJson(`/api/pre-admissao/${id}/enviar-pacote-dp`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: pacoteDpEmail.trim() }),
+            });
+            toast.success("Pacote enviado ao Departamento Pessoal.");
+            setPacoteDpOpen(false);
+            await load();
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setPacoteDpLoading(false);
+        }
+    }
+
     async function handleAprovar() {
         setAprovarLoading(true);
         try {
@@ -285,8 +314,9 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ observacao: observacaoAprovar.trim() || null }),
             });
-            toast.success("Pré-admissão aprovada!");
+            toast.success("Pré-admissão aprovada! Envie o pacote ao Departamento Pessoal.");
             setAprovarOpen(false);
+            setPacoteDpOpen(true);
             await load();
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
@@ -398,6 +428,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     }
 
     const canApprove = canAprovarPreAdmissao(data.status);
+    const canSendPacoteDp = canEnviarPacoteDp(data.status);
     const canReject = canRejeitarPreAdmissao(data.status);
     const canGerarLinkCandidato = canGerarLinkPreAdmissao(data.status);
     const canSolicitarDocumentos = canSolicitarDocumentosPreAdmissao(data.status);
@@ -452,6 +483,19 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     <Button variant="outline" size="sm" onClick={() => void load()}>
                         <RefreshCw className="size-4 mr-1" /> Atualizar
                     </Button>
+                    {canSendPacoteDp && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-teal-300 text-teal-800 hover:bg-teal-50"
+                            onClick={() => {
+                                setPacoteDpEmail(data.dpEnviadoParaEmail ?? "");
+                                setPacoteDpOpen(true);
+                            }}
+                        >
+                            <Mail className="size-4 mr-1" /> Enviar pacote ao DP
+                        </Button>
+                    )}
                     {canApprove && (
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setAprovarOpen(true)}>
                             <CheckCircle2 className="size-4 mr-1" /> Aprovar
@@ -811,7 +855,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     <DialogHeader>
                         <DialogTitle>Aprovar Pré-admissão</DialogTitle>
                         <DialogDescription>
-                            Confirme a aprovação dos dados de <strong>{data.nome}</strong>. Após aprovação, os dados seguirão para integração com o TOTVS.
+                            Confirme a aprovação dos dados de <strong>{data.nome}</strong>. Em seguida, você poderá enviar o pacote de documentos ao Departamento Pessoal por e-mail.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-2">
@@ -828,6 +872,40 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                         <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => void handleAprovar()} disabled={aprovarLoading}>
                             <CheckCircle2 className="size-4 mr-2" />
                             {aprovarLoading ? "Aprovando..." : "Confirmar Aprovação"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={pacoteDpOpen} onOpenChange={setPacoteDpOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Enviar pacote ao Departamento Pessoal</DialogTitle>
+                        <DialogDescription>
+                            O DP receberá um e-mail com a ficha do candidato e um link (válido por 7 dias) para baixar os documentos e o ZIP.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {data.dpEnviadoEmUtc && (
+                        <p className="text-xs text-muted-foreground">
+                            Último envio: {new Date(data.dpEnviadoEmUtc).toLocaleString("pt-BR")}
+                            {data.dpEnviadoParaEmail ? ` · ${data.dpEnviadoParaEmail}` : ""}
+                        </p>
+                    )}
+                    <div className="py-2">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">E-mail do DP</label>
+                        <Input
+                            type="email"
+                            placeholder="dp@empresa.com.br"
+                            value={pacoteDpEmail}
+                            onChange={(e) => setPacoteDpEmail(e.target.value)}
+                            className="mt-1"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPacoteDpOpen(false)} disabled={pacoteDpLoading}>Cancelar</Button>
+                        <Button onClick={() => void handleEnviarPacoteDp()} disabled={pacoteDpLoading}>
+                            <Mail className="size-4 mr-2" />
+                            {pacoteDpLoading ? "Enviando..." : "Enviar pacote"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

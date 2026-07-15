@@ -1440,9 +1440,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.JobPosition).WithMany().HasForeignKey(x => x.JobPositionId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.AccessToken).HasMaxLength(64);
+            b.Property(x => x.DpAccessToken).HasMaxLength(64);
+            b.Property(x => x.DpEnviadoParaEmail).HasMaxLength(180);
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.Cpf });
             b.HasIndex(x => new { x.TenantId, x.AccessToken }).HasFilter("\"AccessToken\" IS NOT NULL");
+            b.HasIndex(x => x.DpAccessToken).HasFilter("\"DpAccessToken\" IS NOT NULL");
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

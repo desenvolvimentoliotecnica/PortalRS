@@ -497,6 +497,20 @@ public sealed class PreAdmissao : ITenantEntity
     [StringLength(64)]
     public string? AccessToken { get; set; }
 
+    // ── Pacote Departamento Pessoal (link mágico) ──
+
+    /// <summary>Token público para o DP abrir ficha + documentos + ZIP (sem login).</summary>
+    [StringLength(64)]
+    public string? DpAccessToken { get; set; }
+
+    public DateTimeOffset? DpTokenExpiraEmUtc { get; set; }
+    public DateTimeOffset? DpEnviadoEmUtc { get; set; }
+
+    [StringLength(180)]
+    public string? DpEnviadoParaEmail { get; set; }
+
+    public Guid? DpEnviadoPorUserId { get; set; }
+
     // ── Wizard progress ──
 
     public int? WizardCurrentStep { get; set; }

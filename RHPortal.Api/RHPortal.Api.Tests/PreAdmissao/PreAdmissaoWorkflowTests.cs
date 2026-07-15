@@ -141,7 +141,8 @@ public sealed class PreAdmissaoWorkflowTests
         entity.Uf = "SP";
         entity.NomeMae = "Maria Teste";
         entity.NomePai = "Joao Teste";
-        entity.PisPasep = "38752119521";
+        entity.Email ??= "fulano@exemplo.com";
+        entity.Celular = "11999998888";
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
     }

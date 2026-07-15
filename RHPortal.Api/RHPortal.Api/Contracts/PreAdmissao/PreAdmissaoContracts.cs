@@ -184,7 +184,12 @@ public sealed record PreAdmissaoDetailResponse(
     string? AccessToken,
 
     // Integração TOTVS
-    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc
+    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc,
+
+    // Pacote DP
+    DateTimeOffset? DpEnviadoEmUtc = null,
+    string? DpEnviadoParaEmail = null,
+    DateTimeOffset? DpTokenExpiraEmUtc = null
 );
 
 public sealed record PreAdmissaoDependenteDetailResponse(
@@ -574,4 +579,52 @@ public sealed record ValidarDocumentoResponse(
     StatusDocumento Status,
     string? ObservacaoRh,
     DateTimeOffset UpdatedAtUtc
+);
+
+// ── Pacote Departamento Pessoal ──
+
+public sealed record EnviarPacoteDpRequest(
+    [Required, EmailAddress, StringLength(180)] string Email
+);
+
+public sealed record EnviarPacoteDpResponse(
+    string Email,
+    DateTimeOffset EnviadoEmUtc,
+    DateTimeOffset ExpiraEmUtc,
+    string UrlPacote
+);
+
+public sealed record PacoteDpDocumentoItem(
+    Guid Id,
+    string Tipo,
+    string TipoLabel,
+    string NomeArquivo,
+    string ContentType,
+    long TamanhoBytes,
+    string Status,
+    string? ObservacaoRh
+);
+
+public sealed record PacoteDpPublicResponse(
+    string Nome,
+    string? Cpf,
+    string? Rg,
+    DateOnly? DataNascimento,
+    string? Email,
+    string? Celular,
+    string? Endereco,
+    string? Cidade,
+    string? Uf,
+    string? Cep,
+    string? VagaOuCargo,
+    DateOnly? DataPrevistaInicio,
+    decimal? Salario,
+    string? BancoCodigo,
+    string? BancoNome,
+    string? Agencia,
+    string? Conta,
+    string? TipoConta,
+    string? PisPasep,
+    DateTimeOffset ExpiraEmUtc,
+    IReadOnlyList<PacoteDpDocumentoItem> Documentos
 );
