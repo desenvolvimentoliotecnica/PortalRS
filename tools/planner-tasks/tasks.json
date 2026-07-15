@@ -6,10 +6,57 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-14T11:50:00-03:00",
-    "totalTarefas": 265
+    "atualizadoEm": "2026-07-15T09:18:00-03:00",
+    "totalTarefas": 267
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-267",
+      "nome": "[Portal RH] Preview e edicao do e-mail ao notificar candidato",
+      "descricaoAmigavel": "Dor: Ao notificar, a analista nao ve/confirma o texto final com tags preenchidas.\nNecessidade: Visualizar e editar a mensagem antes de enviar no Kanban, Enviar Email e retorno negativo.\nSolucao proposta: Modal compartilhado com rich-text e envio de overrides.\nDefinicao de pronto: Botao Visualizar/editar nos 3 fluxos; tags preenchidas; edicao confirmada no envio.\nQ/A - Como testar: Mover com notificar; aba Enviar Email; fechar vaga com retorno; editar e confirmar.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "12:15",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Media",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Preview/edição do e-mail (Kanban + Enviar Email + Retorno negativo) — implementar o plano",
+      "entregavel": "Preview/edicao do e-mail com tags preenchidas nos 3 fluxos de notificacao ao candidato.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null,
+        "plannerTaskId": "7HqCUrKLZEiLXB73O58iLmUADkdE"
+      },
+      "observacoes": null
+    },
+    {
+      "id": "TASK-2026-266",
+      "nome": "[Portal RH] Botão Testar na configuração de IA do tenant",
+      "descricaoAmigavel": "Dor: não dá para validar provider/modelo sem usar outra tela.\nNecessidade: botão Testar no Modelo envia um prompt e mostra a resposta da IA.\nSolução proposta: endpoint de teste + botão na tela /admin/ia com prompt e resultado em Swal.\nDefinição de pronto: admin clica Testar, informa prompt, vê resposta ou erro no modal.\nQ/A - Como testar: Configuração de IA → Testar → enviar prompt curto → conferir resposta.",
+      "inicio": "2026-07-14",
+      "horarioInicio": "11:56",
+      "conclusao": "2026-07-14",
+      "horarioConclusao": "12:45",
+      "totalHoras": 1,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "no menu de configuracao do tenant / da IA / Modelo.. deve ter um botao Testar, com envio de um prompt para IA, e resposta em um modal/swal...",
+      "entregavel": "Botão Testar na config de IA com prompt e resposta em Swal.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": ["0fed3a7e"],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": null
+    },
     {
       "id": "TASK-2026-265",
       "nome": "[Portal RH] Máscara numérica na pretensão salarial do candidato",

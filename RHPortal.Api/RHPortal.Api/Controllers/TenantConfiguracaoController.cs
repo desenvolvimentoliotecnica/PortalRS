@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using RhPortal.Api.Application.Ai;
 using RhPortal.Api.Application.MicrosoftGraph;
 using RhPortal.Api.Application.TenantConfiguracao;
+using RhPortal.Api.Contracts.Ai;
 using RhPortal.Api.Infrastructure.Tenancy;
+using System.Security.Claims;
 using System.Text;
 
 namespace RhPortal.Api.Controllers;
@@ -16,15 +19,21 @@ public sealed class TenantConfiguracaoController : ControllerBase
 {
     private readonly ITenantConfiguracaoService _service;
     private readonly IMicrosoftGraphCalendarService _graphCalendarService;
+    private readonly IUnifiedAiService _aiService;
+    private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _userContext;
 
     public TenantConfiguracaoController(
         ITenantConfiguracaoService service,
         IMicrosoftGraphCalendarService graphCalendarService,
+        IUnifiedAiService aiService,
+        ITenantContext tenantContext,
         ICurrentUserContext userContext)
     {
         _service = service;
         _graphCalendarService = graphCalendarService;
+        _aiService = aiService;
+        _tenantContext = tenantContext;
         _userContext = userContext;
     }
 
@@ -116,6 +125,102 @@ public sealed class TenantConfiguracaoController : ControllerBase
 
         var dto = await _service.UpsertAiConfigAsync(request, ct);
         return Ok(dto);
+    }
+
+    /// <summary>
+    /// Envia um prompt de teste ao LLM configurado para o tenant e devolve a resposta.
+    /// Usa a configuração <b>salva</b> (provider/modelo efetivos). Somente Admin.
+    /// </summary>
+    [HttpPost("ai/test")]
+    [ProducesResponseType(typeof(TenantAiTestResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TestAi([FromBody] TenantAiTestRequest? request, CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var tenantId = _tenantContext.TenantId;
+        if (string.IsNullOrWhiteSpace(tenantId) || string.Equals(tenantId, "owner", StringComparison.OrdinalIgnoreCase))
+            return Unauthorized();
+
+        var prompt = string.IsNullOrWhiteSpace(request?.Prompt)
+            ? "Responda em uma única frase curta em português: a configuração de IA está funcionando."
+            : request!.Prompt!.Trim();
+
+        if (prompt.Length > 4000)
+            prompt = prompt[..4000];
+
+        var config = await _service.GetAiConfigAsync(ct);
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId = Guid.TryParse(userIdClaim, out var uid) ? uid : (Guid?)null;
+        var userName = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name;
+
+        var invoke = new AiInvokeRequest(
+            Module: "ai-config-test",
+            ActionDescription: "Teste de configuração de IA do tenant",
+            RequestMessage: prompt.Length > 200 ? prompt[..200] : prompt,
+            ModelId: null,
+            Payload: new
+            {
+                prompt = "Você é um assistente de teste da configuração de IA do Portal RH. Responda de forma breve e clara em português.",
+                cvText = prompt
+            });
+
+        try
+        {
+            var outcome = await _aiService.InvokeWithOutcomeAsync(tenantId, userId, userName, invoke, ct);
+            if (outcome.Response is null)
+            {
+                return Ok(new TenantAiTestResponse(
+                    Success: false,
+                    Content: null,
+                    Error: outcome.Detail ?? outcome.Reason?.ToString() ?? "Serviço de IA indisponível.",
+                    Provider: config.EffectiveLlmProvider,
+                    Model: config.EffectiveLlmModel,
+                    Cost: 0m));
+            }
+
+            var content = outcome.Response.Content?.Trim() ?? "";
+            if (content.StartsWith("AI_ERROR:", StringComparison.OrdinalIgnoreCase))
+            {
+                return Ok(new TenantAiTestResponse(
+                    Success: false,
+                    Content: content,
+                    Error: content["AI_ERROR:".Length..].Trim(),
+                    Provider: config.EffectiveLlmProvider,
+                    Model: config.EffectiveLlmModel,
+                    Cost: outcome.Response.Cost));
+            }
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return Ok(new TenantAiTestResponse(
+                    Success: false,
+                    Content: null,
+                    Error: "A IA não retornou conteúdo.",
+                    Provider: config.EffectiveLlmProvider,
+                    Model: config.EffectiveLlmModel,
+                    Cost: outcome.Response.Cost));
+            }
+
+            return Ok(new TenantAiTestResponse(
+                Success: true,
+                Content: content,
+                Error: null,
+                Provider: config.EffectiveLlmProvider,
+                Model: config.EffectiveLlmModel,
+                Cost: outcome.Response.Cost));
+        }
+        catch (Exception ex)
+        {
+            return Ok(new TenantAiTestResponse(
+                Success: false,
+                Content: null,
+                Error: ex.Message,
+                Provider: config.EffectiveLlmProvider,
+                Model: config.EffectiveLlmModel,
+                Cost: 0m));
+        }
     }
 
     // ────────── Microsoft Graph — Agenda (Outlook) ──────────

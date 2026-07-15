@@ -145,6 +145,23 @@ public sealed class TenantAiConfigRequest
     public bool? UsarIaParseCurriculo { get; set; }
 }
 
+/// <summary>Body do teste de LLM na tela de configuração de IA.</summary>
+public sealed class TenantAiTestRequest
+{
+    /// <summary>Prompt enviado à IA. Se vazio, usa um texto padrão de verificação.</summary>
+    public string? Prompt { get; set; }
+}
+
+/// <summary>Resultado do teste de conexão/LLM do tenant.</summary>
+public sealed record TenantAiTestResponse(
+    bool Success,
+    string? Content,
+    string? Error,
+    string? Provider,
+    string? Model,
+    decimal Cost
+);
+
 // ── Service ──
 
 public interface ITenantConfiguracaoService
