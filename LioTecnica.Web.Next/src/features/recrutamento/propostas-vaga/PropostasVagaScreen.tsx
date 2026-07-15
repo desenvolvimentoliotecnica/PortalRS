@@ -49,6 +49,45 @@ type SortDir = "asc" | "desc";
 
 type AnyRecord = Record<string, unknown>;
 
+function pickDecimal(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v.replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function toDateInputValue(v: unknown): string {
+  if (v == null || v === "") return "";
+  const s = String(v);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m?.[1] ?? "";
+}
+
+function formatFaixaHint(min: number | null, max: number | null): string | null {
+  if (min == null && max == null) return null;
+  const fmt = (n: number) =>
+    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  if (min != null && max != null && min !== max) {
+    return `Faixa da vaga/cargo: ${fmt(min)}–${fmt(max)}`;
+  }
+  return `Faixa da vaga/cargo: ${fmt((min ?? max)!)}`;
+}
+
+function resolveSalarioOferecidoFromVaga(vaga: Record<string, unknown>): {
+  oferecido: number | null;
+  hint: string | null;
+} {
+  const salMin = pickDecimal(vaga.salarioMinimo ?? vaga.SalarioMinimo);
+  const salMax = pickDecimal(vaga.salarioMaximo ?? vaga.SalarioMaximo);
+  const faixaMin = pickDecimal(vaga.faixaSalarialMinimo ?? vaga.FaixaSalarialMinimo);
+  const faixaMax = pickDecimal(vaga.faixaSalarialMaximo ?? vaga.FaixaSalarialMaximo);
+  const oferecido = salMin ?? salMax ?? faixaMin ?? faixaMax;
+  const hint = formatFaixaHint(salMin ?? faixaMin, salMax ?? faixaMax);
+  return { oferecido, hint };
+}
+
 const STATUS_FILTERS = ["Rascunho", "Enviada", "Visualizada", "Aceita", "Recusada", "Expirada", "Cancelada"] as const;
 
 function asRecord(value: unknown): AnyRecord | null {
@@ -239,6 +278,7 @@ export default function PropostasVagaScreen() {
     observacaoInternaRh: "",
   });
   const [vagaBeneficios, setVagaBeneficios] = useState<VagaBeneficioFormItem[]>([]);
+  const [faixaHint, setFaixaHint] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -322,15 +362,29 @@ export default function PropostasVagaScreen() {
         if (ac.signal.aborted) return;
         const benefs = mapVagaBeneficios(vaga.beneficios ?? vaga.Beneficios);
         setVagaBeneficios(benefs);
-        if (!editingProposta && benefs.length > 0) {
+        const { oferecido, hint } = resolveSalarioOferecidoFromVaga(vaga);
+        setFaixaHint(hint);
+        const dataInicio = toDateInputValue(vaga.dataInicio ?? vaga.DataInicio);
+        if (!editingProposta) {
           setForm((f) => ({
             ...f,
+            salarioOferecido: f.salarioOferecido.trim()
+              ? f.salarioOferecido
+              : (oferecido != null ? String(oferecido) : f.salarioOferecido),
+            dataPrevistaInicio: f.dataPrevistaInicio.trim()
+              ? f.dataPrevistaInicio
+              : (dataInicio || f.dataPrevistaInicio),
             incluirBeneficiosNaProposta: true,
-            beneficiosSelecionadosKeys: benefs.map((b) => b.key),
+            beneficiosSelecionadosKeys: benefs.length > 0
+              ? benefs.map((b) => b.key)
+              : [],
           }));
         }
       } catch {
-        if (!ac.signal.aborted) setVagaBeneficios([]);
+        if (!ac.signal.aborted) {
+          setVagaBeneficios([]);
+          setFaixaHint(null);
+        }
       }
     })();
     return () => ac.abort();
@@ -338,6 +392,7 @@ export default function PropostasVagaScreen() {
 
   const resetForm = () => {
     setVagaBeneficios([]);
+    setFaixaHint(null);
     setForm({
       vagaId: "", candidatoId: "", moeda: "BRL", salarioOferecido: "",
       descricaoBeneficios: "", incluirBeneficiosNaProposta: true, beneficiosSelecionadosKeys: [],
@@ -876,6 +931,9 @@ export default function PropostasVagaScreen() {
                   value={form.salarioOferecido}
                   onChange={(e) => setForm((f) => ({ ...f, salarioOferecido: e.target.value }))}
                 />
+                {faixaHint ? (
+                  <span className="mt-1 block text-xs text-neutral-500">{faixaHint}</span>
+                ) : null}
               </label>
               <label className="text-sm md:col-span-2">
                 <span className="mb-1 block font-medium">Benefícios</span>
@@ -908,6 +966,11 @@ export default function PropostasVagaScreen() {
                       </label>
                     ))}
                   </div>
+                )}
+                {form.incluirBeneficiosNaProposta && form.vagaId && vagaBeneficios.length === 0 && (
+                  <p className="mb-3 text-xs text-amber-700">
+                    Nenhum benefício cadastrado na vaga.
+                  </p>
                 )}
                 <span className="mb-1 block text-xs text-neutral-600">Complemento / observações (opcional)</span>
                 <textarea
