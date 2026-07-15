@@ -238,6 +238,7 @@ export async function avancarEtapa(
   emailTemplateCode?: string | null,
   emailSubjectOverride?: string | null,
   emailBodyHtmlOverride?: string | null,
+  notificarGestor = false,
 ): Promise<AvancarEtapaResponse> {
   const res = await apiFetch(`/api/candidaturas/${candidaturaId}/avancar-etapa`, {
     method: "POST",
@@ -250,6 +251,7 @@ export async function avancarEtapa(
       emailTemplateCode: emailTemplateCode ?? null,
       emailSubjectOverride: emailSubjectOverride ?? null,
       emailBodyHtmlOverride: emailBodyHtmlOverride ?? null,
+      notificarGestor,
     }),
   });
   if (!res.ok) {
@@ -286,11 +288,15 @@ export function listarCandidaturasDoCandidato(candidatoId: string) {
   return apiJson<CandidaturaDetalhe[]>(`/api/candidaturas/candidato/${encodeURIComponent(candidatoId)}`);
 }
 
-export async function registrarObservacaoCandidatura(candidaturaId: string, observacao: string) {
+export async function registrarObservacaoCandidatura(
+  candidaturaId: string,
+  observacao: string,
+  notificarGestor = true,
+) {
   const res = await apiFetch(`/api/candidaturas/${encodeURIComponent(candidaturaId)}/observacoes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ observacao }),
+    body: JSON.stringify({ observacao, notificarGestor }),
   });
   if (!res.ok) {
     let msg = "Falha ao registrar observação.";

@@ -6,10 +6,33 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T11:52:00-03:00",
-    "totalTarefas": 273
+    "atualizadoEm": "2026-07-15T12:35:00-03:00",
+    "totalTarefas": 274
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-274",
+      "nome": "[Portal RH] Notificar o gestor quando o parecer for registrado pelo RH",
+      "descricaoAmigavel": "Dor: o gestor não é avisado quando a analista registra um parecer na candidatura.\\nNecessidade: e-mail automático ao gestor requisitante ao registrar observação no card ou ao mover etapa com observação.\\nSolução proposta: flag NotificarGestor nas APIs + notifier só para gestor + checkboxes no Kanban.\\nDefinição de pronto: checkbox Notificar gestor (default ligado) em Observações e no mover; e-mail só ao gestor; sem gestor/e-mail não falha o save.\\nQ/A - Como testar: registrar observação com notificar; mover com observação e notificar; conferir e-mail do gestor; desmarcar checkbox e confirmar que não envia.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "12:14",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "12:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "planejar/implementar item 10 — notificar gestor quando parecer for registrado (disparo C nos dois pontos; destinatário só gestor)",
+      "entregavel": "Notificação por e-mail ao gestor requisitante ao registrar parecer (observação ou avanço com observação).",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Fechada antes da promoção HML/PRD — notificar gestor ao registrar parecer."
+    },
     {
       "id": "TASK-2026-273",
       "nome": "[Portal RH] Overlay com blur ao analisar CV com IA no Novo Candidato",
