@@ -207,11 +207,15 @@ export default function IaConfigScreen() {
         });
 
         try {
-            const res = await apiFetch("/api/tenant-configuracao/ai/test", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: input.value }),
-            });
+            const res = await apiFetch(
+                "/api/tenant-configuracao/ai/test",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: input.value }),
+                },
+                120_000,
+            );
 
             if (res.status === 403) throw new Error("Somente administradores podem testar a IA.");
             if (!res.ok) {
