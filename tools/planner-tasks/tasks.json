@@ -6,10 +6,35 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T13:31:00-03:00",
-    "totalTarefas": 276
+    "atualizadoEm": "2026-07-15T14:29:00-03:00",
+    "totalTarefas": 277
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-277",
+      "nome": "[Portal RH] Pacote DP (link+ZIP) e Aprovar sem validação TOTVS rigorosa",
+      "descricaoAmigavel": "Dor: Após o candidato enviar documentos, o DP não recebe pacote/link; Aprovar exige campos TOTVS rígidos.\\nNecessidade: Aprovar com mínimo de admissão; RH envia e-mail ao DP com ficha + link mágico (docs + ZIP).\\nSolução proposta: AdmissionValidator no Aprovar; token DP 7 dias; página pública + ZIP; modal e-mail no RH.\\nDefinição de pronto: Aprovar sem bloqueio TOTVS; em Aprovada enviar pacote ao e-mail informado; DP abre ficha/lista/ZIP.\\nQ/A - Como testar: Aprovar com mínimo → Enviar pacote → abrir link → baixar ZIP; reenvio gera novo link.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "13:51",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "14:29",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Enviar ZIP/link ao DP + Aprovar sem validação TOTVS rigorosa",
+      "entregavel": "Pacote ao DP por e-mail/link/ZIP após Aprovar; Aprovar só com mínimo de admissão (sem PIS; com e-mail e celular).",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": ["69057c62"],
+        "branch": "DEV",
+        "prHml": null,
+        "plannerTaskId": "rbtDhkZxO0y_8z2yS74ww2UAMk7i",
+        "plannerTaskIdTotvs": "xrMhB_mVCkqaqHUcZvF1DmUAOzsA"
+      },
+      "observacoes": "2026-07-15 14:22 — mínimo de admissão: removeu PIS/PASEP; incluiu E-mail e Celular."
+    },
     {
       "id": "TASK-2026-276",
       "nome": "[Portal RH] Ajustar proposta: salário da faixa, data de início e benefícios",

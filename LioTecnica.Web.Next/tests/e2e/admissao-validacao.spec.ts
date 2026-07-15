@@ -42,7 +42,7 @@ async function loginViaUI(page: Page) {
  */
 const CAMPOS_OBRIGATORIOS = [
     "nome", "rg", "cpf", "dataNascimento", "nomeMae", "nomePai",
-    "cidade", "uf", "pisPasep",
+    "cidade", "uf", "email", "celular",
 ];
 
 test("Wizard bloqueia submit vazio e destaca todos campos obrigatórios em vermelho", async ({ page }) => {

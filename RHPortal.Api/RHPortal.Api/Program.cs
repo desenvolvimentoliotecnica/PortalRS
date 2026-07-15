@@ -534,6 +534,7 @@ builder.Services.Configure<RhPortal.Api.Infrastructure.Storage.AwsOptions>(build
 builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsService, RhPortal.Api.Application.AwsSettings.AwsSettingsService>();
 builder.Services.AddScoped<RhPortal.Api.Infrastructure.Storage.IS3StorageService, RhPortal.Api.Infrastructure.Storage.S3StorageService>();
 builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
+builder.Services.AddScoped<IPreAdmissaoDpPacoteService, PreAdmissaoDpPacoteService>();
 builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IIntegracaoTotvsService, RhPortal.Api.Application.IntegracaoTotvs.IntegracaoTotvsService>();
 builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IRmSyncRunService, RhPortal.Api.Application.IntegracaoTotvs.RmSyncRunService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.DocumentAiExtractor>();

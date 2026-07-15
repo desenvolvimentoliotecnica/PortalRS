@@ -36,6 +36,12 @@ export const TOTVS_FIELD_MAP: Record<string, TotvsFieldMeta> = {
     NaturalCidade:     { label: "Naturalidade",        formField: "naturalCidade",       stepIndex: STEP_INDEX.pessoal },
     GrauInstrucao:     { label: "Grau de Instrução",   formField: "grauInstrucao",       stepIndex: STEP_INDEX.pessoal },
     OrigemFuncionario: { label: "Origem",              formField: "origemFuncionario",   stepIndex: STEP_INDEX.pessoal },
+    NomeMae:           { label: "Nome da Mãe",         formField: "nomeMae",             stepIndex: STEP_INDEX.pessoal },
+    NomePai:           { label: "Nome do Pai",         formField: "nomePai",             stepIndex: STEP_INDEX.pessoal },
+
+    // Contato (mínimo de admissão)
+    Email:             { label: "E-mail",              formField: "email",               stepIndex: STEP_INDEX.contato },
+    Celular:           { label: "Celular",             formField: "celular",             stepIndex: STEP_INDEX.contato },
 
     // RG
     Rg:                { label: "RG",                  formField: "rg",                  stepIndex: STEP_INDEX.pessoal },

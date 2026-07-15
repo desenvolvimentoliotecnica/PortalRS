@@ -496,9 +496,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // ApproveAsync não chama o seeder, então garante aqui antes da validação.
         await PreAdmissaoDefaultsSeeder.ApplyAsync(e, _db, _tenantContext.TenantId!, ct);
 
-        // ── Validação TOTVS: garante que todos os campos obrigatórios/condicionais
-        //    estão preenchidos antes de concluir a admissão.
-        var issues = PreAdmissaoTotvsValidator.Validate(e);
+        // ── Validação mínima de admissão (não exige painel TOTVS completo).
+        //    Integração TOTVS/Datasul fica a cargo do DP nos legados.
+        var issues = PreAdmissaoAdmissionValidator.Validate(e);
         if (issues.Count > 0)
             throw new TotvsValidationException(issues);
 
@@ -1780,10 +1780,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         (e.Dependentes ?? []).Select(d => new PreAdmissaoDependenteDetailResponse(
             d.Id, d.NomeCompleto, d.Parentesco, d.Cpf, d.DataNascimento, d.IsPcd)).ToList(),
         e.AccessToken,
-        e.IntegracaoResultado, e.IntegracaoMensagem, e.IntegradaEmUtc
+        e.IntegracaoResultado, e.IntegracaoMensagem, e.IntegradaEmUtc,
+        e.DpEnviadoEmUtc, e.DpEnviadoParaEmail, e.DpTokenExpiraEmUtc
     );
 
-    internal static string TipoDocumentoLabel(TipoDocumento tipo) => tipo switch
+    public static string TipoDocumentoLabel(TipoDocumento tipo) => tipo switch
     {
         TipoDocumento.RG => "Carteira de Identidade (R.G.)",
         TipoDocumento.CPF => "Cadastro de Pessoas Físicas (C.P.F.)",
