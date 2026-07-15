@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T13:09:00-03:00",
+    "atualizadoEm": "2026-07-15T13:11:00-03:00",
     "totalTarefas": 275
   },
   "tarefas": [
@@ -25,15 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "item 11 — anexar teste/DISC ao mover para Teste (só link opcional)",
       "entregavel": "Campo de link DISC/teste no mover para Teste preenchendo {{LinkAvaliacao}} na notificação.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "22ea78be"
+          "22ea78be",
+          "97ac39ae"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #304",
+        "prPrd": "Merge PR #305"
       },
-      "observacoes": "Fechada antes da promoção HML/PRD — link DISC/teste ao mover para Teste."
+      "observacoes": "Promovido HML (PR #304) e PRD (PR #305) em 15/07/2026."
     },
     {
       "id": "TASK-2026-274",
