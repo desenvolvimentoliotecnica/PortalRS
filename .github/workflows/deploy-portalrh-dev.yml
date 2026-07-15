@@ -9,6 +9,9 @@ on:
   push:
     branches:
       - DEV
+    paths-ignore:
+      # Atualizações só do Planner não precisam rebuild/deploy
+      - "tools/planner-tasks/tasks.json"
   workflow_dispatch:
 
 concurrency:

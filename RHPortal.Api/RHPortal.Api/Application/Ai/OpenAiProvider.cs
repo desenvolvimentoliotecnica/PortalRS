@@ -10,15 +10,18 @@ public sealed class OpenAiProvider : IAiProvider
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly AiOptions _aiOptions;
+    private readonly ITenantAiSettingsResolver _tenantSettings;
     private readonly ILogger<OpenAiProvider> _logger;
 
     public OpenAiProvider(
         IHttpClientFactory httpClientFactory,
         IOptions<AiOptions> aiOptions,
+        ITenantAiSettingsResolver tenantSettings,
         ILogger<OpenAiProvider> logger)
     {
         _httpClientFactory = httpClientFactory;
         _aiOptions = aiOptions.Value;
+        _tenantSettings = tenantSettings;
         _logger = logger;
     }
 
@@ -50,7 +53,19 @@ public sealed class OpenAiProvider : IAiProvider
             ? "https://api.openai.com/v1"
             : openAi.ApiBase.TrimEnd('/');
         var maxTokens = openAi.MaxTokens > 0 ? openAi.MaxTokens : 8192;
-        var timeoutSeconds = openAi.TimeoutSeconds > 0 ? openAi.TimeoutSeconds : 120;
+        var globalTimeout = openAi.TimeoutSeconds > 0 ? openAi.TimeoutSeconds : 120;
+        var tenantTimeout = 0;
+        try
+        {
+            var tenant = await _tenantSettings.GetCurrentAsync(ct);
+            if (tenant is not null && tenant.LlmTimeoutSeconds > 0)
+                tenantTimeout = Math.Clamp(tenant.LlmTimeoutSeconds, 30, 600);
+        }
+        catch
+        {
+            // fallback global
+        }
+        var timeoutSeconds = tenantTimeout > 0 ? tenantTimeout : globalTimeout;
 
         var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);

@@ -6,10 +6,56 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T09:37:00-03:00",
-    "totalTarefas": 268
+    "atualizadoEm": "2026-07-15T09:51:00-03:00",
+    "totalTarefas": 270
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-270",
+      "nome": "[Infra] Skip CI/CD quando o push altera só o tasks.json",
+      "descricaoAmigavel": "Dor: cada commit do Planner dispara deploy completo em DEV/HML/PRD.\nNecessidade: não rodar CI/CD quando a única alteração for o tasks.json.\nSolução proposta: paths-ignore nos workflows de deploy DEV, HML e PRD.\nDefinição de pronto: push só com tasks.json não dispara os 3 deploys; push com código segue normal; workflow_dispatch continua disponível.\nQ/A - Como testar: push só do Planner e conferir Actions sem run; push misto ou de código dispara deploy.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "09:46",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "09:52",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "ajustar github actions para nao executar CI/CD quando o commit for do tasks.json",
+      "entregavel": "paths-ignore de tools/planner-tasks/tasks.json nos workflows DEV/HML/PRD.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": ["13efdb68"],
+        "branch": "DEV",
+        "prHml": "Merge PR #281"
+      },
+      "observacoes": null
+    },
+    {
+      "id": "TASK-2026-269",
+      "nome": "[Portal RH] Timeout de IA configurável e persistido no tenant",
+      "descricaoAmigavel": "Dor: timeout do parse de CV é fixo e não dá para ajustar por tenant.\nNecessidade: configurar timeout na tela /admin/ia e persistir em banco.\nSolução proposta: coluna LlmTimeoutSeconds + campo na UI + uso no parse/test e no HTTP do provider.\nDefinição de pronto: salvar timeout em Configuração de IA; parse/test usam o valor salvo (30–600s).\nQ/A - Como testar: alterar timeout, salvar, Testar e anexar CV no Novo Candidato.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "09:40",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "09:52",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "poderia colocar a configuracao de timeout nessa tela tb... persistido em banco..",
+      "entregavel": "Campo Timeout da IA em /admin/ia persistido e usado no parse/teste.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": ["bc2c9ded"],
+        "branch": "DEV",
+        "prHml": "Merge PR #281"
+      },
+      "observacoes": null
+    },
     {
       "id": "TASK-2026-268",
       "nome": "[Portal RH] Timeout maior no parse de CV com IA",
