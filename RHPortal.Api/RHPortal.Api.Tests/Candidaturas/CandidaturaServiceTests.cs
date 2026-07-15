@@ -77,6 +77,7 @@ public sealed class CandidaturaServiceTests
             tenantMock.Object,
             userContext.Object,
             notificacaoMock.Object,
+            Mock.Of<ICandidaturaResponsavelEmailNotifier>(),
             graphSyncMock.Object,
             corporateEmailMock.Object,
             new SlaEtapaResolver(db),

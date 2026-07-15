@@ -12,6 +12,17 @@ public interface ICandidaturaResponsavelEmailNotifier
     /// quando <c>EnviarEmailResponsavelNaCandidatura</c> estiver habilitado no tenant.
     /// </summary>
     Task NotifyNovaCandidaturaAsync(Guid candidatoId, Guid vagaId, CancellationToken ct);
+
+    /// <summary>
+    /// Enfileira e-mail somente ao gestor requisitante da vaga quando o RH registra um parecer
+    /// (observação na candidatura). Best-effort: sem gestor/e-mail não falha.
+    /// </summary>
+    Task NotifyParecerRegistradoAsync(
+        Guid candidaturaId,
+        string observacao,
+        string? etapaLabel,
+        string? registradoPor,
+        CancellationToken ct);
 }
 
 public sealed class CandidaturaResponsavelEmailNotifier : ICandidaturaResponsavelEmailNotifier
@@ -94,6 +105,78 @@ public sealed class CandidaturaResponsavelEmailNotifier : ICandidaturaResponsave
             {
                 /* best-effort */
             }
+        }
+    }
+
+    public async Task NotifyParecerRegistradoAsync(
+        Guid candidaturaId,
+        string observacao,
+        string? etapaLabel,
+        string? registradoPor,
+        CancellationToken ct)
+    {
+        var text = observacao?.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        var row = await _db.Candidaturas
+            .AsNoTracking()
+            .Where(c => c.Id == candidaturaId)
+            .Select(c => new
+            {
+                CandidatoNome = c.Candidato != null ? c.Candidato.Nome : null,
+                VagaTitulo = c.Vaga != null ? c.Vaga.Titulo : null,
+                VagaCodigo = c.Vaga != null ? c.Vaga.Codigo : null,
+                EtapaMacro = c.EtapaMacro,
+                GestorEmail = c.Vaga != null && c.Vaga.GestorRequisitanteFuncionario != null
+                    ? c.Vaga.GestorRequisitanteFuncionario.Email
+                    : null,
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (row is null)
+            return;
+
+        var gestorEmail = row.GestorEmail?.Trim();
+        if (string.IsNullOrWhiteSpace(gestorEmail))
+            return;
+
+        var vagaLabel = string.IsNullOrWhiteSpace(row.VagaCodigo)
+            ? row.VagaTitulo ?? "Vaga"
+            : $"{row.VagaTitulo} ({row.VagaCodigo})";
+        var etapa = string.IsNullOrWhiteSpace(etapaLabel)
+            ? row.EtapaMacro.ToString()
+            : etapaLabel.Trim();
+
+        var candidatoEsc = WebUtility.HtmlEncode(row.CandidatoNome ?? "");
+        var vagaEsc = WebUtility.HtmlEncode(vagaLabel);
+        var etapaEsc = WebUtility.HtmlEncode(etapa);
+        var parecerEsc = WebUtility.HtmlEncode(text).Replace("\n", "<br/>");
+        var porEsc = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(registradoPor) ? "RH" : registradoPor.Trim());
+
+        var subject = $"Parecer registrado — {vagaLabel}";
+        var html =
+            "<p>A equipe de RH registrou um parecer nesta candidatura.</p>" +
+            $"<p><strong>Candidato:</strong> {candidatoEsc}</p>" +
+            $"<p><strong>Vaga:</strong> {vagaEsc}</p>" +
+            $"<p><strong>Etapa:</strong> {etapaEsc}</p>" +
+            $"<p><strong>Registrado por:</strong> {porEsc}</p>" +
+            $"<p><strong>Parecer:</strong></p><p>{parecerEsc}</p>";
+
+        try
+        {
+            await _emailQueue.EnqueueRawAsync(
+                gestorEmail,
+                subject,
+                html,
+                bodyText: null,
+                isSystem: true,
+                source: "candidatura-parecer-gestor",
+                ct);
+        }
+        catch
+        {
+            /* best-effort */
         }
     }
 }

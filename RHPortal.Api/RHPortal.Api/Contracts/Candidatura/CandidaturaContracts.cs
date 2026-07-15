@@ -33,7 +33,9 @@ public sealed record AvancarEtapaRequest(
     bool Notificar = true,
     string? EmailTemplateCode = null,
     string? EmailSubjectOverride = null,
-    string? EmailBodyHtmlOverride = null
+    string? EmailBodyHtmlOverride = null,
+    /// <summary>Quando true e houver observação, envia e-mail ao gestor requisitante.</summary>
+    bool NotificarGestor = false
 );
 
 public sealed record AvancarEtapaResponse(
@@ -66,7 +68,9 @@ public sealed record AgendarEntrevistaCandidaturaRequest(
 );
 
 public sealed record RegistrarObservacaoCandidaturaRequest(
-    string Observacao
+    string Observacao,
+    /// <summary>Default true: notifica o gestor requisitante da vaga ao registrar o parecer.</summary>
+    bool NotificarGestor = true
 );
 
 /// <summary>Item leve usado no kanban admin — sem histórico, apenas o essencial para cards.</summary>

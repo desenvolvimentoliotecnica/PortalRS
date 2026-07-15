@@ -85,7 +85,8 @@ public sealed class CandidaturasController : ControllerBase
                 ct,
                 request.EmailTemplateCode,
                 request.EmailSubjectOverride,
-                request.EmailBodyHtmlOverride);
+                request.EmailBodyHtmlOverride,
+                request.NotificarGestor);
             if (resp is null) return NotFound();
             return Ok(resp);
         }
@@ -114,7 +115,7 @@ public sealed class CandidaturasController : ControllerBase
 
         try
         {
-            var resp = await _service.RegistrarObservacaoAsync(id, request.Observacao, ct);
+            var resp = await _service.RegistrarObservacaoAsync(id, request.Observacao, ct, request.NotificarGestor);
             if (resp is null) return NotFound();
             return Ok(resp);
         }

@@ -27,8 +27,9 @@ public interface ICandidaturaService
         CancellationToken ct,
         string? emailTemplateCode = null,
         string? emailSubjectOverride = null,
-        string? emailBodyHtmlOverride = null);
-    Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct);
+        string? emailBodyHtmlOverride = null,
+        bool notificarGestor = false);
+    Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct, bool notificarGestor = true);
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
     Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct);
 
@@ -61,6 +62,7 @@ public sealed class CandidaturaService : ICandidaturaService
     private readonly ITenantContext _tenant;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICandidaturaNotificacaoService _notificacaoService;
+    private readonly ICandidaturaResponsavelEmailNotifier _responsavelEmailNotifier;
     private readonly IAgendaGraphSyncService _agendaGraphSync;
     private readonly IFuncionarioCorporateEmailResolver _corporateEmailResolver;
     private readonly ILogger<CandidaturaService> _logger;
@@ -72,6 +74,7 @@ public sealed class CandidaturaService : ICandidaturaService
         ITenantContext tenant,
         ICurrentUserContext currentUser,
         ICandidaturaNotificacaoService notificacaoService,
+        ICandidaturaResponsavelEmailNotifier responsavelEmailNotifier,
         IAgendaGraphSyncService agendaGraphSync,
         IFuncionarioCorporateEmailResolver corporateEmailResolver,
         ISlaEtapaResolver slaEtapaResolver,
@@ -82,6 +85,7 @@ public sealed class CandidaturaService : ICandidaturaService
         _tenant = tenant;
         _currentUser = currentUser;
         _notificacaoService = notificacaoService;
+        _responsavelEmailNotifier = responsavelEmailNotifier;
         _agendaGraphSync = agendaGraphSync;
         _corporateEmailResolver = corporateEmailResolver;
         _slaEtapaResolver = slaEtapaResolver;
@@ -250,7 +254,8 @@ public sealed class CandidaturaService : ICandidaturaService
         CancellationToken ct,
         string? emailTemplateCode = null,
         string? emailSubjectOverride = null,
-        string? emailBodyHtmlOverride = null)
+        string? emailBodyHtmlOverride = null,
+        bool notificarGestor = false)
     {
         EnsureKanbanWritable();
 
@@ -340,6 +345,24 @@ public sealed class CandidaturaService : ICandidaturaService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Falha best-effort ao notificar mudança de etapa da candidatura {CandidaturaId} ({EtapaAnterior}→{EtapaNova})", cand.Id, etapaAnterior, novaEtapa);
+            }
+        }
+
+        var parecerTexto = observacao?.Trim();
+        if (notificarGestor && !string.IsNullOrWhiteSpace(parecerTexto))
+        {
+            try
+            {
+                await _responsavelEmailNotifier.NotifyParecerRegistradoAsync(
+                    cand.Id,
+                    parecerTexto,
+                    novaEtapa.ToString(),
+                    _currentUser.Email,
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha best-effort ao notificar gestor do parecer da candidatura {CandidaturaId}", cand.Id);
             }
         }
 
@@ -652,7 +675,7 @@ public sealed class CandidaturaService : ICandidaturaService
         return string.IsNullOrWhiteSpace(fallbackEmail) ? null : fallbackEmail.Trim();
     }
 
-    public async Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct)
+    public async Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct, bool notificarGestor = true)
     {
         EnsureKanbanWritable();
 
@@ -678,6 +701,23 @@ public sealed class CandidaturaService : ICandidaturaService
 
         cand.UpdatedAtUtc = now;
         await _db.SaveChangesAsync(ct);
+
+        if (notificarGestor)
+        {
+            try
+            {
+                await _responsavelEmailNotifier.NotifyParecerRegistradoAsync(
+                    cand.Id,
+                    text,
+                    cand.EtapaMacro.ToString(),
+                    _currentUser.Email,
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha best-effort ao notificar gestor do parecer da candidatura {CandidaturaId}", cand.Id);
+            }
+        }
 
         return await BuildSingle(cand.Id, ct);
     }
