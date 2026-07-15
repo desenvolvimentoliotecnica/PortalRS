@@ -239,6 +239,7 @@ export async function avancarEtapa(
   emailSubjectOverride?: string | null,
   emailBodyHtmlOverride?: string | null,
   notificarGestor = false,
+  linkAvaliacao?: string | null,
 ): Promise<AvancarEtapaResponse> {
   const res = await apiFetch(`/api/candidaturas/${candidaturaId}/avancar-etapa`, {
     method: "POST",
@@ -252,6 +253,7 @@ export async function avancarEtapa(
       emailSubjectOverride: emailSubjectOverride ?? null,
       emailBodyHtmlOverride: emailBodyHtmlOverride ?? null,
       notificarGestor,
+      linkAvaliacao: linkAvaliacao?.trim() || null,
     }),
   });
   if (!res.ok) {

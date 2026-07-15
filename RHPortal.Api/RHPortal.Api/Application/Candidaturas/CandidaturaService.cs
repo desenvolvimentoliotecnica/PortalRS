@@ -28,7 +28,8 @@ public interface ICandidaturaService
         string? emailTemplateCode = null,
         string? emailSubjectOverride = null,
         string? emailBodyHtmlOverride = null,
-        bool notificarGestor = false);
+        bool notificarGestor = false,
+        string? linkAvaliacao = null);
     Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct, bool notificarGestor = true);
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
     Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct);
@@ -255,7 +256,8 @@ public sealed class CandidaturaService : ICandidaturaService
         string? emailTemplateCode = null,
         string? emailSubjectOverride = null,
         string? emailBodyHtmlOverride = null,
-        bool notificarGestor = false)
+        bool notificarGestor = false,
+        string? linkAvaliacao = null)
     {
         EnsureKanbanWritable();
 
@@ -272,6 +274,16 @@ public sealed class CandidaturaService : ICandidaturaService
             return same is null ? null : new AvancarEtapaResponse(same, null);
         }
 
+        var linkTrim = linkAvaliacao?.Trim();
+        var obsTrim = observacao?.Trim();
+        string? observacaoHistorico = obsTrim;
+        if (!string.IsNullOrWhiteSpace(linkTrim)
+            && (string.IsNullOrWhiteSpace(obsTrim) || !obsTrim.Contains(linkTrim, StringComparison.OrdinalIgnoreCase)))
+        {
+            var linkLine = $"Link do teste: {linkTrim}";
+            observacaoHistorico = string.IsNullOrWhiteSpace(obsTrim) ? linkLine : $"{obsTrim}\n{linkLine}";
+        }
+
         var etapaAnterior = cand.EtapaMacro;
         var now = DateTimeOffset.UtcNow;
         _db.CandidaturaEtapaHistoricos.Add(new CandidaturaEtapaHistorico
@@ -281,7 +293,7 @@ public sealed class CandidaturaService : ICandidaturaService
             CandidaturaId = cand.Id,
             EtapaAnterior = etapaAnterior,
             EtapaNova = novaEtapa,
-            Observacao = observacao,
+            Observacao = observacaoHistorico,
             UserId = _currentUser.UserId,
             EmUtc = now,
         });
@@ -340,7 +352,8 @@ public sealed class CandidaturaService : ICandidaturaService
                     ct,
                     emailTemplateCode,
                     emailSubjectOverride,
-                    emailBodyHtmlOverride);
+                    emailBodyHtmlOverride,
+                    linkTrim);
             }
             catch (Exception ex)
             {
@@ -348,7 +361,7 @@ public sealed class CandidaturaService : ICandidaturaService
             }
         }
 
-        var parecerTexto = observacao?.Trim();
+        var parecerTexto = obsTrim;
         if (notificarGestor && !string.IsNullOrWhiteSpace(parecerTexto))
         {
             try

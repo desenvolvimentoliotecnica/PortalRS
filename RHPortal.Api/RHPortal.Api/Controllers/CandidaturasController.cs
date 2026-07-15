@@ -86,7 +86,8 @@ public sealed class CandidaturasController : ControllerBase
                 request.EmailTemplateCode,
                 request.EmailSubjectOverride,
                 request.EmailBodyHtmlOverride,
-                request.NotificarGestor);
+                request.NotificarGestor,
+                request.LinkAvaliacao);
             if (resp is null) return NotFound();
             return Ok(resp);
         }

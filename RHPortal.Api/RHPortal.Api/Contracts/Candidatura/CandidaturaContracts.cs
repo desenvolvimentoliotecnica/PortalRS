@@ -35,7 +35,9 @@ public sealed record AvancarEtapaRequest(
     string? EmailSubjectOverride = null,
     string? EmailBodyHtmlOverride = null,
     /// <summary>Quando true e houver observação, envia e-mail ao gestor requisitante.</summary>
-    bool NotificarGestor = false
+    bool NotificarGestor = false,
+    /// <summary>Link do teste/DISC ao mover para Teste (preenche {{LinkAvaliacao}}).</summary>
+    string? LinkAvaliacao = null
 );
 
 public sealed record AvancarEtapaResponse(
