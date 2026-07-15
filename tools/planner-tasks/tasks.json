@@ -27,7 +27,9 @@
       "entregavel": "Termômetro de fit (5 graus) no parse IA + UI abaixo de observações + persistência FitIaNivel/FitIaMotivo.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "ed69452c"
+        ],
         "branch": "DEV",
         "prHml": null
       },
