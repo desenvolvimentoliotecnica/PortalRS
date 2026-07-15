@@ -17,7 +17,7 @@
       "inicio": "2026-07-15",
       "horarioInicio": "13:51",
       "conclusao": "2026-07-15",
-      "horarioConclusao": "14:29",
+      "horarioConclusao": "14:30",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -25,15 +25,16 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "Enviar ZIP/link ao DP + Aprovar sem validação TOTVS rigorosa",
       "entregavel": "Pacote ao DP por e-mail/link/ZIP após Aprovar; Aprovar só com mínimo de admissão (sem PIS; com e-mail e celular).",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": ["69057c62"],
+        "commits": ["69057c62", "45786d40", "2eb6ce56", "963da4b4"],
         "branch": "DEV",
-        "prHml": null,
+        "prHml": "Merge PR #312",
+        "prPrd": "Merge PR #313",
         "plannerTaskId": "rbtDhkZxO0y_8z2yS74ww2UAMk7i",
         "plannerTaskIdTotvs": "xrMhB_mVCkqaqHUcZvF1DmUAOzsA"
       },
-      "observacoes": "2026-07-15 14:22 — mínimo de admissão: removeu PIS/PASEP; incluiu E-mail e Celular."
+      "observacoes": "2026-07-15 14:22 — mínimo de admissão: removeu PIS/PASEP; incluiu E-mail e Celular. Cards Planner fechados após PRD."
     },
     {
       "id": "TASK-2026-276",
