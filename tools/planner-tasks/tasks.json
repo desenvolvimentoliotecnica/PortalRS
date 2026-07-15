@@ -6,10 +6,36 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T13:11:00-03:00",
-    "totalTarefas": 275
+    "atualizadoEm": "2026-07-15T13:29:00-03:00",
+    "totalTarefas": 276
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-276",
+      "nome": "[Portal RH] Ajustar proposta: salário da faixa, data de início e benefícios",
+      "descricaoAmigavel": "Dor: Na página da proposta, o código da vaga aparece quando não deveria, o salário oferecido não vem da faixa salarial da vaga, e ainda há dúvidas sobre a data prevista de início e os benefícios.\\nNecessidade: Retirar o código; pré-preencher salário da faixa e data de início; benefícios alinhados à vaga.\\nSolução proposta: Prefill no form ao carregar vaga; ocultar código no handoff do Kanban; DataAdmissao no e-mail.\\nDefinição de pronto: Proposta sem código; salário e data vindos da vaga/faixa; benefícios coerentes.\\nQ/A - Como testar: Abrir proposta de vaga com faixa/data/benefícios; conferir prefill e dialog do Kanban sem código.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "13:24",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "13:29",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "Ajustar proposta: salário da faixa, data de início e benefícios",
+      "entregavel": "Proposta pré-preenchida com salário/faixa e data da vaga, benefícios alinhados e sem código no fluxo de criação.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "ac2868d1"
+        ],
+        "branch": "DEV",
+        "prHml": null,
+        "plannerTaskId": "kynPt73FX0CShThqtkQjbmUAPO9E"
+      },
+      "observacoes": "Fechada antes da promoção HML/PRD — prefill salário/data/benefícios na proposta."
+    },
     {
       "id": "TASK-2026-275",
       "nome": "[Portal RH] Link DISC/teste ao mover para Teste e notificar candidato",

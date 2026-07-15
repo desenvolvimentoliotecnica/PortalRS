@@ -1273,7 +1273,6 @@ export default function CandidaturasKanbanScreen() {
               <div className="font-medium">{proposalRedirect.candidatoNome}</div>
               <div className="mt-1 text-xs">
                 {proposalRedirect.vagaTitulo ?? proposalRedirect.vagaId.slice(0, 8)}
-                {proposalRedirect.vagaCodigo ? ` · ${proposalRedirect.vagaCodigo}` : ""}
               </div>
             </div>
           )}
