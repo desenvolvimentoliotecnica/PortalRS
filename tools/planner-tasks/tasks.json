@@ -27,7 +27,9 @@
       "entregavel": "Modal Novo Candidato redesenhado: layout largo, campos compactos e painel de prévia PDF do currículo.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "d32a00b7"
+        ],
         "branch": "DEV",
         "prHml": null
       },
