@@ -1794,6 +1794,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Cidade).HasMaxLength(120);
             b.Property(x => x.Uf).HasMaxLength(2);
             b.Property(x => x.Obs).HasMaxLength(2000);
+            b.Property(x => x.FitIaNivel).HasMaxLength(32);
+            b.Property(x => x.FitIaMotivo).HasMaxLength(240);
             b.Property(x => x.PortalAccessKey).HasMaxLength(80);
             b.Property(x => x.PortalPasswordHash).HasMaxLength(400);
             b.Property(x => x.ApplicationRecruiterUserId).HasMaxLength(120);

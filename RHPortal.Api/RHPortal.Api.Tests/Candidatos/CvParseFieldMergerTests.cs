@@ -19,7 +19,9 @@ public sealed class CvParseFieldMergerTests
             "https://linkedin.com/in/alexandre",
             8500m,
             true,
-            "Resumo do candidato e fit para a vaga.");
+            "Resumo do candidato e fit para a vaga.",
+            "bom",
+            "Perfil alinhado à maioria dos requisitos da vaga.");
 
         var result = CvParseFieldMerger.FromAi("texto cv", ai, "{...}", aiTentou: true, null);
 
@@ -34,6 +36,8 @@ public sealed class CvParseFieldMergerTests
         Assert.Equal(8500m, result.PretensaoSalarial);
         Assert.True(result.TrabalhandoAtualmente);
         Assert.Contains("fit", result.Observacoes, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("bom", result.Termometro);
+        Assert.Contains("requisitos", result.TermometroMotivo, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -46,5 +50,6 @@ public sealed class CvParseFieldMergerTests
         Assert.Equal(CvParseFieldMerger.FonteError, result.Fonte);
         Assert.Equal("IA offline", result.AiErro);
         Assert.Null(result.Nome);
+        Assert.Null(result.Termometro);
     }
 }
