@@ -108,12 +108,16 @@ public sealed class CvGptExtractor : ICvGptExtractor
           "linkedinUrl": "string ou null",
           "pretensaoSalarial": "number ou null — valor numérico em reais sem R$",
           "trabalhandoAtualmente": "boolean ou null",
-          "observacoes": "string — texto em português, linguagem natural, 2 a 4 parágrafos: (1) resumo do perfil, trajetória e experiências; (2) conhecimentos, hard-skills e soft-skills; (3) avaliação objetiva do fit do candidato para a vaga informada (ou orientação geral se não houver vaga)."
+          "observacoes": "string — texto em português, linguagem natural, 2 a 4 parágrafos: (1) resumo do perfil, trajetória e experiências; (2) conhecimentos, hard-skills e soft-skills; (3) avaliação objetiva do fit do candidato para a vaga informada (ou orientação geral se não houver vaga).",
+          "termometro": "string — exatamente um de: baixo | parcial | adequado | bom | excelente",
+          "termometroMotivo": "string — 1 frase curta em português justificando o grau do termômetro"
         }
         Regras:
         - Extraia o máximo possível do texto do currículo.
         - Em "email", nunca concatene palavras seguintes (ex.: após .com/.com.br).
         - Em "observacoes", seja concreto e útil para o analista de RH; não invente fatos que não estejam no CV; se a vaga estiver descrita, compare exigências vs perfil.
+        - Em "termometro", escolha o grau de aderência do perfil à vaga (ou perfil geral se não houver vaga): baixo=não atende requisitos críticos; parcial=atende pouco com gaps relevantes; adequado=base compatível com ressalvas; bom=alinhado na maioria; excelente=alta aderência para priorizar.
+        - Em "termometroMotivo", uma frase objetiva; não invente requisitos inexistentes.
         - Use null quando o dado não existir no texto.
         """;
 
@@ -203,12 +207,29 @@ public sealed class CvGptExtractor : ICvGptExtractor
                 LinkedinUrl: TrimToNull(GetString(root, "linkedinUrl")),
                 PretensaoSalarial: GetDecimal(root, "pretensaoSalarial"),
                 TrabalhandoAtualmente: GetBool(root, "trabalhandoAtualmente"),
-                Observacoes: TrimToNull(GetString(root, "observacoes")));
+                Observacoes: TrimToNull(GetString(root, "observacoes")),
+                Termometro: NormalizeTermometro(GetString(root, "termometro")),
+                TermometroMotivo: TrimToNull(GetString(root, "termometroMotivo")));
         }
         catch
         {
             return null;
         }
+    }
+
+    private static string? NormalizeTermometro(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var v = raw.Trim().ToLowerInvariant();
+        return v switch
+        {
+            "baixo" or "1" or "frio" => "baixo",
+            "parcial" or "2" or "morno" => "parcial",
+            "adequado" or "3" or "neutro" => "adequado",
+            "bom" or "4" or "quente" => "bom",
+            "excelente" or "5" or "prioridade" or "emalta" or "em alta" => "excelente",
+            _ => null
+        };
     }
 
     private static decimal? GetDecimal(JsonElement e, string name)

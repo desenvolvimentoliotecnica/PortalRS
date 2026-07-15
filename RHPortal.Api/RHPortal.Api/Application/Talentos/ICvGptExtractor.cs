@@ -19,7 +19,10 @@ public sealed record CvNovoCandidatoAiData(
     string? LinkedinUrl,
     decimal? PretensaoSalarial,
     bool? TrabalhandoAtualmente,
-    string? Observacoes);
+    string? Observacoes,
+    /// <summary>baixo | parcial | adequado | bom | excelente</summary>
+    string? Termometro = null,
+    string? TermometroMotivo = null);
 
 public sealed record CvNovoCandidatoExtractResult(
     CvNovoCandidatoAiData? Data,

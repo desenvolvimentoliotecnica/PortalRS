@@ -98,6 +98,8 @@ export const CandidatoSchema = z
         cvText: z.string().optional().nullable(),
         resumoProfissional: z.string().optional().nullable(),
         obs: z.string().optional().nullable(),
+        fitIaNivel: z.string().optional().nullable(),
+        fitIaMotivo: z.string().optional().nullable(),
         lastMatch: z
             .object({
                 score: z.number().optional().nullable(),

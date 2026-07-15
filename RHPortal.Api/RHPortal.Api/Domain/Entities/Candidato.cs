@@ -84,6 +84,14 @@ public sealed class Candidato : ITenantEntity
     [StringLength(2000)]
     public string? Obs { get; set; }
 
+    /// <summary>Grau de fit IA à vaga: baixo | parcial | adequado | bom | excelente.</summary>
+    [StringLength(32)]
+    public string? FitIaNivel { get; set; }
+
+    /// <summary>Motivo curto do termômetro de fit gerado pela IA.</summary>
+    [StringLength(240)]
+    public string? FitIaMotivo { get; set; }
+
     public string? CvText { get; set; }
 
     [StringLength(80)]

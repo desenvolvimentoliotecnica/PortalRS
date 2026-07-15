@@ -6,10 +6,35 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T10:54:00-03:00",
-    "totalTarefas": 271
+    "atualizadoEm": "2026-07-15T11:05:00-03:00",
+    "totalTarefas": 272
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-272",
+      "nome": "[Portal RH] Termômetro de fit do CV à vaga (5 graus) no Novo Candidato",
+      "descricaoAmigavel": "Dor: após a análise do CV, o analista só lê texto de observações sem um grau visual de aderência.\\nNecessidade: termômetro com 5 status (baixo→excelente) gerado pela IA e exibido abaixo das observações.\\nSolução proposta: IA retorna termometro+motivo; persistir no candidato; componente visual no modal.\\nDefinição de pronto: parse preenche termômetro; UI abaixo de observações; persiste ao salvar; 5 graus corretos.\\nQ/A - Como testar: Novo Candidato → anexar PDF com vaga → conferir termômetro → salvar → reabrir edição e ver o mesmo grau.",
+      "inicio": "2026-07-15",
+      "horarioInicio": "10:55",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "11:05",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "termometro do candidato para vaga com 5 status abaixo de observações; commit/push e promover WIP antes e feature no fim",
+      "entregavel": "Termômetro de fit (5 graus) no parse IA + UI abaixo de observações + persistência FitIaNivel/FitIaMotivo.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "ed69452c"
+        ],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Fechada antes da promoção HML/PRD — termômetro de fit."
+    },
     {
       "id": "TASK-2026-271",
       "nome": "[Portal RH] Modal Novo Candidato compacto com prévia PDF do CV",

@@ -23,7 +23,10 @@ public sealed record CandidateCreateRequest(
     IReadOnlyList<CandidateDocumentoRequest>? Documentos,
     [MaxLength(120)] string? ApplicationRecruiterUserId,
     [MaxLength(200)] string? ApplicationRecruiterUserName,
-    Guid? TalentoId = null
+    Guid? TalentoId = null,
+    /// <summary>Termômetro IA: baixo | parcial | adequado | bom | excelente.</summary>
+    [MaxLength(32)] string? FitIaNivel = null,
+    [MaxLength(240)] string? FitIaMotivo = null
 );
 
 public sealed record CandidateUpdateRequest(
@@ -46,7 +49,9 @@ public sealed record CandidateUpdateRequest(
     CandidateStatusChangeRequest? StatusChange,
     [MaxLength(120)] string? ApplicationRecruiterUserId,
     [MaxLength(200)] string? ApplicationRecruiterUserName,
-    Guid? TalentoId = null
+    Guid? TalentoId = null,
+    [MaxLength(32)] string? FitIaNivel = null,
+    [MaxLength(240)] string? FitIaMotivo = null
 );
 
 public sealed record CandidateListItemResponse(
@@ -101,7 +106,9 @@ public sealed record CandidateResponse(
     string? ApplicationRecruiterUserId,
     string? ApplicationRecruiterUserName,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    string? FitIaNivel = null,
+    string? FitIaMotivo = null
 );
 
 /// <summary>Resposta do upload de currículo com extração de texto e dados sugeridos pela LLM.</summary>
@@ -135,7 +142,11 @@ public sealed record CandidatoCurriculoParseResponse(
     /// <summary>Se o candidato está trabalhando atualmente (quando a IA identificar).</summary>
     bool? TrabalhandoAtualmente = null,
     /// <summary>True quando a IA preencheu dados utilizáveis.</summary>
-    bool Sucesso = false
+    bool Sucesso = false,
+    /// <summary>Termômetro de fit: baixo | parcial | adequado | bom | excelente.</summary>
+    string? Termometro = null,
+    /// <summary>Frase curta justificando o grau do termômetro.</summary>
+    string? TermometroMotivo = null
 );
 
 public sealed record CandidateMatchRequest(
