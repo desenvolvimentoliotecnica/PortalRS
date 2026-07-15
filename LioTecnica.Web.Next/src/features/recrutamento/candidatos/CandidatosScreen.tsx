@@ -640,6 +640,21 @@ export default function CandidatosScreen() {
     setCvParseFileName(file.name);
     setCvParseFile(file);
     try {
+      let timeoutMs = 180_000;
+      try {
+        const cfgRes = await apiFetch("/api/tenant-configuracao/ai", {}, 15_000);
+        if (cfgRes.ok) {
+          const cfg = (await cfgRes.json()) as Record<string, unknown>;
+          const secRaw = cfg.llmTimeoutSeconds ?? cfg.LlmTimeoutSeconds ?? 180;
+          const sec = typeof secRaw === "number" ? secRaw : Number(secRaw);
+          if (Number.isFinite(sec)) {
+            timeoutMs = Math.min(600, Math.max(30, Math.round(sec))) * 1000;
+          }
+        }
+      } catch {
+        // mantém default 180s
+      }
+
       const form = new FormData();
       form.append("arquivo", file);
       const vagaId = pickString(draft.vagaId, "").trim();
@@ -651,7 +666,7 @@ export default function CandidatosScreen() {
           method: "POST",
           body: form,
         },
-        180_000, // IA + CV completo pode passar de 15s (default do apiFetch)
+        timeoutMs,
       );
 
       const sucesso = parsed.sucesso === true || parsed.Sucesso === true;

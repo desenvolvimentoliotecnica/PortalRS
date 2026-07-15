@@ -17,6 +17,7 @@ interface TenantAiConfigDto {
     embeddingProvider: string | null;
     embeddingModel: string | null;
     usarIaParseCurriculo: boolean;
+    llmTimeoutSeconds: number;
     knownProviders: string[];
     availableProviders: string[];   // Fase 4: providers com chave cadastrada
     aiEnabled: boolean;             // Fase 4: módulo "ai" do tenant
@@ -64,6 +65,30 @@ const EMBEDDING_MODEL_PLACEHOLDERS: Record<string, string> = {
     ollama: "ex.: bge-m3 (1024d), nomic-embed-text (768d)",
 };
 
+function clampTimeoutSeconds(value: unknown, fallback = 180): number {
+    const n = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(600, Math.max(30, Math.round(n)));
+}
+
+function readAiConfig(dto: Record<string, unknown>): TenantAiConfigDto {
+    return {
+        llmProvider: (dto.llmProvider ?? dto.LlmProvider ?? null) as string | null,
+        llmModel: (dto.llmModel ?? dto.LlmModel ?? null) as string | null,
+        embeddingProvider: (dto.embeddingProvider ?? dto.EmbeddingProvider ?? null) as string | null,
+        embeddingModel: (dto.embeddingModel ?? dto.EmbeddingModel ?? null) as string | null,
+        usarIaParseCurriculo: (dto.usarIaParseCurriculo ?? dto.UsarIaParseCurriculo ?? true) as boolean,
+        llmTimeoutSeconds: clampTimeoutSeconds(dto.llmTimeoutSeconds ?? dto.LlmTimeoutSeconds, 180),
+        knownProviders: (dto.knownProviders ?? dto.KnownProviders ?? []) as string[],
+        availableProviders: (dto.availableProviders ?? dto.AvailableProviders ?? []) as string[],
+        aiEnabled: (dto.aiEnabled ?? dto.AiEnabled ?? true) as boolean,
+        effectiveLlmProvider: String(dto.effectiveLlmProvider ?? dto.EffectiveLlmProvider ?? "openai"),
+        effectiveLlmModel: String(dto.effectiveLlmModel ?? dto.EffectiveLlmModel ?? ""),
+        effectiveEmbeddingProvider: String(dto.effectiveEmbeddingProvider ?? dto.EffectiveEmbeddingProvider ?? "openai"),
+        effectiveEmbeddingModel: String(dto.effectiveEmbeddingModel ?? dto.EffectiveEmbeddingModel ?? ""),
+    };
+}
+
 /* ────────── component ────────── */
 
 export default function IaConfigScreen() {
@@ -75,6 +100,7 @@ export default function IaConfigScreen() {
     const [embeddingProvider, setEmbeddingProvider] = useState<string>("");
     const [embeddingModel, setEmbeddingModel] = useState<string>("");
     const [usarIaParseCurriculo, setUsarIaParseCurriculo] = useState(true);
+    const [llmTimeoutSeconds, setLlmTimeoutSeconds] = useState(180);
     const [testing, setTesting] = useState(false);
 
     const [effective, setEffective] = useState<{
@@ -92,12 +118,13 @@ export default function IaConfigScreen() {
         try {
             const res = await apiFetch("/api/tenant-configuracao/ai");
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const dto = (await res.json()) as TenantAiConfigDto;
+            const dto = readAiConfig((await res.json()) as Record<string, unknown>);
             setLlmProvider(dto.llmProvider ?? "");
             setLlmModel(dto.llmModel ?? "");
             setEmbeddingProvider(dto.embeddingProvider ?? "");
             setEmbeddingModel(dto.embeddingModel ?? "");
             setUsarIaParseCurriculo(dto.usarIaParseCurriculo ?? true);
+            setLlmTimeoutSeconds(dto.llmTimeoutSeconds ?? 180);
             setEffective({
                 llmProvider: dto.effectiveLlmProvider,
                 llmModel: dto.effectiveLlmModel,
@@ -129,11 +156,13 @@ export default function IaConfigScreen() {
                     embeddingProvider: embeddingProvider.trim() || null,
                     embeddingModel: embeddingModel.trim() || null,
                     usarIaParseCurriculo,
+                    llmTimeoutSeconds: clampTimeoutSeconds(llmTimeoutSeconds, 180),
                 }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const dto = (await res.json()) as TenantAiConfigDto;
+            const dto = readAiConfig((await res.json()) as Record<string, unknown>);
             setUsarIaParseCurriculo(dto.usarIaParseCurriculo ?? true);
+            setLlmTimeoutSeconds(dto.llmTimeoutSeconds ?? 180);
             setEffective({
                 llmProvider: dto.effectiveLlmProvider,
                 llmModel: dto.effectiveLlmModel,
@@ -214,7 +243,7 @@ export default function IaConfigScreen() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ prompt: input.value }),
                 },
-                120_000,
+                clampTimeoutSeconds(llmTimeoutSeconds, 180) * 1000,
             );
 
             if (res.status === 403) throw new Error("Somente administradores podem testar a IA.");
@@ -391,6 +420,22 @@ export default function IaConfigScreen() {
                                     O teste usa a configuração <strong>salva</strong> (provider/modelo efetivos). Salve alterações antes de validar um modelo novo.
                                 </p>
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="llmTimeoutSeconds">Timeout da IA (segundos)</Label>
+                                <Input
+                                    id="llmTimeoutSeconds"
+                                    type="number"
+                                    min={30}
+                                    max={600}
+                                    step={10}
+                                    className="max-w-[12rem]"
+                                    value={llmTimeoutSeconds}
+                                    onChange={(e) => setLlmTimeoutSeconds(clampTimeoutSeconds(e.target.value, 180))}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Tempo máximo de espera no parse de CV e no Testar (30–600s). Default 180. Salve para aplicar.
+                                </p>
+                            </div>
                             <div className="space-y-2 pt-2 border-t border-border/40">
                                 <label className="flex items-start gap-3 text-sm cursor-pointer">
                                     <input
@@ -462,6 +507,8 @@ export default function IaConfigScreen() {
                                 <dd className="font-medium">{effective.llmProvider}</dd>
                                 <dt className="text-muted-foreground">LLM model</dt>
                                 <dd className="font-mono text-xs">{effective.llmModel}</dd>
+                                <dt className="text-muted-foreground">Timeout IA</dt>
+                                <dd className="font-medium">{llmTimeoutSeconds}s</dd>
                                 <dt className="text-muted-foreground">Embedding provider</dt>
                                 <dd className="font-medium">{effective.embeddingProvider}</dd>
                                 <dt className="text-muted-foreground">Embedding model</dt>

@@ -111,6 +111,9 @@ public sealed class TenantAiConfigDto
     /// </summary>
     public bool UsarIaParseCurriculo { get; set; } = true;
 
+    /// <summary>Timeout em segundos para chamadas de LLM (parse CV, teste, etc.). Default 180.</summary>
+    public int LlmTimeoutSeconds { get; set; } = 180;
+
     /// <summary>Lista de providers conhecidos pelo factory — para popular dropdowns na UI.</summary>
     public IReadOnlyList<string> KnownProviders { get; set; } = new List<string>();
 
@@ -143,6 +146,9 @@ public sealed class TenantAiConfigRequest
     public string? EmbeddingProvider { get; set; }
     public string? EmbeddingModel { get; set; }
     public bool? UsarIaParseCurriculo { get; set; }
+
+    /// <summary>Timeout em segundos (30–600). Null = mantém o valor atual.</summary>
+    public int? LlmTimeoutSeconds { get; set; }
 }
 
 /// <summary>Body do teste de LLM na tela de configuração de IA.</summary>
@@ -452,6 +458,8 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         config.EmbeddingModel = NullIfBlank(request.EmbeddingModel);
         if (request.UsarIaParseCurriculo.HasValue)
             config.UsarIaParseCurriculo = request.UsarIaParseCurriculo.Value;
+        if (request.LlmTimeoutSeconds.HasValue)
+            config.LlmTimeoutSeconds = ClampLlmTimeoutSeconds(request.LlmTimeoutSeconds.Value);
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -467,6 +475,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
             EmbeddingProvider = config?.EmbeddingProvider,
             EmbeddingModel = config?.EmbeddingModel,
             UsarIaParseCurriculo = config?.UsarIaParseCurriculo ?? true,
+            LlmTimeoutSeconds = ClampLlmTimeoutSeconds(config?.LlmTimeoutSeconds ?? 180),
             KnownProviders = _aiProviderFactory.KnownProviders,
             AvailableProviders = await ComputeAvailableProvidersAsync(ct),
             AiEnabled = await _aiResolver.IsAiEnabledAsync(ct),
@@ -491,6 +500,9 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 
         return dto;
     }
+
+    private static int ClampLlmTimeoutSeconds(int value)
+        => Math.Clamp(value, 30, 600);
 
     private string DefaultChatModelFor(string provider) => provider switch
     {
