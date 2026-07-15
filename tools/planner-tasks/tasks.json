@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T09:18:00-03:00",
+    "atualizadoEm": "2026-07-15T09:19:00-03:00",
     "totalTarefas": 267
   },
   "tarefas": [
@@ -40,8 +40,8 @@
       "descricaoAmigavel": "Dor: não dá para validar provider/modelo sem usar outra tela.\nNecessidade: botão Testar no Modelo envia um prompt e mostra a resposta da IA.\nSolução proposta: endpoint de teste + botão na tela /admin/ia com prompt e resultado em Swal.\nDefinição de pronto: admin clica Testar, informa prompt, vê resposta ou erro no modal.\nQ/A - Como testar: Configuração de IA → Testar → enviar prompt curto → conferir resposta.",
       "inicio": "2026-07-14",
       "horarioInicio": "11:56",
-      "conclusao": "2026-07-14",
-      "horarioConclusao": "12:45",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "09:19",
       "totalHoras": 1,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -53,7 +53,7 @@
       "referencias": {
         "commits": ["0fed3a7e"],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #275"
       },
       "observacoes": null
     },
