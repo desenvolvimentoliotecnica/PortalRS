@@ -27,7 +27,9 @@
       "entregavel": "Overlay blur+spinner durante parse; Documentos oculto no Novo Candidato; termômetro sem texto Bom fit abaixo do título e espaçamento do parecer.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "33cab231"
+        ],
         "branch": "DEV",
         "prHml": null
       },
