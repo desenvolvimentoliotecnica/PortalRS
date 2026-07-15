@@ -325,6 +325,7 @@ export default function CandidatosScreen() {
   const [cvParseLoading, setCvParseLoading] = useState(false);
   const [cvParseFileName, setCvParseFileName] = useState<string | null>(null);
   const [cvParseFile, setCvParseFile] = useState<File | null>(null);
+  const [cvParsePreviewUrl, setCvParsePreviewUrl] = useState<string | null>(null);
   const [cvParseDebug, setCvParseDebug] = useState<{
     fonte: string;
     aiTentou: boolean;
@@ -454,6 +455,21 @@ export default function CandidatosScreen() {
     }
     setDetailMatch(calcMatchForCv({ cvText: detailCvText, vaga: detailVaga }));
   }, [detailId, detailCvText, detailVaga]);
+
+  useEffect(() => {
+    const isPdf =
+      !!cvParseFile &&
+      (/\.pdf$/i.test(cvParseFile.name) || cvParseFile.type === "application/pdf");
+    if (!isPdf || !cvParseFile) {
+      setCvParsePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(cvParseFile);
+    setCvParsePreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [cvParseFile]);
 
   useEffect(() => {
     if (!ready) return;
@@ -1734,29 +1750,30 @@ export default function CandidatosScreen() {
       ) : null}
 
       {editOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-3" role="dialog" aria-modal="true" onClick={() => setEditOpen(false)}>
           <div
-            className="flex h-[85vh] max-h-[900px] w-full max-w-[min(96vw,48rem)] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
+            className="flex h-[92vh] max-h-[980px] w-full max-w-[min(98vw,92rem)] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 border-b border-border/40 p-4">
-              <div className="flex items-start justify-between gap-2">
+            <div className="shrink-0 border-b border-border/40 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
-                  <div className="text-lg font-extrabold">Cadastro</div>
+                  <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
+                  <div className="text-sm font-bold leading-tight">Cadastro</div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setEditOpen(false)}>
                   Fechar
                 </Button>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="space-y-4">
+            <div className={`flex min-h-0 flex-1 ${!draft.id ? "flex-col lg:flex-row" : ""}`}>
+            <div className={`min-h-0 flex-1 overflow-y-auto px-3 py-2.5 ${!draft.id ? "lg:max-w-[56%]" : ""}`}>
+              <div className="space-y-2.5 text-xs [&_h3]:mb-1 [&_h3]:border-border/50 [&_h3]:pb-0.5 [&_h3]:text-[10px] [&_input.form-input]:h-8 [&_input.form-input]:px-2 [&_input.form-input]:py-1 [&_input.form-input]:text-xs [&_label]:mb-0.5 [&_label]:text-[9px] [&_select]:h-8 [&_select]:px-2 [&_select]:text-xs [&_textarea]:px-2 [&_textarea]:py-1 [&_textarea]:text-xs">
                 {!draft.id ? (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2">
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-emerald-800">
+                      <label className="block text-[9px] font-semibold uppercase tracking-widest text-emerald-800">
                         Currículo (fonte do cadastro)
                       </label>
                       {cvParseDebug ? (
@@ -1764,21 +1781,21 @@ export default function CandidatosScreen() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-7 gap-1 border-emerald-300 bg-white/80 text-emerald-900 hover:bg-white"
+                          className="h-6 gap-1 border-emerald-300 bg-white/80 px-2 text-[10px] text-emerald-900 hover:bg-white"
                           onClick={() => setCvParseDebugOpen(true)}
                           title="Ver retorno da IA / parse"
                         >
-                          <Brain className="size-3.5" />
+                          <Brain className="size-3" />
                           Ver retorno da IA
                         </Button>
                       ) : null}
                     </div>
-                    <p className="mb-2 text-xs text-emerald-900/80">
-                      Envie o PDF do candidato para a IA preencher o cadastro e gerar um resumo nas observações (com avaliação para a vaga selecionada).
+                    <p className="mb-1.5 text-[11px] leading-snug text-emerald-900/80">
+                      Envie o PDF para a IA preencher o cadastro e gerar observações (fit da vaga).
                     </p>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <input
-                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-emerald-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-emerald-900"
+                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-emerald-100 file:px-2 file:py-0.5 file:text-[10px] file:font-medium file:text-emerald-900"
                         type="file"
                         accept=".pdf,.docx,.txt,application/pdf"
                         disabled={cvParseLoading}
@@ -1792,7 +1809,7 @@ export default function CandidatosScreen() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-9 shrink-0 gap-1.5 border-emerald-300 bg-white/80 text-emerald-900 hover:bg-white"
+                        className="h-8 shrink-0 gap-1 border-emerald-300 bg-white/80 px-2 text-xs text-emerald-900 hover:bg-white"
                         disabled={cvParseLoading || !cvParseFile}
                         title={
                           !cvParseFile
@@ -1812,12 +1829,12 @@ export default function CandidatosScreen() {
                       </Button>
                     </div>
                     {cvParseLoading ? (
-                      <div className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-900">
-                        <Loader2 className="size-3.5 animate-spin" />
+                      <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-emerald-900">
+                        <Loader2 className="size-3 animate-spin" />
                         Analisando currículo com IA…
                       </div>
                     ) : cvParseFileName ? (
-                      <p className="mt-2 text-xs text-emerald-900/90">
+                      <p className="mt-1.5 text-[11px] text-emerald-900/90">
                         Arquivo: {cvParseFileName} (será anexado ao salvar)
                         {cvParseDebug ? (
                           <span className="ml-1 text-emerald-800/70">
@@ -1832,19 +1849,19 @@ export default function CandidatosScreen() {
                 {(() => {
                   const draftApproved = isCandidatoAprovado(draft.status);
                   return (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
-                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-blue-700">Vaga *</label>
+                    <div className="rounded-md border border-blue-200 bg-blue-50/50 p-2">
+                      <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-widest text-blue-700">Vaga *</label>
                       {draftApproved ? (
                         <>
-                          <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
-                            <Lock className="size-3.5 shrink-0" />
+                          <div className="flex h-8 items-center gap-2 rounded-md border border-input bg-muted/40 px-2 text-xs text-muted-foreground">
+                            <Lock className="size-3 shrink-0" />
                             <span className="truncate">{vagaLabelForId(draft.vagaId, vagas, draft)}</span>
                           </div>
-                          <p className="mt-1.5 text-xs text-blue-700/80">Vaga bloqueada — candidato já aprovado.</p>
+                          <p className="mt-1 text-[11px] text-blue-700/80">Vaga bloqueada — candidato já aprovado.</p>
                         </>
                       ) : (
                         <select
-                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
                           value={pickString(draft.vagaId, "")}
                           onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}
                         >
@@ -1863,7 +1880,7 @@ export default function CandidatosScreen() {
               {/* ── Dados pessoais ── */}
               <div>
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Dados do Candidato</h3>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                <div className="grid grid-cols-1 gap-1.5 md:grid-cols-12">
                   <div className="md:col-span-6">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Nome *</label>
                     <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.nome, "")} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} placeholder="Nome completo" />
@@ -1904,7 +1921,7 @@ export default function CandidatosScreen() {
               {/* ── Informações profissionais ── */}
               <div>
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Informações Profissionais</h3>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                <div className="grid grid-cols-1 gap-1.5 md:grid-cols-12">
                   <div className="md:col-span-4">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Pretensão salarial (R$)</label>
                     <input
@@ -1958,7 +1975,7 @@ export default function CandidatosScreen() {
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Observações</label>
                     <textarea
                       className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                      rows={6}
+                      rows={4}
                       value={pickString((draft as Record<string, unknown>)?.obs, "")}
                       onChange={(e) => setDraft({ ...draft, obs: e.target.value })}
                       placeholder="Resumo do perfil, habilidades e avaliação para a vaga (gerado pela IA ou informado manualmente)…"
@@ -1968,10 +1985,10 @@ export default function CandidatosScreen() {
               </div>
 
               <div>
-                <div className="rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60 p-3">
+                <div className="rounded-lg border border-[rgba(16,82,144,.14)] bg-white/60 p-2">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Documentos</h3>
                   {!draft.id ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm mb-2">
+                    <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800">
                       Os documentos serão enviados ao salvar o candidato.
                     </div>
                   ) : null}
@@ -2101,11 +2118,41 @@ export default function CandidatosScreen() {
               </div>
             </div>
 
-            <div className="flex shrink-0 justify-end gap-2 border-t border-border/40 p-4">
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
+            {!draft.id ? (
+              <aside className="flex h-[36vh] min-h-[200px] w-full shrink-0 flex-col border-t border-border/40 bg-slate-50/80 lg:h-auto lg:min-h-0 lg:w-[min(44%,36rem)] lg:border-l lg:border-t-0">
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/40 px-3 py-1.5">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Prévia do CV</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {cvParseFileName ?? "Envie um PDF para visualizar"}
+                    </p>
+                  </div>
+                  {cvParseLoading ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
+                </div>
+                <div className="min-h-0 flex-1 bg-slate-100">
+                  {cvParsePreviewUrl ? (
+                    <iframe
+                      title={`Prévia do CV — ${cvParseFileName ?? "curriculo.pdf"}`}
+                      src={`${cvParsePreviewUrl}#toolbar=1&navpanes=0`}
+                      className="h-full min-h-0 w-full border-0"
+                    />
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center text-[11px] text-muted-foreground">
+                      <Eye className="mb-1 size-5 opacity-40" />
+                      <p>A prévia do PDF aparece aqui após enviar o currículo.</p>
+                      <p className="opacity-70">Arquivos DOCX/TXT preenchem os campos, mas a leitura visual é só para PDF.</p>
+                    </div>
+                  )}
+                </div>
+              </aside>
+            ) : null}
+            </div>
+
+            <div className="flex shrink-0 justify-end gap-2 border-t border-border/40 px-3 py-2">
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setEditOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => void saveDraft()}>
+              <Button size="sm" className="h-7 px-3 text-xs" onClick={() => void saveDraft()}>
                 Salvar
               </Button>
             </div>

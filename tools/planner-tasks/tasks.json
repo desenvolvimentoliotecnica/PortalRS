@@ -6,10 +6,33 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-15T09:51:00-03:00",
-    "totalTarefas": 270
+    "atualizadoEm": "2026-07-15T10:53:00-03:00",
+    "totalTarefas": 271
   },
   "tarefas": [
+    {
+      "id": "TASK-2026-271",
+      "nome": "[Portal RH] Modal Novo Candidato compacto com prévia PDF do CV",
+      "descricaoAmigavel": "Dor: o modal de Novo Candidato ocupa pouco espaço útil, com tipografia grande e sem visualização do currículo.\nNecessidade: formulário mais compacto e largo, com leitor PDF do CV ao lado direito.\nSolução proposta: reduzir tipografia e paddings, alargar o modal e exibir prévia do PDF enviado enquanto o analista preenche o cadastro.\nDefinição de pronto: modal mais largo/compacto; ao anexar PDF do CV, prévia aparece à direita; DOCX/TXT seguem preenchendo sem prévia visual.\nQ/A - Como testar: abrir Novo Candidato, anexar PDF, conferir tipografia compacta e prévia à direita; testar em tela estreita (prévia abaixo).",
+      "inicio": "2026-07-15",
+      "horarioInicio": "10:31",
+      "conclusao": "2026-07-15",
+      "horarioConclusao": "10:53",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Leonardo Mendes",
+      "pedidoOriginal": "modal de novo candidato com tipografia menor, UI compacta, mais largo e prévia PDF do CV à direita",
+      "entregavel": "Modal Novo Candidato redesenhado: layout largo, campos compactos e painel de prévia PDF do currículo.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Fechada antes da promoção HML/PRD — modal compacto + prévia PDF."
+    },
     {
       "id": "TASK-2026-270",
       "nome": "[Infra] Skip CI/CD quando o push altera só o tasks.json",
@@ -27,7 +50,9 @@
       "entregavel": "paths-ignore de tools/planner-tasks/tasks.json nos workflows DEV/HML/PRD.",
       "ambiente": "PRD",
       "referencias": {
-        "commits": ["13efdb68"],
+        "commits": [
+          "13efdb68"
+        ],
         "branch": "DEV",
         "prHml": "Merge PR #281"
       },
@@ -50,7 +75,9 @@
       "entregavel": "Campo Timeout da IA em /admin/ia persistido e usado no parse/teste.",
       "ambiente": "PRD",
       "referencias": {
-        "commits": ["bc2c9ded"],
+        "commits": [
+          "bc2c9ded"
+        ],
         "branch": "DEV",
         "prHml": "Merge PR #281"
       },
@@ -73,7 +100,9 @@
       "entregavel": "Parse de CV com timeout adequado para chamada de IA.",
       "ambiente": "PRD",
       "referencias": {
-        "commits": ["e5545209"],
+        "commits": [
+          "e5545209"
+        ],
         "branch": "DEV",
         "prHml": "Merge PR #278"
       },
@@ -120,7 +149,9 @@
       "entregavel": "Botão Testar na config de IA com prompt e resposta em Swal.",
       "ambiente": "PRD",
       "referencias": {
-        "commits": ["0fed3a7e"],
+        "commits": [
+          "0fed3a7e"
+        ],
         "branch": "DEV",
         "prHml": "Merge PR #275"
       },
@@ -143,7 +174,9 @@
       "entregavel": "Campo Pretensão salarial com máscara pt-BR (2 casas) no cadastro de candidato.",
       "ambiente": "PRD",
       "referencias": {
-        "commits": ["9de8190f"],
+        "commits": [
+          "9de8190f"
+        ],
         "branch": "DEV",
         "prHml": "Merge PR #272"
       },
@@ -166,7 +199,9 @@
       "entregavel": "Novo Candidato com parse só IA, observações (resumo+fit), Swal em falha e botão Avaliar novamente.",
       "ambiente": "PRD",
       "referencias": {
-        "commits": ["9de8190f"],
+        "commits": [
+          "9de8190f"
+        ],
         "branch": "DEV",
         "prHml": "Merge PR #272"
       },
