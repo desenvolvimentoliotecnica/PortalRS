@@ -113,7 +113,9 @@ public sealed class VagaRetornoNegativoService : IVagaRetornoNegativoService
                     entrevista: null,
                     notificar: true,
                     ct,
-                    emailTemplateCode: templateCode);
+                    emailTemplateCode: templateCode,
+                    emailSubjectOverride: request.EmailSubjectOverride,
+                    emailBodyHtmlOverride: request.EmailBodyHtmlOverride);
                 if (res is null)
                 {
                     falhas++;

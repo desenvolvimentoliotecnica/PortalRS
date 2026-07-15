@@ -20,7 +20,9 @@ public sealed record VagaRetornoNegativoPreviewResponse(
 
 public sealed record VagaRetornoNegativoEnviarRequest(
     IReadOnlyList<Guid> CandidaturaIds,
-    string? EmailTemplateCode = null);
+    string? EmailTemplateCode = null,
+    string? EmailSubjectOverride = null,
+    string? EmailBodyHtmlOverride = null);
 
 public sealed record VagaRetornoNegativoEnviarItemResult(
     Guid CandidaturaId,

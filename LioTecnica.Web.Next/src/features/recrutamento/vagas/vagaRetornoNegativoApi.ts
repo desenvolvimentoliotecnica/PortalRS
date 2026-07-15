@@ -1,6 +1,6 @@
 "use client";
 
-import { apiFetch, apiJson } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 export type VagaRetornoNegativoPreviewItem = {
   candidaturaId: string;
@@ -52,6 +52,8 @@ export async function enviarRetornoNegativo(
   vagaId: string,
   candidaturaIds: string[],
   emailTemplateCode?: string | null,
+  emailSubjectOverride?: string | null,
+  emailBodyHtmlOverride?: string | null,
 ): Promise<VagaRetornoNegativoEnviarResponse> {
   const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/retorno-negativo/enviar`, {
     method: "POST",
@@ -59,6 +61,8 @@ export async function enviarRetornoNegativo(
     body: JSON.stringify({
       candidaturaIds,
       emailTemplateCode: emailTemplateCode ?? null,
+      emailSubjectOverride: emailSubjectOverride ?? null,
+      emailBodyHtmlOverride: emailBodyHtmlOverride ?? null,
     }),
   });
   if (!res.ok) {

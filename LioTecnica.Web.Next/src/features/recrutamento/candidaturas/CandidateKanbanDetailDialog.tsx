@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Mail, Paperclip } from "lucide-react";
+import { CheckCircle2, Eye, Loader2, Mail, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/api";
+import { EmailRichTextEditor } from "@/features/admin/email-templates/EmailRichTextEditor";
 import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
 import { fetchCandidatoPortalPerfil } from "@/features/recrutamento/candidatos/portalPerfilClient";
 import {
@@ -32,13 +33,11 @@ import {
   type KanbanCandidaturaItem,
 } from "./candidaturaApi";
 import {
-  applyEmailTokens,
   defaultEmailTemplateForEtapa,
-  getEmailTemplateByCode,
-  htmlToPlainish,
   listEmailTemplates,
   type EmailTemplateListItem,
 } from "./emailTemplatesClient";
+import EmailMessagePreviewDialog, { loadRenderedEmailTemplate } from "./EmailMessagePreviewDialog";
 
 type MatchBreakdown = {
   scoreFinal: number;
@@ -122,11 +121,13 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
   const [matchError, setMatchError] = useState<string | null>(null);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  const [emailEditorKey, setEmailEditorKey] = useState(0);
   const [emailFiles, setEmailFiles] = useState<File[]>([]);
   const [emailSending, setEmailSending] = useState(false);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplateListItem[]>([]);
   const [emailTemplateCode, setEmailTemplateCode] = useState("");
   const [emailTemplateLoading, setEmailTemplateLoading] = useState(false);
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [candidaturaDetail, setCandidaturaDetail] = useState<CandidaturaDetalhe | null>(null);
   const [observacoesLoading, setObservacoesLoading] = useState(false);
@@ -153,9 +154,11 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
     setNewObservacao("");
     setEmailFeedback(null);
     setEmailSubject(`Contato sobre sua candidatura${item.vagaTitulo ? ` - ${item.vagaTitulo}` : ""}`);
-    setEmailBody(`Olá ${item.candidatoNome},\n\n`);
+    setEmailBody(`<p>Olá, ${item.candidatoNome}!</p><p></p>`);
+    setEmailEditorKey((k) => k + 1);
     setEmailTemplateCode(defaultEmailTemplateForEtapa(resolveEtapa(item.etapaMacro)));
     setEmailFiles([]);
+    setEmailPreviewOpen(false);
 
     let cancelled = false;
     void listEmailTemplates()
@@ -245,25 +248,26 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
     }
   }
 
+  const emailTokens = useMemo(() => ({
+    CandidatoNome: item?.candidatoNome ?? "",
+    VagaTitulo: item?.vagaTitulo ?? "",
+    EntrevistaData: "",
+    EntrevistaHorario: "",
+    EntrevistaLinkConfirmacao: "",
+    LinkAvaliacao: "",
+    DataAdmissao: "",
+    UrlProposta: "",
+  }), [item?.candidatoNome, item?.vagaTitulo]);
+
   async function applyEmailTemplate(code: string) {
     if (!item || !code) return;
     setEmailTemplateCode(code);
     setEmailTemplateLoading(true);
     try {
-      const detail = await getEmailTemplateByCode(code);
-      const tokens = {
-        CandidatoNome: item.candidatoNome,
-        VagaTitulo: item.vagaTitulo ?? "",
-        EmpresaNome: "Liotécnica",
-        EntrevistaData: "",
-        EntrevistaHorario: "",
-        EntrevistaLinkConfirmacao: "",
-        LinkAvaliacao: "",
-        DataAdmissao: "",
-        UrlProposta: "",
-      };
-      setEmailSubject(applyEmailTokens(detail.subjectTemplate, tokens));
-      setEmailBody(htmlToPlainish(applyEmailTokens(detail.bodyHtml, tokens)));
+      const rendered = await loadRenderedEmailTemplate(code, emailTokens);
+      setEmailSubject(rendered.subject);
+      setEmailBody(rendered.bodyHtml);
+      setEmailEditorKey((k) => k + 1);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao carregar modelo de e-mail.");
     } finally {
@@ -536,6 +540,16 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
                   <option key={t.name} value={t.name}>{t.displayName}</option>
                 ))}
               </select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={emailSending || !emailTemplateCode}
+                onClick={() => setEmailPreviewOpen(true)}
+              >
+                <Eye className="mr-1.5 size-3.5" />
+                Visualizar / editar mensagem
+              </Button>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Assunto</label>
@@ -543,16 +557,16 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
-                maxLength={160}
+                maxLength={200}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Corpo do email/notificação</label>
-              <textarea
-                className="min-h-48 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              <EmailRichTextEditor
+                key={emailEditorKey}
                 value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
-                maxLength={4000}
+                onChange={setEmailBody}
+                placeholder="Conteúdo que o candidato receberá…"
               />
             </div>
             <div className="space-y-2">
@@ -580,6 +594,21 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <EmailMessagePreviewDialog
+      open={emailPreviewOpen}
+      onClose={() => setEmailPreviewOpen(false)}
+      templateCode={emailTemplateCode}
+      tokens={emailTokens}
+      initialSubject={emailSubject}
+      initialBodyHtml={emailBody}
+      onConfirm={(subject, bodyHtml) => {
+        setEmailSubject(subject);
+        setEmailBody(bodyHtml);
+        setEmailEditorKey((k) => k + 1);
+        setEmailPreviewOpen(false);
+        toast.success("Mensagem aplicada.");
+      }}
+    />
     <Dialog open={!!emailFeedback} onOpenChange={(v) => !v && setEmailFeedback(null)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
