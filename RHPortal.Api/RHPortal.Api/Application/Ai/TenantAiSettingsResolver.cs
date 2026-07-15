@@ -38,7 +38,8 @@ public sealed record TenantAiSettings(
     string? LlmProvider,
     string? LlmModel,
     string? EmbeddingProvider,
-    string? EmbeddingModel
+    string? EmbeddingModel,
+    int LlmTimeoutSeconds = 180
 );
 
 public sealed class TenantAiSettingsResolver : ITenantAiSettingsResolver
@@ -77,7 +78,12 @@ public sealed class TenantAiSettingsResolver : ITenantAiSettingsResolver
 
             var config = await db.TenantConfiguracoes
                 .AsNoTracking()
-                .Select(c => new TenantAiSettings(c.LlmProvider, c.LlmModel, c.EmbeddingProvider, c.EmbeddingModel))
+                .Select(c => new TenantAiSettings(
+                    c.LlmProvider,
+                    c.LlmModel,
+                    c.EmbeddingProvider,
+                    c.EmbeddingModel,
+                    c.LlmTimeoutSeconds > 0 ? c.LlmTimeoutSeconds : 180))
                 .FirstOrDefaultAsync(ct);
 
             return config; // pode ser null se não houver registro

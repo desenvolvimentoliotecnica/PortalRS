@@ -206,5 +206,11 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// </summary>
     public bool UsarIaParseCurriculo { get; set; } = true;
 
+    /// <summary>
+    /// Timeout (segundos) para chamadas de LLM deste tenant (parse de CV, teste de IA, etc.).
+    /// Default <c>180</c>. Valores fora de 30–600 são limitados na API.
+    /// </summary>
+    public int LlmTimeoutSeconds { get; set; } = 180;
+
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }
