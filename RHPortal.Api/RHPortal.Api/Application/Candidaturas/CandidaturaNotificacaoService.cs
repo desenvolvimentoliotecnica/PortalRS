@@ -28,7 +28,8 @@ public interface ICandidaturaNotificacaoService
         CancellationToken ct,
         string? emailTemplateCode = null,
         string? emailSubjectOverride = null,
-        string? emailBodyHtmlOverride = null);
+        string? emailBodyHtmlOverride = null,
+        string? linkAvaliacao = null);
 
     /// <summary>
     /// Lista os logs de auditoria de notificação (e-mail + WhatsApp) com filtros opcionais
@@ -104,7 +105,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         CancellationToken ct,
         string? emailTemplateCode = null,
         string? emailSubjectOverride = null,
-        string? emailBodyHtmlOverride = null)
+        string? emailBodyHtmlOverride = null,
+        string? linkAvaliacao = null)
     {
         if (etapaAnterior == etapaNova) return;
         if (etapaNova == EtapaMacroCandidatura.Proposta)
@@ -141,6 +143,9 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         var entrevistaHorario = local is null ? null : $"{local:HH:mm}";
         var entrevistaModalidade = entrevista?.Location;
         var entrevistaLink = PreferirLinkEntrevista(entrevista, tenantId);
+        var linkAvaliacaoEfetivo = !string.IsNullOrWhiteSpace(linkAvaliacao)
+            ? linkAvaliacao.Trim()
+            : (etapaNova == EtapaMacroCandidatura.Teste ? null : entrevistaLink);
 
         var idiomaCandidato = string.IsNullOrWhiteSpace(pref?.Idioma) ? _waOptions.IdiomaDefault : pref!.Idioma;
         var (assuntoEmail, mensagemEmail) = await ResolverTemplateAsync(
@@ -157,7 +162,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
             ct,
             emailTemplateCode,
             emailSubjectOverride,
-            emailBodyHtmlOverride);
+            emailBodyHtmlOverride,
+            linkAvaliacaoEfetivo);
         var (_, mensagemWhats) = await ResolverTemplateAsync(
             etapaNova,
             CanalNotificacao.WhatsApp,
@@ -169,7 +175,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
             entrevistaHorario,
             entrevistaModalidade,
             entrevistaLink,
-            ct);
+            ct,
+            linkAvaliacao: linkAvaliacaoEfetivo);
         var now = DateTimeOffset.UtcNow;
 
         // ── Canal E-mail ──────────────────────────────────────────
@@ -200,7 +207,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         CancellationToken ct,
         string? emailTemplateCode = null,
         string? emailSubjectOverride = null,
-        string? emailBodyHtmlOverride = null)
+        string? emailBodyHtmlOverride = null,
+        string? linkAvaliacao = null)
     {
         // Canal e-mail: catálogo unificado EmailTemplates (rich-text + tags {{...}})
         if (canal == CanalNotificacao.Email && _candidateEmailTemplates is not null)
@@ -232,7 +240,7 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
                     ["EntrevistaHorario"] = entrevistaHorario ?? "a combinar",
                     ["EntrevistaModalidade"] = entrevistaModalidade ?? "presencial / online",
                     ["EntrevistaLinkConfirmacao"] = entrevistaLink,
-                    ["LinkAvaliacao"] = entrevistaLink,
+                    ["LinkAvaliacao"] = !string.IsNullOrWhiteSpace(linkAvaliacao) ? linkAvaliacao : null,
                 };
                 var rendered = await _candidateEmailTemplates.ResolveRenderedAsync(code, tokens, ct);
                 var assunto = rendered.Subject;
