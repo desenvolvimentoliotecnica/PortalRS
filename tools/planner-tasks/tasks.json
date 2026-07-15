@@ -25,15 +25,17 @@
       "atribuidaA": "Leonardo Mendes",
       "pedidoOriginal": "termometro do candidato para vaga com 5 status abaixo de observações; commit/push e promover WIP antes e feature no fim",
       "entregavel": "Termômetro de fit (5 graus) no parse IA + UI abaixo de observações + persistência FitIaNivel/FitIaMotivo.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "ed69452c"
+          "ed69452c",
+          "284a0979"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #288",
+        "prPrd": "Merge PR #289"
       },
-      "observacoes": "Fechada antes da promoção HML/PRD — termômetro de fit."
+      "observacoes": "Promovido HML (PR #288) e PRD (PR #289) em 15/07/2026."
     },
     {
       "id": "TASK-2026-271",
